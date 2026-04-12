@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Perfect Outfit</string>
+    <string name="rating_too_cold">Too cold</string>
+    <string name="rating_perfect">Perfect</string>
+    <string name="rating_too_hot">Too hot</string>
+    <string name="rating_emoji_too_cold">🥶</string>
+    <string name="rating_emoji_perfect">😃</string>
+    <string name="rating_emoji_too_hot">🥵</string>
+</resources>

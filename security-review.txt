@@ -1,0 +1,29 @@
+SECURITY REVIEW
+===============
+Date: 2026-04-12
+
+API KEYS & SECRETS
+------------------
+NONE found in source code.
+The app uses the OpenMeteo API, which requires no authentication key.
+
+PERSONAL DATA IN SOURCE FILES
+------------------------------
+NONE found. No email addresses, phone numbers, or real names in any .kt, .xml,
+or configuration file.
+
+FILES EXCLUDED FROM VERSION CONTROL
+-------------------------------------
+local.properties  — contains sdk.dir with local filesystem path (e.g.
+                    C:\Users\<username>\AppData\Local\Android\Sdk)
+                    Already excluded by .gitignore. ✓
+
+.claude/          — contains Claude Code local settings (tool permissions).
+                    Was NOT excluded. FIXED: added to .gitignore. ✓
+
+.gradle/          — Gradle cache/build state. Already excluded by .gitignore. ✓
+/build            — Build artifacts. Already excluded by .gitignore. ✓
+
+VERDICT
+-------
+No sensitive data will be uploaded to GitHub with the current .gitignore.

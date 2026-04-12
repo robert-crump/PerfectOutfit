@@ -1,0 +1,64 @@
+# Built application files
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Java/Kotlin class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+build/
+/build
+
+# Gradle files
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Local configuration (SDK path, signing config, API keys)
+local.properties
+
+# Android Studio / IntelliJ IDEA
+*.iml
+.idea/
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+
+# Captures
+/captures
+
+# External native build
+.externalNativeBuild
+.cxx
+
+# Keystore / signing files
+*.jks
+*.keystore
+.signing/
+
+# Google Services (contains API keys)
+google-services.json
+
+# NDK
+obj/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Claude Code project files
+.claude/
+
+# Release builds
+app/release/
