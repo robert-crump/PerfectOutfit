@@ -12,6 +12,7 @@ import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.notification.NotificationHelper
 import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.home.HourlyWeather
+import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
 import com.example.perfectoutfit.feature.home.toWeatherSnapshot
 import com.example.perfectoutfit.feature.home.OutfitRepository
 import com.example.perfectoutfit.feature.home.WeatherRepository
@@ -64,7 +65,8 @@ data class RateOutfitUiState(
     val logLat: Double = 0.0,
     val logLon: Double = 0.0,
     val likelyItemIds: Set<Long> = emptySet(),
-    val notes: String = ""
+    val notes: String = "",
+    val workoutDurationHours: Int = 1
 ) {
     val selectedHour: HourlyWeather?
         get() = availableHours.getOrNull(selectedHourIndex)
@@ -80,6 +82,7 @@ class RateOutfitViewModel @Inject constructor(
     private val outfitRepository: OutfitRepository,
     private val catalogRepository: CatalogRepository,
     private val weatherRepository: WeatherRepository,
+    private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val locationRepository: LocationRepository,
     private val preferencesManager: PreferencesManager,
     private val notificationHelper: NotificationHelper
@@ -130,11 +133,10 @@ class RateOutfitViewModel @Inject constructor(
                     }
                 }
                 is OutfitScreenMode.NewLive -> {
-                    val allHours = weatherRepository.cachedAllHours
-                    val selTime = weatherRepository.cachedSelectedHourTime
-                    val matchIdx = if (selTime != null)
-                        allHours.indexOfFirst { it.time == selTime }.takeIf { it >= 0 } ?: 0
-                    else 0
+                    val payload = liveOutfitHandoffStore.take()
+                    val allHours = payload?.allHours ?: emptyList()
+                    val matchIdx = payload?.selectedHourTime
+                        ?.let { t -> allHours.indexOfFirst { it.time == t }.takeIf { it >= 0 } } ?: 0
                     val selHour = allHours.getOrNull(matchIdx)
                     val useApp = preferencesManager.useApparentTemperature.first()
                     val likelyIds = if (selHour != null) {
@@ -142,22 +144,20 @@ class RateOutfitViewModel @Inject constructor(
                     } else emptySet()
                     val favorites = locationRepository.getAllFavoritesSync()
 
-                    val pendingIds = weatherRepository.pendingNewOutfitItemIds.toSet()
-                    weatherRepository.pendingNewOutfitItemIds = emptyList()
-
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         availableHours = allHours,
                         selectedDate = LocalDate.now(),
                         selectedHourIndex = matchIdx,
-                        selectedItemIds = pendingIds,
+                        selectedItemIds = payload?.prefillItemIds?.toSet() ?: emptySet(),
                         logStep = LogOutfitStep.OUTFIT_CATEGORIES,
                         logLocationSelected = true,
-                        logLocationName = weatherRepository.cachedLocationName.ifEmpty { "Current Location" },
-                        logLat = weatherRepository.cachedLat,
-                        logLon = weatherRepository.cachedLon,
+                        logLocationName = payload?.locationName?.ifEmpty { "Current Location" } ?: "Current Location",
+                        logLat = payload?.lat ?: 0.0,
+                        logLon = payload?.lon ?: 0.0,
                         logFavLocations = favorites,
-                        likelyItemIds = likelyIds
+                        likelyItemIds = likelyIds,
+                        workoutDurationHours = payload?.workoutDurationHours ?: 1
                     )
                 }
                 is OutfitScreenMode.NewPast -> {
@@ -177,7 +177,6 @@ class RateOutfitViewModel @Inject constructor(
                         logLat = 0.0,
                         logLon = 0.0
                     )
-                    weatherRepository.pendingNewOutfitItemIds = emptyList()
                 }
             }
         }
@@ -396,7 +395,7 @@ class RateOutfitViewModel @Inject constructor(
                             outfitEntryId = newEntryId,
                             sport = state.sport,
                             dateMs = workoutTimestamp,
-                            durationHours = weatherRepository.cachedWorkoutDurationHours
+                            durationHours = state.workoutDurationHours
                         )
                     }
                 }

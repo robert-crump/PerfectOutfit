@@ -83,6 +83,7 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val weatherRepository: WeatherRepository,
+    private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val outfitRepository: OutfitRepository,
     private val locationRepository: LocationRepository,
     private val preferencesManager: PreferencesManager,
@@ -217,22 +218,24 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Prepares state for the Custom Outfit screen and signals navigation.
-     * Stores pre-filled item IDs in the repository so the screen can pick them up.
-     */
     fun prepareCustomOutfit() {
-        weatherRepository.pendingNewOutfitItemIds = emptyList()
-        weatherRepository.cachedSelectedHourTime = _uiState.value.activeHour?.time
-        weatherRepository.cachedWorkoutDurationHours = _uiState.value.workoutDurationHours
+        liveOutfitHandoffStore.set(buildHandoffPayload(prefillItemIds = emptyList()))
     }
 
     fun prepareEditOutfit() {
         val itemIds = _uiState.value.activeRecommendation?.clothingItems?.map { it.id } ?: emptyList()
-        weatherRepository.pendingNewOutfitItemIds = itemIds
-        weatherRepository.cachedSelectedHourTime = _uiState.value.activeHour?.time
-        weatherRepository.cachedWorkoutDurationHours = _uiState.value.workoutDurationHours
+        liveOutfitHandoffStore.set(buildHandoffPayload(prefillItemIds = itemIds))
     }
+
+    private fun buildHandoffPayload(prefillItemIds: List<Long>) = LiveOutfitPayload(
+        allHours = weatherRepository.cachedAllHours,
+        lat = weatherRepository.cachedLat,
+        lon = weatherRepository.cachedLon,
+        locationName = weatherRepository.cachedLocationName,
+        selectedHourTime = _uiState.value.activeHour?.time,
+        workoutDurationHours = _uiState.value.workoutDurationHours,
+        prefillItemIds = prefillItemIds
+    )
 
     /** Save weather with no outfit (no recommendation case) and notify to rate. */
     fun saveWeatherForLater() {

@@ -26,18 +26,6 @@ class WeatherRepository @Inject constructor(
     var cachedLocationName: String = ""
         private set
 
-    /**
-     * Item IDs to pre-fill in the custom outfit screen.
-     * Set by HomeViewModel before navigating to NewOutfit.
-     */
-    var pendingNewOutfitItemIds: List<Long> = emptyList()
-
-    /** The LocalDateTime of the hour active on the Home Screen at navigation time. */
-    var cachedSelectedHourTime: java.time.LocalDateTime? = null
-
-    /** Workout duration (hours) selected on the Home Screen, used for live-mode notifications. */
-    var cachedWorkoutDurationHours: Int = 1
-
     suspend fun fetchWeather(lat: Double, lon: Double, locationName: String = ""): List<HourlyWeather> {
         val response = openMeteoApi.getForecast(lat, lon)
         val allHours = WeatherMapper.extractAllHours(response)
