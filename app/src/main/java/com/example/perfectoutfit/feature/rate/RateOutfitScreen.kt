@@ -101,7 +101,7 @@ fun RateOutfitScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            if (uiState.isNewOutfitMode) "Log Outfit" else "Rate Outfit",
+                            if (uiState.mode is OutfitScreenMode.RateExisting) "Rate Outfit" else "Log Outfit",
                             style = MaterialTheme.typography.headlineMedium
                         )
                     },
@@ -123,7 +123,7 @@ fun RateOutfitScreen(
         return
     }
 
-    if (uiState.isNewOutfitMode) {
+    if (uiState.mode !is OutfitScreenMode.RateExisting) {
         LogOutfitWizard(
             uiState = uiState,
             availableItems = availableItems,
@@ -808,10 +808,10 @@ private fun WizardSummaryStep(
                     modifier = Modifier.weight(1f)
                 ) { Text("Previous") }
                 Button(
-                    onClick = if (uiState.isLiveMode) viewModel::save else viewModel::advanceToRating,
+                    onClick = if (uiState.mode is OutfitScreenMode.NewLive) viewModel::save else viewModel::advanceToRating,
                     modifier = Modifier.weight(1f),
                     enabled = selectedItems.isNotEmpty()
-                ) { Text(if (uiState.isLiveMode) "Finish" else "Next") }
+                ) { Text(if (uiState.mode is OutfitScreenMode.NewLive) "Finish" else "Next") }
             }
         }
     }

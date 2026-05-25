@@ -35,20 +35,24 @@ enum class LogOutfitStep { DATE_TIME_LOCATION, OUTFIT_CATEGORIES, SUMMARY, RATIN
 /** Alias to the single source of truth defined in BodyPart.kt. */
 val LOG_OUTFIT_CATEGORY_ORDER = com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 
+sealed class OutfitScreenMode {
+    data class RateExisting(val entryId: Long) : OutfitScreenMode()
+    data object NewLive : OutfitScreenMode()
+    data object NewPast : OutfitScreenMode()
+}
+
 data class RateOutfitUiState(
+    val mode: OutfitScreenMode = OutfitScreenMode.NewPast,
     val isLoading: Boolean = true,
-    val outfitEntryId: Long? = null,
     val weatherSnapshot: WeatherSnapshot? = null,
     val sport: Sport = Sport.CYCLING,
     val selectedItemIds: Set<Long> = emptySet(),
     val comfortRating: Int? = null,
     val isSaved: Boolean = false,
-    // New-outfit mode: hour selection from cached weather
-    val isNewOutfitMode: Boolean = false,
     val availableHours: List<HourlyWeather> = emptyList(),
     val selectedDate: LocalDate = LocalDate.now(),
     val selectedHourIndex: Int = 0,
-    // Wizard state (new outfit mode only)
+    // Wizard state (new outfit modes only)
     val logStep: LogOutfitStep = LogOutfitStep.DATE_TIME_LOCATION,
     val logCategoryIndex: Int = 0,
     val showDismissDialog: Boolean = false,
@@ -60,7 +64,6 @@ data class RateOutfitUiState(
     val logLat: Double = 0.0,
     val logLon: Double = 0.0,
     val likelyItemIds: Set<Long> = emptySet(),
-    val isLiveMode: Boolean = false,
     val notes: String = ""
 ) {
     val selectedHour: HourlyWeather?
@@ -82,7 +85,19 @@ class RateOutfitViewModel @Inject constructor(
     private val notificationHelper: NotificationHelper
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(RateOutfitUiState())
+    private val _uiState = MutableStateFlow(
+        RateOutfitUiState(
+            mode = run {
+                val entryId = savedStateHandle.get<Long>("outfitEntryId")
+                val isLive = savedStateHandle.get<Boolean>("isLive") ?: false
+                when {
+                    entryId != null && entryId > 0 -> OutfitScreenMode.RateExisting(entryId)
+                    isLive -> OutfitScreenMode.NewLive
+                    else -> OutfitScreenMode.NewPast
+                }
+            }
+        )
+    )
     val uiState: StateFlow<RateOutfitUiState> = _uiState.asStateFlow()
 
     private val _sport = MutableStateFlow(Sport.CYCLING)
@@ -92,84 +107,78 @@ class RateOutfitViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        val entryId = savedStateHandle.get<Long>("outfitEntryId")
-        val isLive = savedStateHandle.get<Boolean>("isLive") ?: false
         viewModelScope.launch {
             val sport = preferencesManager.selectedSport.first()
             _sport.value = sport
             _uiState.value = _uiState.value.copy(sport = sport)
 
-            if (entryId != null && entryId > 0) {
-                // Rating an existing outfit entry
-                val details = outfitRepository.getEntryWithDetails(entryId)
-                if (details != null) {
-                    _sport.value = details.entry.sport
+            when (val mode = _uiState.value.mode) {
+                is OutfitScreenMode.RateExisting -> {
+                    val details = outfitRepository.getEntryWithDetails(mode.entryId)
+                    if (details != null) {
+                        _sport.value = details.entry.sport
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            weatherSnapshot = details.weatherSnapshot,
+                            sport = details.entry.sport,
+                            selectedItemIds = details.clothingItems.map { it.id }.toSet(),
+                            comfortRating = details.entry.comfortRating,
+                            notes = details.entry.notes
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                    }
+                }
+                is OutfitScreenMode.NewLive -> {
+                    val allHours = weatherRepository.cachedAllHours
+                    val selTime = weatherRepository.cachedSelectedHourTime
+                    val matchIdx = if (selTime != null)
+                        allHours.indexOfFirst { it.time == selTime }.takeIf { it >= 0 } ?: 0
+                    else 0
+                    val selHour = allHours.getOrNull(matchIdx)
+                    val useApp = preferencesManager.useApparentTemperature.first()
+                    val likelyIds = if (selHour != null) {
+                        outfitRepository.getLikelyItemIds(sport, selHour.referenceTemp(useApp), useApp)
+                    } else emptySet()
+                    val favorites = locationRepository.getAllFavoritesSync()
+
+                    val pendingIds = weatherRepository.pendingNewOutfitItemIds.toSet()
+                    weatherRepository.pendingNewOutfitItemIds = emptyList()
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        outfitEntryId = entryId,
-                        weatherSnapshot = details.weatherSnapshot,
-                        sport = details.entry.sport,
-                        selectedItemIds = details.clothingItems.map { it.id }.toSet(),
-                        comfortRating = details.entry.comfortRating,
-                        isNewOutfitMode = false,
-                        notes = details.entry.notes
+                        availableHours = allHours,
+                        selectedDate = LocalDate.now(),
+                        selectedHourIndex = matchIdx,
+                        selectedItemIds = pendingIds,
+                        logStep = LogOutfitStep.OUTFIT_CATEGORIES,
+                        logLocationSelected = true,
+                        logLocationName = weatherRepository.cachedLocationName.ifEmpty { "Current Location" },
+                        logLat = weatherRepository.cachedLat,
+                        logLon = weatherRepository.cachedLon,
+                        logFavLocations = favorites,
+                        likelyItemIds = likelyIds
                     )
-                } else {
-                    _uiState.value = _uiState.value.copy(isLoading = false)
                 }
-            } else if (isLive) {
-                // Live outfit mode: location/date/time pre-populated from Home Screen cache
-                val allHours = weatherRepository.cachedAllHours
-                val selTime = weatherRepository.cachedSelectedHourTime
-                val matchIdx = if (selTime != null)
-                    allHours.indexOfFirst { it.time == selTime }.takeIf { it >= 0 } ?: 0
-                else 0
-                val selHour = allHours.getOrNull(matchIdx)
-                val useApp = preferencesManager.useApparentTemperature.first()
-                val likelyIds = if (selHour != null) {
-                    outfitRepository.getLikelyItemIds(sport, selHour.referenceTemp(useApp), useApp)
-                } else emptySet()
-                val favorites = locationRepository.getAllFavoritesSync()
+                is OutfitScreenMode.NewPast -> {
+                    val today = LocalDate.now()
+                    val favorites = locationRepository.getAllFavoritesSync()
 
-                val pendingIds = weatherRepository.pendingNewOutfitItemIds.toSet()
-                weatherRepository.pendingNewOutfitItemIds = emptyList()
-
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isNewOutfitMode = true,
-                    isLiveMode = true,
-                    availableHours = allHours,
-                    selectedDate = LocalDate.now(),
-                    selectedHourIndex = matchIdx,
-                    selectedItemIds = pendingIds,
-                    logStep = LogOutfitStep.OUTFIT_CATEGORIES,
-                    logLocationSelected = true,
-                    logLocationName = weatherRepository.cachedLocationName.ifEmpty { "Current Location" },
-                    logLat = weatherRepository.cachedLat,
-                    logLon = weatherRepository.cachedLon,
-                    logFavLocations = favorites,
-                    likelyItemIds = likelyIds
-                )
-            } else {
-                // Past outfit / Log outfit mode: load cached hourly weather + pre-filled items
-                val today = LocalDate.now()
-                val favorites = locationRepository.getAllFavoritesSync()
-
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isNewOutfitMode = true,
-                    availableHours = emptyList(), // populated only after city is selected
-                    selectedDate = today,
-                    selectedHourIndex = -1, // no hour pre-selected; user picks via time picker
-                    selectedItemIds = emptySet(), // no clothing items pre-selected
-                    logStep = LogOutfitStep.DATE_TIME_LOCATION,
-                    logLocationSelected = false,
-                    logLocationName = "",
-                    logFavLocations = favorites,
-                    logLat = 0.0,
-                    logLon = 0.0
-                )
-                weatherRepository.pendingNewOutfitItemIds = emptyList()
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        availableHours = emptyList(),
+                        selectedDate = today,
+                        selectedHourIndex = -1,
+                        selectedItemIds = emptySet(),
+                        logStep = LogOutfitStep.DATE_TIME_LOCATION,
+                        logLocationSelected = false,
+                        logLocationName = "",
+                        logFavLocations = favorites,
+                        logLat = 0.0,
+                        logLon = 0.0
+                    )
+                    weatherRepository.pendingNewOutfitItemIds = emptyList()
+                }
             }
         }
     }
@@ -282,7 +291,7 @@ class RateOutfitViewModel @Inject constructor(
         when (_uiState.value.logStep) {
             LogOutfitStep.DATE_TIME_LOCATION -> showDismissDialog()
             LogOutfitStep.OUTFIT_CATEGORIES ->
-                if (_uiState.value.isLiveMode) showDismissDialog()
+                if (_uiState.value.mode is OutfitScreenMode.NewLive) showDismissDialog()
                 else _uiState.value = _uiState.value.copy(logStep = LogOutfitStep.DATE_TIME_LOCATION)
             LogOutfitStep.SUMMARY -> goBackFromSummary()
             LogOutfitStep.RATING -> goBackFromRating()
@@ -351,45 +360,45 @@ class RateOutfitViewModel @Inject constructor(
     fun save() {
         viewModelScope.launch {
             val state = _uiState.value
-            val entryId = state.outfitEntryId
-            if (entryId != null) {
-                // Rating existing entry
-                outfitRepository.updateEntryItems(entryId, state.selectedItemIds.toList())
-                outfitRepository.updateNotes(entryId, state.notes)
-                if (state.comfortRating != null) {
-                    outfitRepository.rateEntry(entryId, state.comfortRating)
+            when (val mode = state.mode) {
+                is OutfitScreenMode.RateExisting -> {
+                    outfitRepository.updateEntryItems(mode.entryId, state.selectedItemIds.toList())
+                    outfitRepository.updateNotes(mode.entryId, state.notes)
+                    if (state.comfortRating != null) {
+                        outfitRepository.rateEntry(mode.entryId, state.comfortRating)
+                    }
                 }
-            } else {
-                // Creating new outfit entry via wizard
-                val selectedHour = state.selectedHour
-                if (selectedHour == null || state.selectedItemIds.isEmpty()) return@launch
+                is OutfitScreenMode.NewLive, is OutfitScreenMode.NewPast -> {
+                    val selectedHour = state.selectedHour
+                    if (selectedHour == null || state.selectedItemIds.isEmpty()) return@launch
 
-                val snapshot = selectedHour.toWeatherSnapshot(
-                    lat = state.logLat,
-                    lon = state.logLon,
-                    locationName = state.logLocationName
-                )
-                val snapshotId = weatherRepository.saveSnapshot(snapshot)
-                val workoutTimestamp = selectedHour.time
-                    .atZone(ZoneId.systemDefault()).toEpochSecond() * 1000
-                val newEntryId = outfitRepository.createEntry(
-                    entry = OutfitEntry(
-                        weatherSnapshotId = snapshotId,
-                        sport = state.sport,
-                        comfortRating = state.comfortRating,
-                        createdAt = workoutTimestamp,
-                        ratedAt = if (state.comfortRating != null) System.currentTimeMillis() else null,
-                        notes = state.notes
-                    ),
-                    clothingItemIds = state.selectedItemIds.toList()
-                )
-                if (state.isLiveMode || state.comfortRating == null) {
-                    notificationHelper.showRatingNotification(
-                        outfitEntryId = newEntryId,
-                        sport = state.sport,
-                        dateMs = workoutTimestamp,
-                        durationHours = weatherRepository.cachedWorkoutDurationHours
+                    val snapshot = selectedHour.toWeatherSnapshot(
+                        lat = state.logLat,
+                        lon = state.logLon,
+                        locationName = state.logLocationName
                     )
+                    val snapshotId = weatherRepository.saveSnapshot(snapshot)
+                    val workoutTimestamp = selectedHour.time
+                        .atZone(ZoneId.systemDefault()).toEpochSecond() * 1000
+                    val newEntryId = outfitRepository.createEntry(
+                        entry = OutfitEntry(
+                            weatherSnapshotId = snapshotId,
+                            sport = state.sport,
+                            comfortRating = state.comfortRating,
+                            createdAt = workoutTimestamp,
+                            ratedAt = if (state.comfortRating != null) System.currentTimeMillis() else null,
+                            notes = state.notes
+                        ),
+                        clothingItemIds = state.selectedItemIds.toList()
+                    )
+                    if (mode is OutfitScreenMode.NewLive || state.comfortRating == null) {
+                        notificationHelper.showRatingNotification(
+                            outfitEntryId = newEntryId,
+                            sport = state.sport,
+                            dateMs = workoutTimestamp,
+                            durationHours = weatherRepository.cachedWorkoutDurationHours
+                        )
+                    }
                 }
             }
             _uiState.value = _uiState.value.copy(isSaved = true)
