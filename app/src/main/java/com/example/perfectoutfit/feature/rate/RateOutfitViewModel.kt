@@ -12,6 +12,7 @@ import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.notification.NotificationHelper
 import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.home.HourlyWeather
+import com.example.perfectoutfit.feature.home.toWeatherSnapshot
 import com.example.perfectoutfit.feature.home.OutfitRepository
 import com.example.perfectoutfit.feature.home.WeatherRepository
 import com.example.perfectoutfit.feature.location.LocationRepository
@@ -363,19 +364,10 @@ class RateOutfitViewModel @Inject constructor(
                 val selectedHour = state.selectedHour
                 if (selectedHour == null || state.selectedItemIds.isEmpty()) return@launch
 
-                val snapshot = WeatherSnapshot(
-                    timestamp = selectedHour.time
-                        .atZone(ZoneId.systemDefault()).toEpochSecond() * 1000,
-                    latitude = state.logLat,
-                    longitude = state.logLon,
-                    locationName = state.logLocationName,
-                    temperatureCelsius = selectedHour.temperatureCelsius,
-                    apparentTemperatureCelsius = selectedHour.apparentTemperatureCelsius,
-                    windSpeedKmh = selectedHour.windSpeedKmh,
-                    windDirectionDegrees = selectedHour.windDirectionDegrees,
-                    uvIndex = selectedHour.uvIndex,
-                    cloudCoverPercent = selectedHour.cloudCoverPercent,
-                    precipitationProbabilityPercent = selectedHour.precipitationProbabilityPercent
+                val snapshot = selectedHour.toWeatherSnapshot(
+                    lat = state.logLat,
+                    lon = state.logLon,
+                    locationName = state.logLocationName
                 )
                 val snapshotId = weatherRepository.saveSnapshot(snapshot)
                 val workoutTimestamp = selectedHour.time

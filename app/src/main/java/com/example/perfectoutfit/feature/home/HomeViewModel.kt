@@ -505,17 +505,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun buildSnapshot(weather: HourlyWeather): WeatherSnapshot = WeatherSnapshot(
-        timestamp = weather.time.atZone(java.time.ZoneId.systemDefault()).toEpochSecond() * 1000,
-        latitude = weatherRepository.cachedLat,
-        longitude = weatherRepository.cachedLon,
-        locationName = _uiState.value.selectedLocationName,
-        temperatureCelsius = weather.temperatureCelsius,
-        apparentTemperatureCelsius = weather.apparentTemperatureCelsius,
-        windSpeedKmh = weather.windSpeedKmh,
-        windDirectionDegrees = weather.windDirectionDegrees,
-        uvIndex = weather.uvIndex,
-        cloudCoverPercent = weather.cloudCoverPercent,
-        precipitationProbabilityPercent = weather.precipitationProbabilityPercent
-    )
+    private fun buildSnapshot(weather: HourlyWeather): WeatherSnapshot =
+        weather.toWeatherSnapshot(
+            lat = weatherRepository.cachedLat,
+            lon = weatherRepository.cachedLon,
+            locationName = _uiState.value.selectedLocationName
+        )
 }

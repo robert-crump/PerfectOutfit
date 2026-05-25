@@ -1,7 +1,9 @@
 package com.example.perfectoutfit.feature.home
 
+import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.network.ForecastResponse
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -29,6 +31,24 @@ data class HourlyWeather(
     fun referenceTemp(useApparent: Boolean): Double =
         if (useApparent) apparentTemperatureCelsius else temperatureCelsius
 }
+
+fun HourlyWeather.toWeatherSnapshot(
+    lat: Double,
+    lon: Double,
+    locationName: String
+): WeatherSnapshot = WeatherSnapshot(
+    timestamp = time.atZone(ZoneId.systemDefault()).toEpochSecond() * 1000,
+    latitude = lat,
+    longitude = lon,
+    locationName = locationName,
+    temperatureCelsius = temperatureCelsius,
+    apparentTemperatureCelsius = apparentTemperatureCelsius,
+    windSpeedKmh = windSpeedKmh,
+    windDirectionDegrees = windDirectionDegrees,
+    uvIndex = uvIndex,
+    cloudCoverPercent = cloudCoverPercent,
+    precipitationProbabilityPercent = precipitationProbabilityPercent
+)
 
 object WeatherMapper {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
