@@ -126,9 +126,7 @@ class RateOutfitViewModel @Inject constructor(
                 val selHour = allHours.getOrNull(matchIdx)
                 val useApp = preferencesManager.useApparentTemperature.first()
                 val likelyIds = if (selHour != null) {
-                    val temp = if (useApp) selHour.apparentTemperatureCelsius
-                               else selHour.temperatureCelsius
-                    outfitRepository.getLikelyItemIds(sport, temp, useApp)
+                    outfitRepository.getLikelyItemIds(sport, selHour.referenceTemp(useApp), useApp)
                 } else emptySet()
                 val favorites = locationRepository.getAllFavoritesSync()
 
@@ -247,9 +245,7 @@ class RateOutfitViewModel @Inject constructor(
             val selectedHour = state.selectedHour
             val likelyIds = if (selectedHour != null) {
                 val useApparent = preferencesManager.useApparentTemperature.first()
-                val temp = if (useApparent) selectedHour.apparentTemperatureCelsius
-                           else selectedHour.temperatureCelsius
-                outfitRepository.getLikelyItemIds(state.sport, temp, useApparent)
+                outfitRepository.getLikelyItemIds(state.sport, selectedHour.referenceTemp(useApparent), useApparent)
             } else emptySet()
             _uiState.value = _uiState.value.copy(
                 logStep = LogOutfitStep.OUTFIT_CATEGORIES,

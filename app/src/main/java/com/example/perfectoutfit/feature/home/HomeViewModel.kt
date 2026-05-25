@@ -75,10 +75,8 @@ data class HomeUiState(
         activeWorkoutTab == WorkoutTab.COLDEST -> coldestRecommendation
         else -> warmestRecommendation
     }
-    val activeDisplayTemp: Int get() = activeHour?.let {
-        if (useApparentTemperature) it.apparentTemperatureCelsius.roundToInt()
-        else it.temperatureCelsius.roundToInt()
-    } ?: adjustedApparentTemp
+    val activeDisplayTemp: Int get() =
+        activeHour?.referenceTemp(useApparentTemperature)?.roundToInt() ?: adjustedApparentTemp
 }
 
 @HiltViewModel
@@ -128,10 +126,8 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesManager.useApparentTemperature.collect { useApparent ->
                 val selectedHour = _uiState.value.selectedHour
-                val newTemp = if (useApparent)
-                    selectedHour?.apparentTemperatureCelsius?.roundToInt() ?: _uiState.value.adjustedApparentTemp
-                else
-                    selectedHour?.temperatureCelsius?.roundToInt() ?: _uiState.value.adjustedApparentTemp
+                val newTemp = selectedHour?.referenceTemp(useApparent)?.roundToInt()
+                    ?: _uiState.value.adjustedApparentTemp
                 _uiState.value = _uiState.value.copy(
                     useApparentTemperature = useApparent,
                     adjustedApparentTemp = newTemp
@@ -165,8 +161,8 @@ class HomeViewModel @Inject constructor(
     fun selectHour(index: Int) {
         val hour = _uiState.value.hourlyWeather.getOrNull(index)
         val useApparent = _uiState.value.useApparentTemperature
-        val newTemp = (if (useApparent) hour?.apparentTemperatureCelsius else hour?.temperatureCelsius)
-            ?.roundToInt() ?: _uiState.value.adjustedApparentTemp
+        val newTemp = hour?.referenceTemp(useApparent)?.roundToInt()
+            ?: _uiState.value.adjustedApparentTemp
         _uiState.value = _uiState.value.copy(
             selectedHourIndex = index,
             adjustedApparentTemp = newTemp
@@ -376,10 +372,7 @@ class HomeViewModel @Inject constructor(
                 if (WeatherMapper.hasWindWarning(nextFour)) add("Wind speed >= 20 km/h")
             }
             val useApparent = _uiState.value.useApparentTemperature
-            val firstHourTemp = (if (useApparent)
-                displayHours.firstOrNull()?.apparentTemperatureCelsius
-            else
-                displayHours.firstOrNull()?.temperatureCelsius)?.roundToInt() ?: 0
+            val firstHourTemp = displayHours.firstOrNull()?.referenceTemp(useApparent)?.roundToInt() ?: 0
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 isRefreshing = false,
@@ -414,9 +407,8 @@ class HomeViewModel @Inject constructor(
             }
         } else {
             val (coldestIdx, warmestIdx) = computeExtremes(hours, duration, useApparent)
-            fun tempAt(idx: Int): Double = hours.getOrNull(idx)?.let {
-                if (useApparent) it.apparentTemperatureCelsius else it.temperatureCelsius
-            } ?: _uiState.value.adjustedApparentTemp.toDouble()
+            fun tempAt(idx: Int): Double = hours.getOrNull(idx)?.referenceTemp(useApparent)
+                ?: _uiState.value.adjustedApparentTemp.toDouble()
             val coldRec = outfitRepository.findRecommendation(sport, tempAt(coldestIdx), useApparent)
             val warmRec = outfitRepository.findRecommendation(sport, tempAt(warmestIdx), useApparent)
             // Discard if sport or duration changed while the queries were in flight
@@ -440,11 +432,9 @@ class HomeViewModel @Inject constructor(
         var coldestIdx = 0
         var warmestIdx = 0
         window.forEachIndexed { i, h ->
-            val temp = if (useApparent) h.apparentTemperatureCelsius else h.temperatureCelsius
-            val cold = if (useApparent) window[coldestIdx].apparentTemperatureCelsius
-                       else window[coldestIdx].temperatureCelsius
-            val warm = if (useApparent) window[warmestIdx].apparentTemperatureCelsius
-                       else window[warmestIdx].temperatureCelsius
+            val temp = h.referenceTemp(useApparent)
+            val cold = window[coldestIdx].referenceTemp(useApparent)
+            val warm = window[warmestIdx].referenceTemp(useApparent)
             if (temp <= cold) coldestIdx = i  // <= so later hour wins tiebreak
             if (temp >= warm) warmestIdx = i  // >= so later hour wins tiebreak
         }

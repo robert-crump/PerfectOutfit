@@ -21,6 +21,13 @@ data class HourlyWeather(
             val index = ((windDirectionDegrees + 22.5) / 45.0).toInt() % 8
             return directions[index]
         }
+
+    /**
+     * Reference temperature: the single temperature this app reasons about for an hour,
+     * selected by the user's apparent-vs-real preference. Callers round at the edge.
+     */
+    fun referenceTemp(useApparent: Boolean): Double =
+        if (useApparent) apparentTemperatureCelsius else temperatureCelsius
 }
 
 object WeatherMapper {
