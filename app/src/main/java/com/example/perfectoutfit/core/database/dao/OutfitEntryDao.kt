@@ -36,72 +36,10 @@ interface OutfitEntryDao {
     @Transaction
     @Query("""
         SELECT oe.* FROM outfit_entries oe
-        INNER JOIN weather_snapshots ws ON oe.weatherSnapshotId = ws.id
         WHERE oe.sport = :sport
         AND oe.comfortRating IS NOT NULL
-        AND ROUND(ws.apparentTemperatureCelsius) = :temp
-        ORDER BY ws.timestamp DESC
-        LIMIT 1
     """)
-    suspend fun findNewestExactMatch(sport: Sport, temp: Int): OutfitEntryWithDetails?
-
-    @Transaction
-    @Query("""
-        SELECT oe.* FROM outfit_entries oe
-        INNER JOIN weather_snapshots ws ON oe.weatherSnapshotId = ws.id
-        WHERE oe.sport = :sport
-        AND oe.comfortRating IS NOT NULL
-        AND ROUND(ws.temperatureCelsius) = :temp
-        ORDER BY ws.timestamp DESC
-        LIMIT 1
-    """)
-    suspend fun findNewestExactMatchByRealTemp(sport: Sport, temp: Int): OutfitEntryWithDetails?
-
-    @Transaction
-    @Query("""
-        SELECT oe.* FROM outfit_entries oe
-        INNER JOIN weather_snapshots ws ON oe.weatherSnapshotId = ws.id
-        WHERE oe.sport = :sport
-        AND oe.comfortRating IS NOT NULL
-        AND ROUND(ws.apparentTemperatureCelsius) BETWEEN :minTemp AND :maxTemp
-        ORDER BY CASE oe.comfortRating WHEN 0 THEN 0 WHEN 1 THEN 1 ELSE 2 END ASC, ws.timestamp DESC
-        LIMIT 1
-    """)
-    suspend fun findBestMatch(sport: Sport, minTemp: Int, maxTemp: Int): OutfitEntryWithDetails?
-
-    @Transaction
-    @Query("""
-        SELECT oe.* FROM outfit_entries oe
-        INNER JOIN weather_snapshots ws ON oe.weatherSnapshotId = ws.id
-        WHERE oe.sport = :sport
-        AND oe.comfortRating IS NOT NULL
-        AND ROUND(ws.temperatureCelsius) BETWEEN :minTemp AND :maxTemp
-        ORDER BY CASE oe.comfortRating WHEN 0 THEN 0 WHEN 1 THEN 1 ELSE 2 END ASC, ws.timestamp DESC
-        LIMIT 1
-    """)
-    suspend fun findBestMatchByRealTemp(sport: Sport, minTemp: Int, maxTemp: Int): OutfitEntryWithDetails?
-
-    @Query("""
-        SELECT DISTINCT oi.clothingItemId
-        FROM outfit_items oi
-        INNER JOIN outfit_entries oe ON oi.outfitEntryId = oe.id
-        INNER JOIN weather_snapshots ws ON oe.weatherSnapshotId = ws.id
-        WHERE oe.sport = :sport
-        AND oe.comfortRating = 0
-        AND ROUND(ws.apparentTemperatureCelsius) BETWEEN :minTemp AND :maxTemp
-    """)
-    suspend fun getClothingItemIdsForApparentTemp(sport: Sport, minTemp: Int, maxTemp: Int): List<Long>
-
-    @Query("""
-        SELECT DISTINCT oi.clothingItemId
-        FROM outfit_items oi
-        INNER JOIN outfit_entries oe ON oi.outfitEntryId = oe.id
-        INNER JOIN weather_snapshots ws ON oe.weatherSnapshotId = ws.id
-        WHERE oe.sport = :sport
-        AND oe.comfortRating = 0
-        AND ROUND(ws.temperatureCelsius) BETWEEN :minTemp AND :maxTemp
-    """)
-    suspend fun getClothingItemIdsForRealTemp(sport: Sport, minTemp: Int, maxTemp: Int): List<Long>
+    suspend fun getRatedEntriesWithDetails(sport: Sport): List<OutfitEntryWithDetails>
 
     @Query("""
         SELECT COUNT(DISTINCT oi.outfitEntryId)

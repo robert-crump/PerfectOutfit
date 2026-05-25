@@ -53,27 +53,8 @@ class OutfitRepository @Inject constructor(
         temp: Double,
         useApparent: Boolean = true
     ): OutfitEntryWithDetails? {
-        val roundedTemp = temp.roundToInt()
-
-        // Step 1: exact temperature → newest entry regardless of rating
-        val exact = if (useApparent)
-            outfitEntryDao.findNewestExactMatch(sport, roundedTemp)
-        else
-            outfitEntryDao.findNewestExactMatchByRealTemp(sport, roundedTemp)
-        if (exact != null) return exact
-
-        // Step 2: ±1°C → best rating first, then newest
-        val plusMinus1 = if (useApparent)
-            outfitEntryDao.findBestMatch(sport, roundedTemp - 1, roundedTemp + 1)
-        else
-            outfitEntryDao.findBestMatchByRealTemp(sport, roundedTemp - 1, roundedTemp + 1)
-        if (plusMinus1 != null) return plusMinus1
-
-        // Step 3: ±2°C → best rating first, then newest
-        return if (useApparent)
-            outfitEntryDao.findBestMatch(sport, roundedTemp - 2, roundedTemp + 2)
-        else
-            outfitEntryDao.findBestMatchByRealTemp(sport, roundedTemp - 2, roundedTemp + 2)
+        val candidates = outfitEntryDao.getRatedEntriesWithDetails(sport)
+        return RecommendationPolicy.findRecommendation(candidates, temp.roundToInt(), useApparent)
     }
 
     suspend fun updateNotes(entryId: Long, notes: String) = outfitEntryDao.updateNotes(entryId, notes)
@@ -87,12 +68,8 @@ class OutfitRepository @Inject constructor(
     }
 
     suspend fun getLikelyItemIds(sport: Sport, temp: Double, useApparent: Boolean): Set<Long> {
-        val roundedTemp = temp.roundToInt()
-        return if (useApparent) {
-            outfitEntryDao.getClothingItemIdsForApparentTemp(sport, roundedTemp - 2, roundedTemp + 2)
-        } else {
-            outfitEntryDao.getClothingItemIdsForRealTemp(sport, roundedTemp - 2, roundedTemp + 2)
-        }.toSet()
+        val candidates = outfitEntryDao.getRatedEntriesWithDetails(sport)
+        return RecommendationPolicy.likelyItemIds(candidates, temp.roundToInt(), useApparent)
     }
 
     suspend fun getAllEntries(): List<OutfitEntry> = outfitEntryDao.getAll()
