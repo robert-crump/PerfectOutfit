@@ -1,0 +1,21 @@
+PerfectOutfit — Progress Log
+
+2026-05-26
+- Fixed issue #3 ("Location name does not change"). After navigating Home -> Settings ->
+  Home, selecting a different city in the Home dropdown sometimes had no visible effect.
+  Root cause: an uncancellable FusedLocationProvider lastLocation callback (plus a slow
+  reverse-geocode) from a "Current location" request could resolve late and unconditionally
+  overwrite selectedLocationName, snapping the displayed city back. A redundant dual-trigger
+  design (explicit setter + DataStore-driven combine collector) fetched and wrote the name
+  twice with no cancellation of stale in-flight work, which made the post-navigation timing
+  reproducible.
+  Fix (HomeViewModel.kt):
+    * Added a locationGeneration token; current-location callbacks capture it at request
+      time and re-check after the geocode, so a stale result can no longer overwrite a
+      newer selection.
+    * combine collector now uses distinctUntilChanged().collectLatest so stale fetches are
+      cancelled and unrelated DataStore writes don't re-fire it.
+    * Location setters now only write the optimistic name + DataStore; the collector is the
+      single fetch path (removed the duplicate racing fetch).
+    * Fixed the "Current Location"/"Current location" casing mismatch that broke the
+      startsWith() checks in HomeScreen.

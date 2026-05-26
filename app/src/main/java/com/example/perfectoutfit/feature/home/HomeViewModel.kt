@@ -23,11 +23,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -47,7 +47,7 @@ data class HomeUiState(
     val selectedHourIndex: Int = 0,
     val warnings: List<String> = emptyList(),
     val selectedSport: Sport = Sport.CYCLING,
-    val selectedLocationName: String = "Current Location",
+    val selectedLocationName: String = "Current location",
     val favoriteLocations: List<FavoriteLocation> = emptyList(),
     val recommendation: OutfitEntryWithDetails? = null,
     /** Temperature used for recommendation lookup (apparent or real, user-adjustable). */
@@ -95,6 +95,14 @@ class HomeViewModel @Inject constructor(
 
     private var locationCancellationSource: CancellationTokenSource? = null
 
+    /**
+     * Incremented every time the selected location changes. Async current-location
+     * callbacks (FusedLocationProvider + reverse geocode) capture the value at request
+     * time and apply their result only if it is still current, so a slow callback can no
+     * longer overwrite a location the user has since switched to.
+     */
+    private var locationGeneration = 0
+
     init {
         viewModelScope.launch {
             combine(
@@ -103,9 +111,7 @@ class HomeViewModel @Inject constructor(
                 locationRepository.favoriteLocations
             ) { sport, locationId, favorites ->
                 Triple(sport, locationId, favorites)
-            }.stateIn(viewModelScope, SharingStarted.Eagerly, null).collect { triple ->
-                if (triple == null) return@collect
-                val (sport, locationId, favorites) = triple
+            }.distinctUntilChanged().collectLatest { (sport, locationId, favorites) ->
                 _uiState.value = _uiState.value.copy(
                     selectedSport = sport,
                     favoriteLocations = favorites
@@ -114,7 +120,7 @@ class HomeViewModel @Inject constructor(
                     val location = locationRepository.getFavoriteById(locationId)
                     if (location != null) {
                         _uiState.value = _uiState.value.copy(selectedLocationName = location.name)
-                        fetchWeather(location.latitude, location.longitude)
+                        fetchWeather(location.latitude, location.longitude, location.name)
                         fetchDeviceCity()
                     } else {
                         fetchCurrentLocationWeather()
@@ -177,22 +183,19 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectCurrentLocation() {
+        locationCancellationSource?.cancel()
+        locationCancellationSource = null
+        locationGeneration++
         _uiState.value = _uiState.value.copy(selectedLocationName = "Current location")
-        viewModelScope.launch {
-            preferencesManager.setSelectedLocationId(null)
-            fetchCurrentLocationWeather()
-        }
+        viewModelScope.launch { preferencesManager.setSelectedLocationId(null) }
     }
 
     fun selectFavoriteLocation(location: FavoriteLocation) {
         locationCancellationSource?.cancel()
         locationCancellationSource = null
+        locationGeneration++
         _uiState.value = _uiState.value.copy(selectedLocationName = location.name)
-        viewModelScope.launch {
-            preferencesManager.setSelectedLocationId(location.id)
-            fetchWeather(location.latitude, location.longitude)
-        }
-        fetchDeviceCity()
+        viewModelScope.launch { preferencesManager.setSelectedLocationId(location.id) }
     }
 
     /** Accept recommendation: saves a new outfit entry and schedules a rating notification. */
@@ -284,13 +287,19 @@ class HomeViewModel @Inject constructor(
         val cancellationSource = CancellationTokenSource()
         locationCancellationSource = cancellationSource
 
+        // Capture the generation at request time; lastLocation callbacks are not bound to
+        // the cancellation token, so this is what stops a slow result from overwriting a
+        // location the user has switched to in the meantime.
+        val generation = locationGeneration
+
         val fusedClient = LocationServices.getFusedLocationProviderClient(context)
 
         // Try last known location first — instant cache hit, sufficient for city-level accuracy.
         fusedClient.lastLocation.addOnSuccessListener { lastLocation ->
+            if (generation != locationGeneration) return@addOnSuccessListener
             if (lastLocation != null) {
                 viewModelScope.launch {
-                    applyCurrentLocation(lastLocation.latitude, lastLocation.longitude)
+                    applyCurrentLocation(lastLocation.latitude, lastLocation.longitude, generation)
                 }
             } else {
                 // No cached location; request a fresh one.
@@ -298,38 +307,45 @@ class HomeViewModel @Inject constructor(
                     Priority.PRIORITY_BALANCED_POWER_ACCURACY,
                     cancellationSource.token
                 ).addOnSuccessListener { location ->
+                    if (generation != locationGeneration) return@addOnSuccessListener
                     if (location != null) {
                         viewModelScope.launch {
-                            applyCurrentLocation(location.latitude, location.longitude)
+                            applyCurrentLocation(location.latitude, location.longitude, generation)
                         }
                     } else {
                         tryFallbackToFirstFavorite("Could not determine location. Use the dropdown to select a city.")
                     }
                 }.addOnFailureListener {
+                    if (generation != locationGeneration) return@addOnFailureListener
                     tryFallbackToFirstFavorite("Location unavailable. Use the dropdown to select a city.")
                 }
             }
         }.addOnFailureListener {
+            if (generation != locationGeneration) return@addOnFailureListener
             // lastLocation failed; fall through to getCurrentLocation.
             fusedClient.getCurrentLocation(
                 Priority.PRIORITY_BALANCED_POWER_ACCURACY,
                 cancellationSource.token
             ).addOnSuccessListener { location ->
+                if (generation != locationGeneration) return@addOnSuccessListener
                 if (location != null) {
                     viewModelScope.launch {
-                        applyCurrentLocation(location.latitude, location.longitude)
+                        applyCurrentLocation(location.latitude, location.longitude, generation)
                     }
                 } else {
                     tryFallbackToFirstFavorite("Could not determine location. Use the dropdown to select a city.")
                 }
             }.addOnFailureListener {
+                if (generation != locationGeneration) return@addOnFailureListener
                 tryFallbackToFirstFavorite("Location unavailable. Use the dropdown to select a city.")
             }
         }
     }
 
-    private suspend fun applyCurrentLocation(lat: Double, lon: Double) {
+    private suspend fun applyCurrentLocation(lat: Double, lon: Double, generation: Int) {
         val cityName = reverseGeocode(lat, lon)
+        // reverseGeocode is slow; bail out if the user has switched location since.
+        if (generation != locationGeneration) return
         val displayName = if (cityName.isNotEmpty()) "Current location ($cityName)" else "Current location"
         _uiState.value = _uiState.value.copy(
             selectedLocationName = displayName,
@@ -342,11 +358,9 @@ class HomeViewModel @Inject constructor(
         val favorites = _uiState.value.favoriteLocations
         if (favorites.isNotEmpty()) {
             val first = favorites.first()
-            viewModelScope.launch {
-                preferencesManager.setSelectedLocationId(first.id)
-                _uiState.value = _uiState.value.copy(selectedLocationName = first.name)
-                fetchWeather(first.latitude, first.longitude)
-            }
+            locationGeneration++
+            _uiState.value = _uiState.value.copy(selectedLocationName = first.name)
+            viewModelScope.launch { preferencesManager.setSelectedLocationId(first.id) }
         } else {
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
