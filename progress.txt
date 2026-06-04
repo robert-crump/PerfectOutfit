@@ -25,3 +25,15 @@ PerfectOutfit — Progress Log
   The UvInfoCard (suggesting sunglasses, UV sleeves, and sun lotion) was shown whenever
   the selected hour's UV index was >= 3. Changed the threshold to >= 5 per the issue.
   Change: HomeScreen.kt line 438, `currentWeather.uvIndex >= 3` → `>= 5`.
+
+- Implemented issue #2 ("Import / Backup functionality").
+  Favorite locations were the only database entity missing from the JSON export/import.
+  Also added the "yymmdd_" date prefix to the suggested export filename.
+  Changes:
+    * ExportImportManager.kt: added ExportFavoriteLocation data class; ExportData gains
+      a `favoriteLocations` field (default emptyList for backwards-compatible import of
+      old backups); exportToJson() now fetches all saved locations; importFromJson() clears
+      and restores locations after the other entities.
+    * LocationRepository.kt: added deleteAll() and insertAll() helpers used by the manager.
+    * SettingsScreen.kt: export button now generates filename with yyMMdd_ prefix
+      (e.g. 260604_perfect_outfit_data.json) using java.time.LocalDate.
