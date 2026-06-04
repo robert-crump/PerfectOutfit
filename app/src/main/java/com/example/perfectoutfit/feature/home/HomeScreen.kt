@@ -435,7 +435,7 @@ private fun ResultStep(
                 }
 
                 if (currentWeather != null) {
-                    if (currentWeather.uvIndex >= 3) {
+                    if (currentWeather.uvIndex >= 5) {
                         UvInfoCard(uvIndex = currentWeather.uvIndex)
                     }
                     if (currentWeather.windSpeedKmh >= 20.0) {

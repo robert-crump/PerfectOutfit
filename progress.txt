@@ -19,3 +19,9 @@ PerfectOutfit — Progress Log
       single fetch path (removed the duplicate racing fetch).
     * Fixed the "Current Location"/"Current location" casing mismatch that broke the
       startsWith() checks in HomeScreen.
+
+2026-06-04
+- Fixed issue #1 ("Change threshold for extra UV protection from 3 to 5").
+  The UvInfoCard (suggesting sunglasses, UV sleeves, and sun lotion) was shown whenever
+  the selected hour's UV index was >= 3. Changed the threshold to >= 5 per the issue.
+  Change: HomeScreen.kt line 438, `currentWeather.uvIndex >= 3` → `>= 5`.
