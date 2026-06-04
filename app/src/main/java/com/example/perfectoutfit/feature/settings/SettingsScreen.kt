@@ -1,6 +1,8 @@
 package com.example.perfectoutfit.feature.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -115,7 +117,10 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Button(
-                onClick = { exportLauncher.launch("perfect_outfit_data.json") },
+                onClick = {
+                    val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"))
+                    exportLauncher.launch("${date}_perfect_outfit_data.json")
+                },
                 modifier = Modifier.weight(1f),
                 enabled = !uiState.isProcessing
             ) {

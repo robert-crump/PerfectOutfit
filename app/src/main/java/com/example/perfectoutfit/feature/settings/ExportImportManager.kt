@@ -2,6 +2,7 @@ package com.example.perfectoutfit.feature.settings
 
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
+import com.example.perfectoutfit.core.model.FavoriteLocation
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
 import com.example.perfectoutfit.core.model.Sport
@@ -9,6 +10,7 @@ import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.home.OutfitRepository
 import com.example.perfectoutfit.feature.home.WeatherRepository
+import com.example.perfectoutfit.feature.location.LocationRepository
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -19,7 +21,8 @@ data class ExportData(
     val clothingItems: List<ExportClothingItem>,
     val weatherSnapshots: List<ExportWeatherSnapshot>,
     val outfitEntries: List<ExportOutfitEntry>,
-    val outfitItems: List<ExportOutfitItem>
+    val outfitItems: List<ExportOutfitItem>,
+    val favoriteLocations: List<ExportFavoriteLocation> = emptyList()
 )
 
 @Serializable
@@ -64,11 +67,21 @@ data class ExportOutfitItem(
     val clothingItemId: Long
 )
 
+@Serializable
+data class ExportFavoriteLocation(
+    val id: Long,
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
+    val sortOrder: Int
+)
+
 @Singleton
 class ExportImportManager @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val outfitRepository: OutfitRepository,
     private val weatherRepository: WeatherRepository,
+    private val locationRepository: LocationRepository,
     private val json: Json
 ) {
     suspend fun exportToJson(): String {
@@ -89,10 +102,13 @@ class ExportImportManager @Inject constructor(
         val items = outfitRepository.getAllOutfitItems().map {
             ExportOutfitItem(it.outfitEntryId, it.clothingItemId)
         }
+        val locations = locationRepository.getAllFavoritesSync().map {
+            ExportFavoriteLocation(it.id, it.name, it.latitude, it.longitude, it.sortOrder)
+        }
 
         return json.encodeToString(
             ExportData.serializer(),
-            ExportData(clothingItems, snapshots, entries, items)
+            ExportData(clothingItems, snapshots, entries, items, locations)
         )
     }
 
@@ -103,6 +119,7 @@ class ExportImportManager @Inject constructor(
         outfitRepository.deleteAllEntries()
         weatherRepository.deleteAllSnapshots()
         catalogRepository.deleteAll()
+        locationRepository.deleteAll()
 
         catalogRepository.insertAll(data.clothingItems.map {
             ClothingItem(it.id, Sport.valueOf(it.sport), BodyPart.valueOf(it.bodyPart), it.name, it.isDefault)
@@ -127,6 +144,10 @@ class ExportImportManager @Inject constructor(
 
         outfitRepository.insertOutfitItems(data.outfitItems.map {
             OutfitItem(it.outfitEntryId, it.clothingItemId)
+        })
+
+        locationRepository.insertAll(data.favoriteLocations.map {
+            FavoriteLocation(it.id, it.name, it.latitude, it.longitude, it.sortOrder)
         })
     }
 }

@@ -42,4 +42,12 @@ class LocationRepository @Inject constructor(
     suspend fun getAllFavoritesSync(): List<FavoriteLocation> {
         return favoriteLocationDao.getAllSync()
     }
+
+    suspend fun deleteAll() {
+        favoriteLocationDao.deleteAll()
+    }
+
+    suspend fun insertAll(locations: List<FavoriteLocation>) {
+        locations.forEach { favoriteLocationDao.insert(it) }
+    }
 }
