@@ -37,16 +37,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
@@ -407,7 +403,7 @@ private fun WizardDateTimeLocationStep(
         ) {
             Text("When and where did you work out?", style = MaterialTheme.typography.titleLarge)
 
-            // Location picker
+            // Location \u2014 GPS-only, so this is a static display of the current location.
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Location", style = MaterialTheme.typography.labelLarge)
                 if (uiState.isLoadingLocationWeather) {
@@ -419,45 +415,10 @@ private fun WizardDateTimeLocationStep(
                         Text("Loading weather\u2026", style = MaterialTheme.typography.bodySmall)
                     }
                 } else {
-                    var expanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = if (uiState.logLocationSelected) uiState.logLocationName else "",
-                            onValueChange = {},
-                            readOnly = true,
-                            placeholder = { Text("Select a city") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded)
-                            }
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Current Location") },
-                                onClick = {
-                                    viewModel.selectLogLocation(null)
-                                    expanded = false
-                                }
-                            )
-                            uiState.logFavLocations.forEach { loc ->
-                                DropdownMenuItem(
-                                    text = { Text(loc.name) },
-                                    onClick = {
-                                        viewModel.selectLogLocation(loc)
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        text = if (uiState.logLocationSelected) uiState.logLocationName else "Current Location",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
             }
 

@@ -33,7 +33,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun SettingsScreen(
     onNavigateToCatalog: () -> Unit = {},
-    onNavigateToLocations: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -75,17 +74,6 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Clothing Catalog")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text("Locations", style = MaterialTheme.typography.titleMedium)
-
-        Button(
-            onClick = onNavigateToLocations,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Manage Locations")
         }
 
         Spacer(modifier = Modifier.height(8.dp))

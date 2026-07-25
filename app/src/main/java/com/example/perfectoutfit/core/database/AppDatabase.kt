@@ -6,13 +6,11 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.perfectoutfit.core.database.dao.ClothingItemDao
-import com.example.perfectoutfit.core.database.dao.FavoriteLocationDao
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
-import com.example.perfectoutfit.core.model.FavoriteLocation
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
 import com.example.perfectoutfit.core.model.Sport
@@ -23,10 +21,9 @@ import com.example.perfectoutfit.core.model.WeatherSnapshot
         ClothingItem::class,
         WeatherSnapshot::class,
         OutfitEntry::class,
-        OutfitItem::class,
-        FavoriteLocation::class
+        OutfitItem::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -35,12 +32,17 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun weatherSnapshotDao(): WeatherSnapshotDao
     abstract fun outfitEntryDao(): OutfitEntryDao
     abstract fun outfitItemDao(): OutfitItemDao
-    abstract fun favoriteLocationDao(): FavoriteLocationDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE outfit_entries ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("DROP TABLE IF EXISTS favorite_locations")
             }
         }
 

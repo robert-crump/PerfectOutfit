@@ -9,13 +9,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
-import com.example.perfectoutfit.core.model.FavoriteLocation
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.notification.NotificationHelper
-import com.example.perfectoutfit.feature.location.LocationRepository
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -25,9 +23,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -48,13 +43,11 @@ data class HomeUiState(
     val warnings: List<String> = emptyList(),
     val selectedSport: Sport = Sport.CYCLING,
     val selectedLocationName: String = "Current location",
-    val favoriteLocations: List<FavoriteLocation> = emptyList(),
     val recommendation: OutfitEntryWithDetails? = null,
     /** Temperature used for recommendation lookup (apparent or real, user-adjustable). */
     val adjustedApparentTemp: Int = 0,
     val useApparentTemperature: Boolean = true,
     val error: String? = null,
-    val currentCityName: String? = null,
     val workoutDurationHours: Int = 1,
     val activeWorkoutTab: WorkoutTab = WorkoutTab.COLDEST,
     val coldestHourIndex: Int = 0,
@@ -85,7 +78,6 @@ class HomeViewModel @Inject constructor(
     private val weatherRepository: WeatherRepository,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val outfitRepository: OutfitRepository,
-    private val locationRepository: LocationRepository,
     private val preferencesManager: PreferencesManager,
     private val notificationHelper: NotificationHelper
 ) : ViewModel() {
@@ -104,30 +96,12 @@ class HomeViewModel @Inject constructor(
     private var locationGeneration = 0
 
     init {
+        // GPS is now the only source of location; kick off a fetch immediately.
+        fetchCurrentLocationWeather()
+
         viewModelScope.launch {
-            combine(
-                preferencesManager.selectedSport,
-                preferencesManager.selectedLocationId,
-                locationRepository.favoriteLocations
-            ) { sport, locationId, favorites ->
-                Triple(sport, locationId, favorites)
-            }.distinctUntilChanged().collectLatest { (sport, locationId, favorites) ->
-                _uiState.value = _uiState.value.copy(
-                    selectedSport = sport,
-                    favoriteLocations = favorites
-                )
-                if (locationId != null) {
-                    val location = locationRepository.getFavoriteById(locationId)
-                    if (location != null) {
-                        _uiState.value = _uiState.value.copy(selectedLocationName = location.name)
-                        fetchWeather(location.latitude, location.longitude, location.name)
-                        fetchDeviceCity()
-                    } else {
-                        fetchCurrentLocationWeather()
-                    }
-                } else {
-                    fetchCurrentLocationWeather()
-                }
+            preferencesManager.selectedSport.collect { sport ->
+                _uiState.value = _uiState.value.copy(selectedSport = sport)
             }
         }
         viewModelScope.launch {
@@ -180,22 +154,6 @@ class HomeViewModel @Inject constructor(
     fun setAdjustedTemp(temp: Int) {
         _uiState.value = _uiState.value.copy(adjustedApparentTemp = temp)
         viewModelScope.launch { refreshRecommendation() }
-    }
-
-    fun selectCurrentLocation() {
-        locationCancellationSource?.cancel()
-        locationCancellationSource = null
-        locationGeneration++
-        _uiState.value = _uiState.value.copy(selectedLocationName = "Current location")
-        viewModelScope.launch { preferencesManager.setSelectedLocationId(null) }
-    }
-
-    fun selectFavoriteLocation(location: FavoriteLocation) {
-        locationCancellationSource?.cancel()
-        locationCancellationSource = null
-        locationGeneration++
-        _uiState.value = _uiState.value.copy(selectedLocationName = location.name)
-        viewModelScope.launch { preferencesManager.setSelectedLocationId(location.id) }
     }
 
     /** Accept recommendation: saves a new outfit entry and schedules a rating notification. */
@@ -264,6 +222,10 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun fetchCurrentLocationWeather() {
+        // Each new fetch attempt invalidates any still-in-flight previous attempt, so a slow
+        // stale callback can no longer overwrite the result of a more recent request.
+        locationGeneration++
+
         val hasPermission = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
@@ -313,11 +275,11 @@ class HomeViewModel @Inject constructor(
                             applyCurrentLocation(location.latitude, location.longitude, generation)
                         }
                     } else {
-                        tryFallbackToFirstFavorite("Could not determine location. Use the dropdown to select a city.")
+                        failWithError("Could not determine location. Please try again.")
                     }
                 }.addOnFailureListener {
                     if (generation != locationGeneration) return@addOnFailureListener
-                    tryFallbackToFirstFavorite("Location unavailable. Use the dropdown to select a city.")
+                    failWithError("Location unavailable. Please try again.")
                 }
             }
         }.addOnFailureListener {
@@ -333,11 +295,11 @@ class HomeViewModel @Inject constructor(
                         applyCurrentLocation(location.latitude, location.longitude, generation)
                     }
                 } else {
-                    tryFallbackToFirstFavorite("Could not determine location. Use the dropdown to select a city.")
+                    failWithError("Could not determine location. Please try again.")
                 }
             }.addOnFailureListener {
                 if (generation != locationGeneration) return@addOnFailureListener
-                tryFallbackToFirstFavorite("Location unavailable. Use the dropdown to select a city.")
+                failWithError("Location unavailable. Please try again.")
             }
         }
     }
@@ -346,28 +308,17 @@ class HomeViewModel @Inject constructor(
         val cityName = reverseGeocode(lat, lon)
         // reverseGeocode is slow; bail out if the user has switched location since.
         if (generation != locationGeneration) return
-        val displayName = if (cityName.isNotEmpty()) "Current location ($cityName)" else "Current location"
-        _uiState.value = _uiState.value.copy(
-            selectedLocationName = displayName,
-            currentCityName = cityName.ifEmpty { null }
-        )
+        val displayName = cityName.ifEmpty { "Current location" }
+        _uiState.value = _uiState.value.copy(selectedLocationName = displayName)
         fetchWeather(lat, lon, displayName)
     }
 
-    private fun tryFallbackToFirstFavorite(errorMessage: String) {
-        val favorites = _uiState.value.favoriteLocations
-        if (favorites.isNotEmpty()) {
-            val first = favorites.first()
-            locationGeneration++
-            _uiState.value = _uiState.value.copy(selectedLocationName = first.name)
-            viewModelScope.launch { preferencesManager.setSelectedLocationId(first.id) }
-        } else {
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                isRefreshing = false,
-                error = errorMessage
-            )
-        }
+    private fun failWithError(message: String) {
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            isRefreshing = false,
+            error = message
+        )
     }
 
     private suspend fun fetchWeather(lat: Double, lon: Double, locationName: String? = null) {
@@ -499,25 +450,6 @@ class HomeViewModel @Inject constructor(
                 fetchWeather(lat, lon)
             } else {
                 fetchCurrentLocationWeather()
-            }
-        }
-    }
-
-    private fun fetchDeviceCity() {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!hasPermission) return
-
-        val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-        fusedClient.lastLocation.addOnSuccessListener { loc ->
-            if (loc != null) {
-                viewModelScope.launch {
-                    val city = reverseGeocode(loc.latitude, loc.longitude)
-                    if (city.isNotEmpty()) {
-                        _uiState.value = _uiState.value.copy(currentCityName = city)
-                    }
-                }
             }
         }
     }

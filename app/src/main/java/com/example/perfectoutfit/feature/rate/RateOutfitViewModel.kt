@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.ClothingItem
-import com.example.perfectoutfit.core.model.FavoriteLocation
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.WeatherSnapshot
@@ -16,7 +15,6 @@ import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
 import com.example.perfectoutfit.feature.home.toWeatherSnapshot
 import com.example.perfectoutfit.feature.home.OutfitRepository
 import com.example.perfectoutfit.feature.home.WeatherRepository
-import com.example.perfectoutfit.feature.location.LocationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,7 +59,6 @@ data class RateOutfitUiState(
     val isLoadingDateWeather: Boolean = false,
     val logLocationSelected: Boolean = false,
     val logLocationName: String = "",
-    val logFavLocations: List<FavoriteLocation> = emptyList(),
     val logLat: Double = 0.0,
     val logLon: Double = 0.0,
     val likelyItemIds: Set<Long> = emptySet(),
@@ -83,7 +80,6 @@ class RateOutfitViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val weatherRepository: WeatherRepository,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
-    private val locationRepository: LocationRepository,
     private val preferencesManager: PreferencesManager,
     private val notificationHelper: NotificationHelper
 ) : ViewModel() {
@@ -142,7 +138,6 @@ class RateOutfitViewModel @Inject constructor(
                     val likelyIds = if (selHour != null) {
                         outfitRepository.getLikelyItemIds(sport, selHour.referenceTemp(useApp), useApp)
                     } else emptySet()
-                    val favorites = locationRepository.getAllFavoritesSync()
 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -155,27 +150,28 @@ class RateOutfitViewModel @Inject constructor(
                         logLocationName = payload?.locationName?.ifEmpty { "Current Location" } ?: "Current Location",
                         logLat = payload?.lat ?: 0.0,
                         logLon = payload?.lon ?: 0.0,
-                        logFavLocations = favorites,
                         likelyItemIds = likelyIds,
                         workoutDurationHours = payload?.workoutDurationHours ?: 1
                     )
                 }
                 is OutfitScreenMode.NewPast -> {
+                    // GPS-only: there is no location picker anymore, so the wizard always uses
+                    // the app's last-known (current) location, same as the Home screen.
                     val today = LocalDate.now()
-                    val favorites = locationRepository.getAllFavoritesSync()
+                    val relevantHours = weatherRepository.cachedAllHours
+                        .filter { !it.time.toLocalDate().isAfter(today) }
 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        availableHours = emptyList(),
+                        availableHours = relevantHours,
                         selectedDate = today,
                         selectedHourIndex = -1,
                         selectedItemIds = emptySet(),
                         logStep = LogOutfitStep.DATE_TIME_LOCATION,
-                        logLocationSelected = false,
-                        logLocationName = "",
-                        logFavLocations = favorites,
-                        logLat = 0.0,
-                        logLon = 0.0
+                        logLocationSelected = true,
+                        logLocationName = weatherRepository.cachedLocationName.ifEmpty { "Current Location" },
+                        logLat = weatherRepository.cachedLat,
+                        logLon = weatherRepository.cachedLon
                     )
                 }
             }
@@ -303,55 +299,6 @@ class RateOutfitViewModel @Inject constructor(
 
     fun hideDismissDialog() {
         _uiState.value = _uiState.value.copy(showDismissDialog = false)
-    }
-
-    // ─── Location selection in wizard ────────────────────────────────────────
-
-    fun selectLogLocation(location: FavoriteLocation?) {
-        if (location == null) {
-            // Current Location: use cached weather data.
-            val today = LocalDate.now()
-            val relevantHours = weatherRepository.cachedAllHours
-                .filter { !it.time.toLocalDate().isAfter(today) }
-            _uiState.value = _uiState.value.copy(
-                logLocationSelected = true,
-                logLocationName = weatherRepository.cachedLocationName.ifEmpty { "Current Location" },
-                logLat = weatherRepository.cachedLat,
-                logLon = weatherRepository.cachedLon,
-                availableHours = relevantHours,
-                selectedDate = today,
-                selectedHourIndex = -1
-            )
-        } else {
-            viewModelScope.launch {
-                _uiState.value = _uiState.value.copy(
-                    isLoadingLocationWeather = true,
-                    logLocationSelected = true,
-                    logLocationName = location.name
-                )
-                try {
-                    val allHours = weatherRepository.fetchWeatherOnly(
-                        location.latitude, location.longitude
-                    )
-                    val today = LocalDate.now()
-                    val relevantHours = allHours.filter { !it.time.toLocalDate().isAfter(today) }
-                    _uiState.value = _uiState.value.copy(
-                        isLoadingLocationWeather = false,
-                        logLat = location.latitude,
-                        logLon = location.longitude,
-                        availableHours = relevantHours,
-                        selectedDate = today,
-                        selectedHourIndex = -1
-                    )
-                } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoadingLocationWeather = false,
-                        logLocationSelected = false,
-                        logLocationName = ""
-                    )
-                }
-            }
-        }
     }
 
     // ─── Save ────────────────────────────────────────────────────────────────

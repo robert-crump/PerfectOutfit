@@ -1,10 +1,16 @@
 package com.example.perfectoutfit.feature.home
 
 import android.Manifest
+import android.app.Activity
+import android.content.ContextWrapper
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
+import androidx.core.app.ActivityCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +30,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,7 +45,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -56,10 +60,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,11 +74,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
-import com.example.perfectoutfit.core.model.FavoriteLocation
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.ui.components.ClothingItemChip
-import com.example.perfectoutfit.ui.components.LocationDropdown
 import com.example.perfectoutfit.ui.components.ratingLabel
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -82,17 +86,16 @@ private enum class WizardStep { LOCATION_SPORT, RESULT }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onAddLocation: () -> Unit,
     onNavigateToNewOutfit: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var wizardStep by remember { mutableStateOf(WizardStep.LOCATION_SPORT) }
     var outfitAccepted by remember { mutableStateOf(false) }
-    var pendingSport by remember { mutableStateOf<Pair<Sport, Int>?>(null) }
 
     BackHandler(enabled = wizardStep == WizardStep.RESULT) {
         wizardStep = WizardStep.LOCATION_SPORT
@@ -104,6 +107,12 @@ fun HomeScreen(
         }
     }
 
+    // Tracks whether we've already prompted for the location permission at least once, so a
+    // recurring permission error can be told apart from a first-ever ask: shouldShowRequestPermissionRationale
+    // returns false both before the first request AND after "don't ask again", so we need this
+    // flag to distinguish the two and decide between showing "Retry" and "Open Settings".
+    var permissionRequestedOnce by rememberSaveable { mutableStateOf(false) }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -112,6 +121,7 @@ fun HomeScreen(
 
     LaunchedEffect(uiState.error) {
         if (uiState.error?.contains("permission", ignoreCase = true) == true) {
+            permissionRequestedOnce = true
             permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
     }
@@ -120,32 +130,10 @@ fun HomeScreen(
         viewModel.onLocationPermissionMaybeGranted()
     }
 
-    val currentCity = uiState.currentCityName
-    if (pendingSport != null && currentCity != null
-        && !uiState.selectedLocationName.startsWith("Current location")
-        && !uiState.selectedLocationName.equals(currentCity, ignoreCase = true)) {
-        AlertDialog(
-            onDismissRequest = { pendingSport = null },
-            title = { Text("Location mismatch") },
-            text = {
-                Text(
-                    "Chosen location (${uiState.selectedLocationName}) and current location " +
-                    "($currentCity) do not match. Do you want to continue anyways?"
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val (sport, hours) = pendingSport!!
-                    pendingSport = null
-                    viewModel.selectSport(sport, hours)
-                    wizardStep = WizardStep.RESULT
-                }) { Text("Confirm") }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingSport = null }) { Text("Cancel") }
-            }
-        )
-    }
+    val isPermissionError = uiState.error?.contains("permission", ignoreCase = true) == true
+    val activity = context.findActivity()
+    val showOpenSettings = isPermissionError && permissionRequestedOnce && activity != null &&
+        !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
 
     Scaffold(
         topBar = {
@@ -179,19 +167,9 @@ fun HomeScreen(
             when (wizardStep) {
                 WizardStep.LOCATION_SPORT -> LocationSportStep(
                     selectedLocationName = uiState.selectedLocationName,
-                    favoriteLocations = uiState.favoriteLocations,
-                    onCurrentLocationSelected = viewModel::selectCurrentLocation,
-                    onFavoriteSelected = viewModel::selectFavoriteLocation,
-                    onAddLocation = onAddLocation,
                     onSportSelected = { sport, hours ->
-                        if (!uiState.selectedLocationName.startsWith("Current location")
-                            && uiState.currentCityName != null
-                            && !uiState.selectedLocationName.equals(uiState.currentCityName, ignoreCase = true)) {
-                            pendingSport = sport to hours
-                        } else {
-                            viewModel.selectSport(sport, hours)
-                            wizardStep = WizardStep.RESULT
-                        }
+                        viewModel.selectSport(sport, hours)
+                        wizardStep = WizardStep.RESULT
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -215,6 +193,8 @@ fun HomeScreen(
                     },
                     onRefresh = viewModel::refreshWeather,
                     onWorkoutTabSelected = viewModel::selectWorkoutTab,
+                    showOpenSettings = showOpenSettings,
+                    onOpenSettings = { context.openAppSettings() },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -225,10 +205,6 @@ fun HomeScreen(
 @Composable
 private fun LocationSportStep(
     selectedLocationName: String,
-    favoriteLocations: List<FavoriteLocation>,
-    onCurrentLocationSelected: () -> Unit,
-    onFavoriteSelected: (FavoriteLocation) -> Unit,
-    onAddLocation: () -> Unit,
     onSportSelected: (Sport, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -241,13 +217,17 @@ private fun LocationSportStep(
             .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        LocationDropdown(
-            selectedLocationName = selectedLocationName,
-            favoriteLocations = favoriteLocations,
-            onCurrentLocationSelected = onCurrentLocationSelected,
-            onFavoriteSelected = onFavoriteSelected,
-            onAddLocation = onAddLocation
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(selectedLocationName, style = MaterialTheme.typography.bodyLarge)
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -340,6 +320,8 @@ private fun ResultStep(
     onCustomOutfit: () -> Unit,
     onRefresh: () -> Unit,
     onWorkoutTabSelected: (WorkoutTab) -> Unit,
+    showOpenSettings: Boolean,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     PullToRefreshBox(
@@ -389,7 +371,11 @@ private fun ResultStep(
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = onRefresh) { Text("Retry") }
+                        if (showOpenSettings) {
+                            Button(onClick = onOpenSettings) { Text("Open Settings") }
+                        } else {
+                            Button(onClick = onRefresh) { Text("Retry") }
+                        }
                     }
                 }
             } else {
@@ -721,3 +707,20 @@ private val ColorRed    = Color(0xFFC62828)
 private fun uvColor(uv: Int)        = when { uv <= 2   -> ColorGreen; uv <= 5  -> ColorYellow; else -> ColorRed }
 private fun windColor(kmh: Double)  = when { kmh < 10  -> ColorGreen; kmh <= 20 -> ColorYellow; else -> ColorRed }
 private fun rainColor(pct: Int)     = when { pct < 20  -> ColorGreen; pct < 50 -> ColorYellow; else -> ColorRed }
+
+// ── Permission helpers ────────────────────────────────────────────────────
+
+/** Walks the Context wrapper chain to find the hosting Activity, if any. */
+private tailrec fun android.content.Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+/** Opens the system "App info" screen so the user can grant a permanently denied permission. */
+private fun android.content.Context.openAppSettings() {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        data = Uri.fromParts("package", packageName, null)
+    }
+    startActivity(intent)
+}

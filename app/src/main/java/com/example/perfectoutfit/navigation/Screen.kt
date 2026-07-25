@@ -2,9 +2,6 @@ package com.example.perfectoutfit.navigation
 
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
-    data object LocationManagement : Screen("locations?autofocus={autofocus}") {
-        fun createRoute(autofocus: Boolean = false) = "locations?autofocus=$autofocus"
-    }
     data object Catalog : Screen("catalog")
     data object RateOutfit : Screen("rate_outfit/{outfitEntryId}?highlight={highlight}") {
         fun createRoute(outfitEntryId: Long, highlight: Boolean = false) =

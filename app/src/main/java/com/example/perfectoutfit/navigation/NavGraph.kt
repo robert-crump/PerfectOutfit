@@ -33,7 +33,6 @@ import androidx.navigation.navArgument
 import com.example.perfectoutfit.feature.catalog.CatalogScreen
 import com.example.perfectoutfit.feature.history.HistoryScreen
 import com.example.perfectoutfit.feature.home.HomeScreen
-import com.example.perfectoutfit.feature.location.LocationScreen
 import com.example.perfectoutfit.feature.rate.RateOutfitScreen
 import com.example.perfectoutfit.feature.settings.SettingsScreen
 
@@ -68,7 +67,6 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
             val isOnNewOutfit  = currentDestination?.route?.startsWith("new_outfit") == true
             val isOnRateOutfit = currentDestination?.route?.startsWith("rate_outfit") == true
             val isOnCatalog    = currentDestination?.route == Screen.Catalog.route
-            val isOnLocationManagement = currentDestination?.route?.startsWith("locations") == true
 
             NavigationBar {
                 bottomNavItems.forEach { item ->
@@ -78,7 +76,6 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
                         selected = when {
                             isOnNewOutfit            -> item.screen == Screen.History
                             isOnCatalog              -> item.screen == Screen.Settings
-                            isOnLocationManagement   -> item.screen == Screen.Settings
                             else -> currentDestination?.hierarchy?.any { it.route == item.screen.route } == true
                         },
                         onClick = {
@@ -109,18 +106,7 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
-                    onAddLocation = { navController.navigate(Screen.LocationManagement.createRoute(autofocus = true)) },
                     onNavigateToNewOutfit = { navController.navigate(Screen.NewOutfit.createRoute(isLive = true)) }
-                )
-            }
-            composable(
-                route = Screen.LocationManagement.route,
-                arguments = listOf(navArgument("autofocus") { type = NavType.BoolType; defaultValue = false })
-            ) { backStackEntry ->
-                val autofocus = backStackEntry.arguments?.getBoolean("autofocus") ?: false
-                LocationScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    autoFocusSearch = autofocus
                 )
             }
             composable(Screen.Catalog.route) {
@@ -176,8 +162,7 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    onNavigateToCatalog = { navController.navigate(Screen.Catalog.route) },
-                    onNavigateToLocations = { navController.navigate(Screen.LocationManagement.createRoute(autofocus = false)) }
+                    onNavigateToCatalog = { navController.navigate(Screen.Catalog.route) }
                 )
             }
         }
