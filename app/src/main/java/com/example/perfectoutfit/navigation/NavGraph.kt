@@ -31,6 +31,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.perfectoutfit.feature.catalog.CatalogScreen
+import com.example.perfectoutfit.feature.explorer.ExplorerScreen
 import com.example.perfectoutfit.feature.history.HistoryScreen
 import com.example.perfectoutfit.feature.home.HomeScreen
 import com.example.perfectoutfit.feature.rate.RateOutfitScreen
@@ -106,8 +107,22 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
-                    onNavigateToNewOutfit = { navController.navigate(Screen.NewOutfit.createRoute(isLive = true)) }
+                    onNavigateToNewOutfit = { navController.navigate(Screen.NewOutfit.createRoute(isLive = true)) },
+                    onNavigateToExplorer = { forecastTemp ->
+                        navController.navigate(Screen.Explorer.createRoute(forecastTemp))
+                    }
                 )
+            }
+            composable(
+                route = Screen.Explorer.route,
+                arguments = listOf(
+                    navArgument("forecastTemp") {
+                        type = NavType.IntType
+                        defaultValue = Screen.Explorer.NO_FORECAST_TEMP
+                    }
+                )
+            ) {
+                ExplorerScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable(Screen.Catalog.route) {
                 CatalogScreen(onNavigateBack = { navController.popBackStack() })

@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -87,6 +88,7 @@ private enum class WizardStep { LOCATION_SPORT, RESULT }
 @Composable
 fun HomeScreen(
     onNavigateToNewOutfit: () -> Unit,
+    onNavigateToExplorer: (Int?) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -135,11 +137,18 @@ fun HomeScreen(
     val showOpenSettings = isPermissionError && permissionRequestedOnce && activity != null &&
         !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
 
+    val forecastTemp = if (uiState.hourlyWeather.isNotEmpty()) uiState.activeDisplayTemp else null
+
     Scaffold(
         topBar = {
             when (wizardStep) {
                 WizardStep.LOCATION_SPORT -> TopAppBar(
                     title = { Text("Outfit Recommendation") },
+                    actions = {
+                        IconButton(onClick = { onNavigateToExplorer(forecastTemp) }) {
+                            Icon(Icons.Default.Info, contentDescription = "Outfit Explorer")
+                        }
+                    },
                     windowInsets = WindowInsets(0)
                 )
                 WizardStep.RESULT -> TopAppBar(
@@ -150,6 +159,11 @@ fun HomeScreen(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back"
                             )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { onNavigateToExplorer(forecastTemp) }) {
+                            Icon(Icons.Default.Info, contentDescription = "Outfit Explorer")
                         }
                     },
                     windowInsets = WindowInsets(0)

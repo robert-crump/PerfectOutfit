@@ -48,6 +48,10 @@ class OutfitRepository @Inject constructor(
         return outfitEntryDao.getAllWithDetailsBySport(sport)
     }
 
+    suspend fun getRatedEntries(sport: Sport): List<OutfitEntryWithDetails> {
+        return outfitEntryDao.getRatedEntriesWithDetails(sport)
+    }
+
     suspend fun findRecommendation(
         sport: Sport,
         temp: Double,
