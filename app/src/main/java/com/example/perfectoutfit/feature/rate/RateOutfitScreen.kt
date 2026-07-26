@@ -64,9 +64,11 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.ui.components.ComfortRatingBar
@@ -214,7 +216,8 @@ private fun RateExistingOutfitContent(
                 }
                 Text(
                     text = "Weather: ${ws.temperatureCelsius.toInt()}\u00B0C " +
-                        "(feels like ${ws.apparentTemperatureCelsius.toInt()}\u00B0C)",
+                        "(${stringResource(R.string.temperature_apparent).lowercase()}: " +
+                        "${ws.apparentTemperatureCelsius.toInt()}\u00B0C)",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
@@ -506,8 +509,8 @@ private fun WizardDateTimeLocationStep(
                         text = "Weather \u2013 $dateLabel at ${selectedHour.time.format(timeFormatter)}",
                         style = MaterialTheme.typography.labelLarge
                     )
-                    WeatherInfoRow("Temperature", "${selectedHour.temperatureCelsius.toInt()}\u00B0C")
-                    WeatherInfoRow("Apparent temp.", "${selectedHour.apparentTemperatureCelsius.toInt()}\u00B0C")
+                    WeatherInfoRow(stringResource(R.string.temperature_real), "${selectedHour.temperatureCelsius.toInt()}\u00B0C")
+                    WeatherInfoRow(stringResource(R.string.temperature_apparent), "${selectedHour.apparentTemperatureCelsius.toInt()}\u00B0C")
                     WeatherInfoRow("Wind", "${selectedHour.windSpeedKmh.toInt()} km/h ${selectedHour.windDirectionLabel}")
                     WeatherInfoRow("UV index", "${selectedHour.uvIndex}")
                     WeatherInfoRow("Cloud cover", "${selectedHour.cloudCoverPercent}%")
@@ -720,7 +723,8 @@ private fun WizardSummaryStep(
             if (hour != null) {
                 SummarySection("Weather") {
                     Text(
-                        text = "${hour.temperatureCelsius.toInt()}\u00B0C, feels like " +
+                        text = "${hour.temperatureCelsius.toInt()}\u00B0C, " +
+                            "${stringResource(R.string.temperature_apparent).lowercase()} " +
                             "${hour.apparentTemperatureCelsius.toInt()}\u00B0C",
                         style = MaterialTheme.typography.bodyLarge
                     )

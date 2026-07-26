@@ -6,4 +6,7 @@
     <string name="rating_emoji_too_cold">🥶</string>
     <string name="rating_emoji_perfect">😃</string>
     <string name="rating_emoji_too_hot">🥵</string>
+    <string name="temperature_real">Real temperature</string>
+    <string name="temperature_apparent">Apparent temperature</string>
+    <string name="settings_use_apparent_temperature">Use %1$s</string>
 </resources>

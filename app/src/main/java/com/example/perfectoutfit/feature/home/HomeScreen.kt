@@ -68,6 +68,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -518,7 +519,9 @@ private fun CompactWeatherRow(
     weather: HourlyWeather,
     useApparentTemperature: Boolean
 ) {
-    val tempLabel = if (useApparentTemperature) "Feels like" else "Temperature"
+    val tempLabel = stringResource(
+        if (useApparentTemperature) R.string.temperature_apparent else R.string.temperature_real
+    )
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
