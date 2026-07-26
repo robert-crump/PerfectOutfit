@@ -22,6 +22,7 @@ import javax.inject.Inject
 data class ExplorerUiState(
     val sport: Sport = Sport.CYCLING,
     val isLoading: Boolean = true,
+    val useApparent: Boolean = true,
     /** Sorted, distinct rounded temperatures that have rated outfit history for [sport]. */
     val stops: List<Int> = emptyList(),
     val selectedIndex: Int = 0,
@@ -43,19 +44,26 @@ class ExplorerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ExplorerUiState())
     val uiState: StateFlow<ExplorerUiState> = _uiState.asStateFlow()
 
-    private var useApparent = true
     private var currentEntries: List<OutfitEntryWithDetails> = emptyList()
 
     init {
         viewModelScope.launch {
-            useApparent = preferencesManager.useApparentTemperature.first()
+            val useApparent = preferencesManager.useApparentTemperature.first()
             val sport = preferencesManager.selectedSport.first()
-            loadStops(sport)
+            _uiState.value = _uiState.value.copy(useApparent = useApparent)
+            loadStops(sport, preferredTarget = forecastTemp)
         }
     }
 
     fun selectSport(sport: Sport) {
-        viewModelScope.launch { loadStops(sport) }
+        viewModelScope.launch { loadStops(sport, preferredTarget = forecastTemp) }
+    }
+
+    fun selectTemperatureMode(useApparent: Boolean) {
+        if (useApparent == _uiState.value.useApparent) return
+        val previousTemp = _uiState.value.selectedTemp
+        _uiState.value = _uiState.value.copy(useApparent = useApparent)
+        viewModelScope.launch { loadStops(_uiState.value.sport, preferredTarget = previousTemp) }
     }
 
     fun selectIndex(index: Int) {
@@ -65,14 +73,15 @@ class ExplorerViewModel @Inject constructor(
         applyRecommendationForCurrentStop()
     }
 
-    private suspend fun loadStops(sport: Sport) {
+    private suspend fun loadStops(sport: Sport, preferredTarget: Int?) {
         _uiState.value = _uiState.value.copy(isLoading = true, sport = sport, recommendation = null)
+        val useApparent = _uiState.value.useApparent
         val entries = outfitRepository.getRatedEntries(sport)
         currentEntries = entries
         val stops = entries.map { it.roundedTemp(useApparent) }.distinct().sorted()
         val initialIndex = when {
             stops.isEmpty() -> 0
-            else -> nearestIndex(stops, forecastTemp ?: stops[stops.size / 2])
+            else -> nearestIndex(stops, preferredTarget ?: stops[stops.size / 2])
         }
         _uiState.value = _uiState.value.copy(
             isLoading = false,
@@ -87,7 +96,11 @@ class ExplorerViewModel @Inject constructor(
 
     private fun applyRecommendationForCurrentStop() {
         val temp = _uiState.value.selectedTemp ?: return
-        val recommendation = RecommendationPolicy.findRecommendation(currentEntries, temp, useApparent)
+        val recommendation = RecommendationPolicy.findRecommendation(
+            currentEntries,
+            temp,
+            _uiState.value.useApparent
+        )
         _uiState.value = _uiState.value.copy(recommendation = recommendation)
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,7 +33,9 @@ import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.ui.components.ClothingItemChip
 import com.example.perfectoutfit.ui.components.SportToggle
+import com.example.perfectoutfit.ui.components.TemperatureModeToggle
 import com.example.perfectoutfit.ui.components.ratingLabel
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +71,11 @@ fun ExplorerScreen(
                 onSportSelected = viewModel::selectSport
             )
 
+            TemperatureModeToggle(
+                useApparent = uiState.useApparent,
+                onUseApparentSelected = viewModel::selectTemperatureMode
+            )
+
             when {
                 uiState.isLoading -> CircularProgressIndicator(
                     modifier = Modifier.padding(top = 24.dp)
@@ -90,11 +98,27 @@ fun ExplorerScreen(
 
                     Slider(
                         value = uiState.selectedIndex.toFloat(),
-                        onValueChange = { viewModel.selectIndex(it.toInt()) },
+                        onValueChange = { viewModel.selectIndex(it.roundToInt()) },
                         valueRange = 0f..(uiState.stops.size - 1).coerceAtLeast(0).toFloat(),
                         steps = (uiState.stops.size - 2).coerceAtLeast(0),
                         enabled = uiState.stops.size > 1
                     )
+
+                    if (uiState.stops.size > 1) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "${uiState.stops.first()}°C",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                text = "${uiState.stops.last()}°C",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
 
                     uiState.recommendation?.let { recommendation ->
                         ExplorerRecommendationCard(recommendation)
