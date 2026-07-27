@@ -35,6 +35,10 @@
                     android:host="rate" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".core.notification.RateOutfitActionReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

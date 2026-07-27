@@ -37,3 +37,29 @@ PerfectOutfit — Progress Log
     * LocationRepository.kt: added deleteAll() and insertAll() helpers used by the manager.
     * SettingsScreen.kt: export button now generates filename with yyMMdd_ prefix
       (e.g. 260604_perfect_outfit_data.json) using java.time.LocalDate.
+
+2026-07-27
+- Added quick-response rating buttons ("Too cold" / "Perfect" / "Too hot") to the
+  post-workout rating reminder notification, so a rating can be logged without opening
+  the app.
+  Design (via /grill-me interview): buttons added to the existing reminder notification
+  (NotificationHelper.kt) rather than a new one; tapping a button cancels the notification,
+  saves the rating (last-write-wins, no-op if the entry was deleted), and shows a brief
+  confirmation Toast.
+  Changes:
+    * NotificationHelper.kt: showRatingNotification() now adds three NotificationCompat.Action
+      buttons, each a PendingIntent.getBroadcast targeting RateOutfitActionReceiver with a
+      distinct data URI (perfectoutfit-rate://<entryId>/<rating>) so the three actions and the
+      existing content intent never collide.
+    * RateOutfitActionReceiver.kt (new): @AndroidEntryPoint BroadcastReceiver, exported=false,
+      registered in AndroidManifest.xml. Validates the intent via RatingActionValidator, then
+      uses goAsync() + a coroutine to delegate to RatingActionHandler before calling finish().
+    * RatingActionHandler.kt (new): the actual async logic (cancel notification, call
+      OutfitRepository.rateEntry(), show toast) factored out of the receiver into a plain
+      injectable class. Kept separate because coroutines launched directly inside the
+      Hilt-transformed receiver hung under Robolectric's sandboxed classloader in testing;
+      delegating to a plain class sidesteps that and is independently unit-testable.
+    * RatingActionValidator.kt (new): pure entryId/rating validation, no Android dependencies.
+    * strings.xml: added rating_saved_toast.
+    * Added Robolectric + androidx.test:core as test dependencies (build.gradle.kts,
+      libs.versions.toml) to unit-test the receiver and handler.

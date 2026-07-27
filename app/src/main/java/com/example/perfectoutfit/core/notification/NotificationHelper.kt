@@ -72,9 +72,28 @@ class NotificationHelper @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
+            .addAction(ratingAction(outfitEntryId, -1, context.getString(R.string.rating_too_cold)))
+            .addAction(ratingAction(outfitEntryId, 0, context.getString(R.string.rating_perfect)))
+            .addAction(ratingAction(outfitEntryId, 1, context.getString(R.string.rating_too_hot)))
             .build()
 
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.notify(outfitEntryId.toInt(), notification)
+    }
+
+    private fun ratingAction(outfitEntryId: Long, rating: Int, label: String): NotificationCompat.Action {
+        val intent = Intent(context, RateOutfitActionReceiver::class.java).apply {
+            action = RateOutfitActionReceiver.ACTION_RATE
+            data = Uri.parse("perfectoutfit-rate://$outfitEntryId/$rating")
+            putExtra(RateOutfitActionReceiver.EXTRA_ENTRY_ID, outfitEntryId)
+            putExtra(RateOutfitActionReceiver.EXTRA_RATING, rating)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            outfitEntryId.toInt(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Action.Builder(R.drawable.ic_launcher_foreground, label, pendingIntent).build()
     }
 }
