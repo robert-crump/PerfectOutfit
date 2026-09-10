@@ -145,7 +145,11 @@ fun HistoryScreen(
                 }
             }
 
-            if (entries.isEmpty()) {
+            val loadedEntries = entries
+            if (loadedEntries == null) {
+                // Still waiting on the first database emission — show nothing
+                // rather than flashing the empty-state message.
+            } else if (loadedEntries.isEmpty()) {
                 Text(
                     text = "No outfit entries yet. Rate an outfit to see it here.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -160,7 +164,7 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.verticalScrollbar(lazyListState)
                 ) {
-                    items(entries, key = { "${it.entry.id}_${restoredVersions[it.entry.id] ?: 0}" }) { entry ->
+                    items(loadedEntries, key = { "${it.entry.id}_${restoredVersions[it.entry.id] ?: 0}" }) { entry ->
                         val dismissState = rememberSwipeToDismissBoxState(
                             positionalThreshold = { totalDistance -> totalDistance * 0.40f },
                             confirmValueChange = { value ->

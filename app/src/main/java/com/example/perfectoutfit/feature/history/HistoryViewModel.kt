@@ -25,12 +25,14 @@ class HistoryViewModel @Inject constructor(
     private val _filterSport = MutableStateFlow<Sport?>(Sport.CYCLING)
     val filterSport: StateFlow<Sport?> = _filterSport
 
-    val entries: StateFlow<List<OutfitEntryWithDetails>> = _filterSport
+    // Null means "not loaded yet" so the UI can avoid flashing the empty-state
+    // message before the first database emission arrives.
+    val entries: StateFlow<List<OutfitEntryWithDetails>?> = _filterSport
         .flatMapLatest { sport ->
             if (sport != null) outfitRepository.getEntriesBySport(sport)
             else outfitRepository.getAllEntriesWithDetails()
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val _lastDeletedEntry = MutableStateFlow<OutfitEntryWithDetails?>(null)
     val lastDeletedEntry: StateFlow<OutfitEntryWithDetails?> = _lastDeletedEntry.asStateFlow()
