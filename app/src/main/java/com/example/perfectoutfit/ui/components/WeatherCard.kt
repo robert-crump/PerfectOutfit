@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -25,29 +24,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.perfectoutfit.feature.home.HourlyWeather
+import com.example.perfectoutfit.ui.theme.LocalStatusColors
 import java.time.format.DateTimeFormatter
 
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-
-private val ColorGreen  = Color(0xFF2E7D32)
-private val ColorYellow = Color(0xFFF57F17)
-private val ColorRed    = Color(0xFFC62828)
-
-private fun uvColor(uv: Int) = when {
-    uv <= 2 -> ColorGreen
-    uv <= 5 -> ColorYellow
-    else    -> ColorRed
-}
-private fun windColor(kmh: Double) = when {
-    kmh < 10  -> ColorGreen
-    kmh <= 20 -> ColorYellow
-    else      -> ColorRed
-}
-private fun rainColor(pct: Int) = when {
-    pct < 20  -> ColorGreen
-    pct < 50  -> ColorYellow
-    else      -> ColorRed
-}
 
 @Composable
 fun WeatherCard(
@@ -56,6 +36,8 @@ fun WeatherCard(
     onHourSelected: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val statusColors = LocalStatusColors.current
+
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -88,7 +70,7 @@ fun WeatherCard(
                     Column(
                         modifier = Modifier
                             .width(72.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(MaterialTheme.shapes.small)
                             .background(bgColor)
                             .clickable { onHourSelected(index) }
                             .padding(vertical = 8.dp, horizontal = 4.dp),
@@ -138,17 +120,17 @@ fun WeatherCard(
                     ColoredIndicator(
                         label = "UV",
                         value = "${selected.uvIndex}",
-                        color = uvColor(selected.uvIndex)
+                        color = uvStatusColor(selected.uvIndex, statusColors)
                     )
                     ColoredIndicator(
                         label = "Wind",
                         value = "${selected.windSpeedKmh.toInt()} km/h",
-                        color = windColor(selected.windSpeedKmh)
+                        color = windStatusColor(selected.windSpeedKmh, statusColors)
                     )
                     ColoredIndicator(
                         label = "Rain",
                         value = "${selected.precipitationProbabilityPercent}%",
-                        color = rainColor(selected.precipitationProbabilityPercent)
+                        color = rainStatusColor(selected.precipitationProbabilityPercent, statusColors)
                     )
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(

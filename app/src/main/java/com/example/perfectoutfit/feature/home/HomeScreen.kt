@@ -66,6 +66,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.example.perfectoutfit.ui.components.rainStatusColor
+import com.example.perfectoutfit.ui.components.uvStatusColor
+import com.example.perfectoutfit.ui.components.windStatusColor
+import com.example.perfectoutfit.ui.theme.LocalStatusColors
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -522,6 +526,7 @@ private fun CompactWeatherRow(
     val tempLabel = stringResource(
         if (useApparentTemperature) R.string.temperature_apparent else R.string.temperature_real
     )
+    val statusColors = LocalStatusColors.current
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -539,17 +544,17 @@ private fun CompactWeatherRow(
             WeatherMetric(
                 value = "${weather.uvIndex}",
                 label = "UV",
-                valueColor = uvColor(weather.uvIndex)
+                valueColor = uvStatusColor(weather.uvIndex, statusColors)
             )
             WeatherMetric(
                 value = "${weather.windSpeedKmh.toInt()} km/h",
                 label = "Wind",
-                valueColor = windColor(weather.windSpeedKmh)
+                valueColor = windStatusColor(weather.windSpeedKmh, statusColors)
             )
             WeatherMetric(
                 value = "${weather.precipitationProbabilityPercent}%",
                 label = "Rain",
-                valueColor = rainColor(weather.precipitationProbabilityPercent)
+                valueColor = rainStatusColor(weather.precipitationProbabilityPercent, statusColors)
             )
         }
     }
@@ -714,16 +719,6 @@ private fun WindInfoCard(windSpeedKmh: Int, windDirection: String) {
         }
     }
 }
-
-// ── Color helpers (UV / wind / rain indicators) ──────────────────────────────
-
-private val ColorGreen  = Color(0xFF2E7D32)
-private val ColorYellow = Color(0xFFF57F17)
-private val ColorRed    = Color(0xFFC62828)
-
-private fun uvColor(uv: Int)        = when { uv <= 2   -> ColorGreen; uv <= 5  -> ColorYellow; else -> ColorRed }
-private fun windColor(kmh: Double)  = when { kmh < 10  -> ColorGreen; kmh <= 20 -> ColorYellow; else -> ColorRed }
-private fun rainColor(pct: Int)     = when { pct < 20  -> ColorGreen; pct < 50 -> ColorYellow; else -> ColorRed }
 
 // ── Permission helpers ────────────────────────────────────────────────────
 

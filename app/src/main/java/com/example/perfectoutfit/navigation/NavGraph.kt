@@ -1,10 +1,19 @@
 package com.example.perfectoutfit.navigation
 
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
@@ -12,6 +21,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,10 +31,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -49,6 +65,19 @@ val bottomNavItems = listOf(
     BottomNavItem(Screen.Settings, "Settings", Icons.Default.Settings)
 )
 
+// MD3 canonical breakpoints (https://m3.material.io/foundations/layout/applying-layout).
+private const val MEDIUM_WIDTH_BREAKPOINT_DP = 600
+private const val EXPANDED_WIDTH_BREAKPOINT_DP = 840
+private val MAX_CONTENT_WIDTH = 840.dp
+
+// MD3 emphasized easing/duration for top-level destination switches — a "fade
+// through" transition, the pattern Material recommends for UI elements with no
+// direct navigational relationship (e.g. bottom nav / rail destinations).
+private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+private val EmphasizedAccelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+private val DestinationEnter = fadeIn(animationSpec = tween(durationMillis = 400, easing = EmphasizedDecelerate))
+private val DestinationExit = fadeOut(animationSpec = tween(durationMillis = 200, easing = EmphasizedAccelerate))
+
 @Composable
 fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
     val navController = rememberNavController()
@@ -60,50 +89,124 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
         }
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
-        bottomBar = {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentDestination = navBackStackEntry?.destination
-            val isOnNewOutfit  = currentDestination?.route?.startsWith("new_outfit") == true
-            val isOnRateOutfit = currentDestination?.route?.startsWith("rate_outfit") == true
-            val isOnCatalog    = currentDestination?.route == Screen.Catalog.route
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    val isOnNewOutfit = currentDestination?.route?.startsWith("new_outfit") == true
+    val isOnRateOutfit = currentDestination?.route?.startsWith("rate_outfit") == true
+    val isOnCatalog = currentDestination?.route == Screen.Catalog.route
 
-            NavigationBar {
-                bottomNavItems.forEach { item ->
-                    NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.label) },
-                        label = { Text(item.label) },
-                        selected = when {
-                            isOnNewOutfit            -> item.screen == Screen.History
-                            isOnCatalog              -> item.screen == Screen.Settings
-                            else -> currentDestination?.hierarchy?.any { it.route == item.screen.route } == true
-                        },
-                        onClick = {
-                            if (isOnNewOutfit) {
-                                pendingTabRoute = item.screen.route
-                            } else {
-                                val alreadyAtRoot = currentDestination?.route == item.screen.route
-                                if (!alreadyAtRoot) {
-                                    // If RateOutfit is open, pop it first so its state is not
-                                    // saved and later restored on top of the destination tab.
-                                    if (isOnRateOutfit) navController.popBackStack()
-                                    navController.navigate(item.screen.route) {
-                                        popUpTo(navController.graph.findStartDestination().id)
-                                        launchSingleTop = true
-                                    }
-                                }
-                            }
-                        }
-                    )
+    fun isSelected(item: BottomNavItem) = when {
+        isOnNewOutfit -> item.screen == Screen.History
+        isOnCatalog -> item.screen == Screen.Settings
+        else -> currentDestination?.hierarchy?.any { it.route == item.screen.route } == true
+    }
+
+    fun onNavItemClick(item: BottomNavItem) {
+        if (isOnNewOutfit) {
+            pendingTabRoute = item.screen.route
+        } else {
+            val alreadyAtRoot = currentDestination?.route == item.screen.route
+            if (!alreadyAtRoot) {
+                // If RateOutfit is open, pop it first so its state is not
+                // saved and later restored on top of the destination tab.
+                if (isOnRateOutfit) navController.popBackStack()
+                navController.navigate(item.screen.route) {
+                    popUpTo(navController.graph.findStartDestination().id)
+                    launchSingleTop = true
                 }
             }
         }
-    ) { innerPadding ->
+    }
+
+    // Adaptive navigation per MD3 canonical layouts: a bottom bar on compact
+    // widths (phones), a rail from medium widths upward (tablets, foldables,
+    // large screens) — https://m3.material.io/foundations/layout/canonical-layouts.
+    val windowWidthDp = LocalConfiguration.current.screenWidthDp
+    val useNavigationRail = windowWidthDp >= MEDIUM_WIDTH_BREAKPOINT_DP
+    val maxContentWidth = if (windowWidthDp >= EXPANDED_WIDTH_BREAKPOINT_DP) MAX_CONTENT_WIDTH else Dp.Unspecified
+
+    if (useNavigationRail) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            NavigationRail {
+                bottomNavItems.forEach { item ->
+                    NavigationRailItem(
+                        icon = { Icon(item.icon, contentDescription = item.label) },
+                        label = { Text(item.label) },
+                        selected = isSelected(item),
+                        onClick = { onNavItemClick(item) }
+                    )
+                }
+            }
+            Scaffold(
+                modifier = Modifier.weight(1f),
+                contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
+            ) { innerPadding ->
+                NavGraphContent(
+                    navController = navController,
+                    innerPadding = innerPadding,
+                    maxContentWidth = maxContentWidth,
+                    pendingTabRoute = pendingTabRoute,
+                    onPendingTabRouteChange = { pendingTabRoute = it }
+                )
+            }
+        }
+    } else {
+        Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
+            bottomBar = {
+                NavigationBar {
+                    bottomNavItems.forEach { item ->
+                        NavigationBarItem(
+                            icon = { Icon(item.icon, contentDescription = item.label) },
+                            label = { Text(item.label) },
+                            selected = isSelected(item),
+                            onClick = { onNavItemClick(item) }
+                        )
+                    }
+                }
+            }
+        ) { innerPadding ->
+            NavGraphContent(
+                navController = navController,
+                innerPadding = innerPadding,
+                maxContentWidth = maxContentWidth,
+                pendingTabRoute = pendingTabRoute,
+                onPendingTabRouteChange = { pendingTabRoute = it }
+            )
+        }
+    }
+}
+
+@Composable
+private fun NavGraphContent(
+    navController: NavHostController,
+    innerPadding: PaddingValues,
+    maxContentWidth: Dp,
+    pendingTabRoute: String?,
+    onPendingTabRouteChange: (String?) -> Unit
+) {
+    // Constrain reading/content width on expanded (840dp+) windows so lines of
+    // text and layouts don't stretch edge-to-edge on large screens.
+    val contentModifier = if (maxContentWidth != Dp.Unspecified) {
+        Modifier.widthIn(max = maxContentWidth)
+    } else {
+        Modifier
+    }
+
+    Box(
+        modifier = Modifier
+            .padding(innerPadding)
+            .fillMaxSize(),
+        contentAlignment = Alignment.TopCenter
+    ) {
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = contentModifier,
+            enterTransition = { DestinationEnter },
+            exitTransition = { DestinationExit },
+            popEnterTransition = { DestinationEnter },
+            popExitTransition = { DestinationExit }
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
@@ -150,7 +253,7 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
                     onExternalCancelConfirmed = {
                         val route = pendingTabRoute
                         if (route != null) {
-                            pendingTabRoute = null
+                            onPendingTabRouteChange(null)
                             val startId = navController.graph.findStartDestination().id
                             if (route == Screen.Home.route) {
                                 // Home is the start destination and already in the back stack;
@@ -164,7 +267,7 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
                             }
                         }
                     },
-                    onExternalCancelDismissed = { pendingTabRoute = null }
+                    onExternalCancelDismissed = { onPendingTabRouteChange(null) }
                 )
             }
             composable(Screen.History.route) {

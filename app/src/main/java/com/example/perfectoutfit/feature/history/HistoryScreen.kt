@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -209,7 +208,7 @@ private fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
     // Show red as soon as the user drags even a little
     val alpha = (progress * 5f).coerceIn(0f, 1f)
     val color = if (progress > 0f)
-        Color(0xFFE53935).copy(alpha = alpha)
+        MaterialTheme.colorScheme.error.copy(alpha = alpha)
     else
         Color.Transparent
     val alignment = when (targetValue) {
@@ -219,7 +218,7 @@ private fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(color, RoundedCornerShape(12.dp))
+            .background(color, MaterialTheme.shapes.medium)
             .padding(horizontal = 20.dp),
         contentAlignment = alignment
     ) {
@@ -227,7 +226,7 @@ private fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
             Icon(
                 imageVector = Icons.Default.Delete,
                 contentDescription = "Delete",
-                tint = Color.White.copy(alpha = alpha)
+                tint = MaterialTheme.colorScheme.onError.copy(alpha = alpha)
             )
         }
     }
