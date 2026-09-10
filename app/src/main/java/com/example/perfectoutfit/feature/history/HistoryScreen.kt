@@ -39,6 +39,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -94,6 +95,12 @@ fun HistoryScreen(
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Outfit History") },
+                windowInsets = WindowInsets(0)
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0)
     ) { innerPadding ->
@@ -112,8 +119,6 @@ fun HistoryScreen(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
         ) {
-            Text("Outfit History", style = MaterialTheme.typography.headlineMedium)
-
             // Sport filter chips — no "All" button; deselect to show all
             Row(
                 modifier = Modifier

@@ -8,18 +8,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateToCatalog: () -> Unit = {},
@@ -59,79 +64,86 @@ fun SettingsScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text("Catalog", style = MaterialTheme.typography.titleMedium)
-
-        Button(
-            onClick = onNavigateToCatalog,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Clothing Catalog")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text("Recommendations", style = MaterialTheme.typography.titleMedium)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(
-                    R.string.settings_use_apparent_temperature,
-                    stringResource(R.string.temperature_apparent)
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                windowInsets = WindowInsets(0)
             )
-            Switch(
-                checked = uiState.useApparentTemperature,
-                onCheckedChange = viewModel::setUseApparentTemperature
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text("Data Management", style = MaterialTheme.typography.titleMedium)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        },
+        contentWindowInsets = WindowInsets(0)
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text("Catalog", style = MaterialTheme.typography.titleMedium)
+
             Button(
-                onClick = {
-                    val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"))
-                    exportLauncher.launch("${date}_perfect_outfit_data.json")
-                },
-                modifier = Modifier.weight(1f),
-                enabled = !uiState.isProcessing
+                onClick = onNavigateToCatalog,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Backup")
+                Text("Clothing Catalog")
             }
-            OutlinedButton(
-                onClick = { importLauncher.launch(arrayOf("application/json")) },
-                modifier = Modifier.weight(1f),
-                enabled = !uiState.isProcessing
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text("Recommendations", style = MaterialTheme.typography.titleMedium)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Import")
+                Text(
+                    text = stringResource(
+                        R.string.settings_use_apparent_temperature,
+                        stringResource(R.string.temperature_apparent)
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = uiState.useApparentTemperature,
+                    onCheckedChange = viewModel::setUseApparentTemperature
+                )
             }
-        }
 
-        if (uiState.isProcessing) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-        }
+            Spacer(modifier = Modifier.height(8.dp))
 
-        SnackbarHost(hostState = snackbarHostState)
+            Text("Data Management", style = MaterialTheme.typography.titleMedium)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"))
+                        exportLauncher.launch("${date}_perfect_outfit_data.json")
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isProcessing
+                ) {
+                    Text("Backup")
+                }
+                OutlinedButton(
+                    onClick = { importLauncher.launch(arrayOf("application/json")) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isProcessing
+                ) {
+                    Text("Import")
+                }
+            }
+
+            if (uiState.isProcessing) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+            }
+
+            SnackbarHost(hostState = snackbarHostState)
+        }
     }
 }
