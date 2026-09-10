@@ -37,9 +37,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -52,6 +55,28 @@ import com.example.perfectoutfit.feature.history.HistoryScreen
 import com.example.perfectoutfit.feature.home.HomeScreen
 import com.example.perfectoutfit.feature.rate.RateOutfitScreen
 import com.example.perfectoutfit.feature.settings.SettingsScreen
+
+// Guards against the classic Compose Navigation bug where a screen that's
+// tapped repeatedly (e.g. mashing a back arrow during its exit fade) fires a
+// second navigate()/popBackStack() before the first transition has settled.
+// The in-flight destination's entry isn't RESUMED yet at that point, so
+// checking it before acting on a tap makes every extra tap a no-op instead of
+// racing the back stack — which otherwise can leave a destination composed
+// but never actually drawn (a blank/black screen with the nav bar still up).
+private fun NavBackStackEntry.lifecycleIsResumed() =
+    lifecycle.currentState == Lifecycle.State.RESUMED
+
+private inline fun NavHostController.onceResumed(action: NavHostController.() -> Unit) {
+    if (currentBackStackEntry?.lifecycleIsResumed() != false) {
+        action()
+    }
+}
+
+private fun NavHostController.navigateOnce(route: String, builder: NavOptionsBuilder.() -> Unit = {}) =
+    onceResumed { navigate(route, builder) }
+
+private fun NavHostController.popBackStackOnce() =
+    onceResumed { popBackStack() }
 
 data class BottomNavItem(
     val screen: Screen,
@@ -107,12 +132,14 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
         } else {
             val alreadyAtRoot = currentDestination?.route == item.screen.route
             if (!alreadyAtRoot) {
-                // If RateOutfit is open, pop it first so its state is not
-                // saved and later restored on top of the destination tab.
-                if (isOnRateOutfit) navController.popBackStack()
-                navController.navigate(item.screen.route) {
-                    popUpTo(navController.graph.findStartDestination().id)
-                    launchSingleTop = true
+                navController.onceResumed {
+                    // If RateOutfit is open, pop it first so its state is not
+                    // saved and later restored on top of the destination tab.
+                    if (isOnRateOutfit) popBackStack()
+                    navigate(item.screen.route) {
+                        popUpTo(graph.findStartDestination().id)
+                        launchSingleTop = true
+                    }
                 }
             }
         }
@@ -210,9 +237,9 @@ private fun NavGraphContent(
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
-                    onNavigateToNewOutfit = { navController.navigate(Screen.NewOutfit.createRoute(isLive = true)) },
+                    onNavigateToNewOutfit = { navController.navigateOnce(Screen.NewOutfit.createRoute(isLive = true)) },
                     onNavigateToExplorer = { forecastTemp ->
-                        navController.navigate(Screen.Explorer.createRoute(forecastTemp))
+                        navController.navigateOnce(Screen.Explorer.createRoute(forecastTemp))
                     }
                 )
             }
@@ -225,10 +252,10 @@ private fun NavGraphContent(
                     }
                 )
             ) {
-                ExplorerScreen(onNavigateBack = { navController.popBackStack() })
+                ExplorerScreen(onNavigateBack = { navController.popBackStackOnce() })
             }
             composable(Screen.Catalog.route) {
-                CatalogScreen(onNavigateBack = { navController.popBackStack() })
+                CatalogScreen(onNavigateBack = { navController.popBackStackOnce() })
             }
             composable(
                 route = Screen.RateOutfit.route,
@@ -239,7 +266,7 @@ private fun NavGraphContent(
             ) { backStackEntry ->
                 val highlight = backStackEntry.arguments?.getBoolean("highlight") ?: false
                 RateOutfitScreen(
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = { navController.popBackStackOnce() },
                     highlightRating = highlight
                 )
             }
@@ -248,21 +275,23 @@ private fun NavGraphContent(
                 arguments = listOf(navArgument("isLive") { type = NavType.BoolType; defaultValue = false })
             ) {
                 RateOutfitScreen(
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = { navController.popBackStackOnce() },
                     externalCancelRequested = pendingTabRoute != null,
                     onExternalCancelConfirmed = {
                         val route = pendingTabRoute
                         if (route != null) {
                             onPendingTabRouteChange(null)
-                            val startId = navController.graph.findStartDestination().id
-                            if (route == Screen.Home.route) {
-                                // Home is the start destination and already in the back stack;
-                                // popBackStack is more reliable than navigate + launchSingleTop here.
-                                navController.popBackStack(startId, inclusive = false)
-                            } else {
-                                navController.navigate(route) {
-                                    popUpTo(startId)
-                                    launchSingleTop = true
+                            navController.onceResumed {
+                                val startId = graph.findStartDestination().id
+                                if (route == Screen.Home.route) {
+                                    // Home is the start destination and already in the back stack;
+                                    // popBackStack is more reliable than navigate + launchSingleTop here.
+                                    popBackStack(startId, inclusive = false)
+                                } else {
+                                    navigate(route) {
+                                        popUpTo(startId)
+                                        launchSingleTop = true
+                                    }
                                 }
                             }
                         }
@@ -273,14 +302,14 @@ private fun NavGraphContent(
             composable(Screen.History.route) {
                 HistoryScreen(
                     onNavigateToRateOutfit = { entryId ->
-                        navController.navigate(Screen.RateOutfit.createRoute(entryId, highlight = false))
+                        navController.navigateOnce(Screen.RateOutfit.createRoute(entryId, highlight = false))
                     },
-                    onNavigateToNewOutfit = { navController.navigate(Screen.NewOutfit.createRoute(isLive = false)) }
+                    onNavigateToNewOutfit = { navController.navigateOnce(Screen.NewOutfit.createRoute(isLive = false)) }
                 )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    onNavigateToCatalog = { navController.navigate(Screen.Catalog.route) }
+                    onNavigateToCatalog = { navController.navigateOnce(Screen.Catalog.route) }
                 )
             }
         }
