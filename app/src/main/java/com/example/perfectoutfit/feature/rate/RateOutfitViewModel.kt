@@ -8,7 +8,7 @@ import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.WeatherSnapshot
-import com.example.perfectoutfit.core.notification.NotificationHelper
+import com.example.perfectoutfit.core.notification.RatingReminder
 import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
@@ -81,7 +81,7 @@ class RateOutfitViewModel @Inject constructor(
     private val weatherRepository: WeatherRepository,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val preferencesManager: PreferencesManager,
-    private val notificationHelper: NotificationHelper
+    private val ratingReminder: RatingReminder
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -338,7 +338,7 @@ class RateOutfitViewModel @Inject constructor(
                         clothingItemIds = state.selectedItemIds.toList()
                     )
                     if (mode is OutfitScreenMode.NewLive || state.comfortRating == null) {
-                        notificationHelper.showRatingNotification(
+                        ratingReminder.show(
                             outfitEntryId = newEntryId,
                             sport = state.sport,
                             dateMs = workoutTimestamp,

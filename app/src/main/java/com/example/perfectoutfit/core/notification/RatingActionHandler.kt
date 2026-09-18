@@ -2,10 +2,8 @@ package com.example.perfectoutfit.core.notification
 
 import android.content.Context
 import android.widget.Toast
-import androidx.core.app.NotificationManagerCompat
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.feature.home.OutfitRepository
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -13,14 +11,13 @@ import javax.inject.Singleton
 
 @Singleton
 class RatingActionHandler @Inject constructor(
-    private val outfitRepository: OutfitRepository
+    private val outfitRepository: OutfitRepository,
+    private val ratingReminder: RatingReminder
 ) {
-    var mainDispatcher: CoroutineDispatcher = Dispatchers.Main
-
     suspend fun handle(context: Context, entryId: Long, rating: Int) {
-        NotificationManagerCompat.from(context).cancel(entryId.toInt())
+        ratingReminder.cancel(entryId)
         outfitRepository.rateEntry(entryId, rating)
-        withContext(mainDispatcher) {
+        withContext(Dispatchers.Main) {
             Toast.makeText(
                 context,
                 context.getString(R.string.rating_saved_toast, ratingLabel(context, rating)),

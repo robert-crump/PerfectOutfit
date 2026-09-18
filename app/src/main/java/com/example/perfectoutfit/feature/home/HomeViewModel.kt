@@ -13,7 +13,7 @@ import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.WeatherSnapshot
-import com.example.perfectoutfit.core.notification.NotificationHelper
+import com.example.perfectoutfit.core.notification.RatingReminder
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -79,7 +79,7 @@ class HomeViewModel @Inject constructor(
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val outfitRepository: OutfitRepository,
     private val preferencesManager: PreferencesManager,
-    private val notificationHelper: NotificationHelper
+    private val ratingReminder: RatingReminder
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -170,7 +170,7 @@ class HomeViewModel @Inject constructor(
                 ),
                 clothingItemIds = recommendation.clothingItems.map { it.id }
             )
-            notificationHelper.showRatingNotification(
+            ratingReminder.show(
                 outfitEntryId = entryId,
                 sport = _uiState.value.selectedSport,
                 dateMs = now,
@@ -212,7 +212,7 @@ class HomeViewModel @Inject constructor(
                 ),
                 clothingItemIds = emptyList()
             )
-            notificationHelper.showRatingNotification(
+            ratingReminder.show(
                 outfitEntryId = entryId,
                 sport = _uiState.value.selectedSport,
                 dateMs = now,

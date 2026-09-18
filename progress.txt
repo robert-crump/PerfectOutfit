@@ -1,5 +1,40 @@
 PerfectOutfit — Progress Log
 
+2026-09-18
+- Implemented issue #6 ("Rating reminder seam: make ViewModels and outfit logging
+  testable without Android"). First hand-written DI seam in the app: previously every
+  interface was generated (Room DAOs, Retrofit) and everything else was a concrete
+  @Singleton, which is why none of the six ViewModels had a unit test.
+  Changes:
+    * RatingReminder.kt (new): interface with exactly two methods, show(outfitEntryId,
+      sport, dateMs, durationHours) and cancel(outfitEntryId) — nothing else about
+      notifications leaks through it.
+    * AndroidRatingReminder.kt (new, replaces NotificationHelper.kt): same notification
+      behaviour (channel, deep link, three quick-response actions) as an adapter for the
+      new interface. Channel creation moved out of the constructor (`init {}`) to a
+      `channelCreated` flag checked lazily on first show(), so constructing the adapter
+      now has no side effects.
+    * FakeRatingReminder.kt (new, app/src/test): recording fake storing every show/cancel
+      call for assertions.
+    * core/di/NotificationModule.kt (new): first @Binds module in the app
+      (@InstallIn(SingletonComponent::class) abstract class), binds RatingReminder to
+      AndroidRatingReminder.
+    * HomeViewModel.kt, RateOutfitViewModel.kt: inject RatingReminder instead of the
+      concrete NotificationHelper.
+    * RatingActionHandler.kt: now injects RatingReminder and routes the cancel through
+      it instead of calling NotificationManagerCompat.from(context).cancel(...) directly.
+      Removed the public mutable `mainDispatcher` var — RatingActionHandlerTest now uses
+      kotlinx-coroutines-test's Dispatchers.setMain(UnconfinedTestDispatcher()) instead of
+      swapping in a custom dispatcher field. Kept RateOutfitActionReceiver's internal
+      `beginAsyncWork()` hook: it exists for a different, unrelated problem (Robolectric
+      cannot supply a real goAsync() PendingResult), not for the notification seam.
+    * build.gradle.kts / libs.versions.toml: added kotlinx-coroutines-test as a test
+      dependency for this and future ViewModel tests.
+    * CONTEXT.md: added a "Rating reminder" glossary entry.
+  Verified: ./gradlew testDebugUnitTest and ./gradlew assembleDebug both succeed (Hilt
+  graph resolves with the new @Binds module). Could not manually verify the on-device
+  notification/deep-link in this environment (no emulator) — worth a quick manual check.
+
 2026-05-26
 - Fixed issue #3 ("Location name does not change"). After navigating Home -> Settings ->
   Home, selecting a different city in the Home dropdown sometimes had no visible effect.

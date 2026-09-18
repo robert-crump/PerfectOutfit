@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import com.example.perfectoutfit.MainActivity
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.Sport
@@ -18,36 +19,24 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class NotificationHelper @Inject constructor(
+class AndroidRatingReminder @Inject constructor(
     @param:ApplicationContext private val context: Context
-) {
+) : RatingReminder {
     companion object {
         const val CHANNEL_ID = "rating_reminders"
         const val CHANNEL_NAME = "Rating Reminders"
     }
 
-    init {
-        createNotificationChannel()
-    }
+    private var channelCreated = false
 
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = "Reminders to rate your outfit after exercise"
-        }
-        val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(channel)
-    }
-
-    fun showRatingNotification(
+    override fun show(
         outfitEntryId: Long,
         sport: Sport,
         dateMs: Long,
         durationHours: Int
     ) {
+        ensureNotificationChannel()
+
         val deepLinkIntent = Intent(
             Intent.ACTION_VIEW,
             Uri.parse("perfectoutfit://rate?outfitEntryId=$outfitEntryId"),
@@ -79,6 +68,24 @@ class NotificationHelper @Inject constructor(
 
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.notify(outfitEntryId.toInt(), notification)
+    }
+
+    override fun cancel(outfitEntryId: Long) {
+        NotificationManagerCompat.from(context).cancel(outfitEntryId.toInt())
+    }
+
+    private fun ensureNotificationChannel() {
+        if (channelCreated) return
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            CHANNEL_NAME,
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Reminders to rate your outfit after exercise"
+        }
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
+        channelCreated = true
     }
 
     private fun ratingAction(outfitEntryId: Long, rating: Int, label: String): NotificationCompat.Action {

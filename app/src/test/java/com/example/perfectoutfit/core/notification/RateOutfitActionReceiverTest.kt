@@ -32,7 +32,10 @@ class RateOutfitActionReceiverTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         receiver = TestableReceiver().apply {
-            ratingActionHandler = RatingActionHandler(OutfitRepository(FakeOutfitEntryDao(), FakeOutfitItemDao()))
+            ratingActionHandler = RatingActionHandler(
+                OutfitRepository(FakeOutfitEntryDao(), FakeOutfitItemDao()),
+                FakeRatingReminder()
+            )
         }
     }
 
