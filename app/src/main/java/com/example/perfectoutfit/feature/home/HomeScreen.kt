@@ -440,10 +440,10 @@ private fun ResultStep(
                 }
 
                 if (currentWeather != null) {
-                    if (currentWeather.uvIndex >= 5) {
+                    if (WeatherThresholds.uvSeverity(currentWeather.uvIndex) == WeatherSeverity.HIGH) {
                         UvInfoCard(uvIndex = currentWeather.uvIndex)
                     }
-                    if (currentWeather.windSpeedKmh >= 20.0) {
+                    if (WeatherThresholds.windSeverity(currentWeather.windSpeedKmh) == WeatherSeverity.HIGH) {
                         WindInfoCard(
                             windSpeedKmh = currentWeather.windSpeedKmh.toInt(),
                             windDirection = currentWeather.windDirectionLabel

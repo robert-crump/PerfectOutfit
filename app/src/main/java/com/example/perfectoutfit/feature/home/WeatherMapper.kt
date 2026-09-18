@@ -80,13 +80,4 @@ object WeatherMapper {
         if (startIndex < 0) return emptyList()
         return allHours.subList(startIndex, minOf(startIndex + 24, allHours.size))
     }
-
-    fun hasRainWarning(hours: List<HourlyWeather>): Boolean =
-        hours.any { it.precipitationProbabilityPercent > 50 }
-
-    fun hasUvWarning(hours: List<HourlyWeather>): Boolean =
-        hours.any { it.uvIndex >= 4 }
-
-    fun hasWindWarning(hours: List<HourlyWeather>): Boolean =
-        hours.any { it.windSpeedKmh >= 20.0 }
 }

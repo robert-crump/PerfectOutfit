@@ -25,6 +25,18 @@ A user preference toggling whether the app reasons in feels-like ("apparent") or
 ("real") temperature. It is reactive — toggling it in Settings re-resolves the
 [reference temperature](#reference-temperature) on any open screen.
 
+### Weather severity
+The three-band answer (`NONE` / `NOTABLE` / `HIGH`) to "how concerning is this hour's UV
+index, wind speed, or rain probability?", owned by `WeatherThresholds`
+(`feature/home/WeatherSeverity.kt`). Both the Home screen's warning cards (shown at
+`HIGH`) and `WeatherStatusColors` (colours `NONE`/`NOTABLE`/`HIGH` as good/moderate/severe)
+consult it, so a measurement's severity and its colour can never disagree.
+
+Bands: UV `HIGH` is `>= 5` — this was already the threshold the Home screen's UV card
+used (issue #1), so it was kept as the one true threshold rather than the mapper's unused
+`>= 4`. Wind `HIGH` is `>= 20 km/h`. Rain `HIGH` is `>= 50 %` probability (rain currently
+has no Home screen warning card, only a colour).
+
 ### Rating reminder
 The notification that asks the user to rate an outfit entry after a workout (sport,
 workout date, duration). Its capability is exactly "show a reminder for entry X" and

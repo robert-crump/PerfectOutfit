@@ -17,9 +17,6 @@ class CatalogRepository @Inject constructor(
     fun getItemsBySport(sport: Sport): Flow<List<ClothingItem>> =
         clothingItemDao.getBySport(sport)
 
-    fun getItemsBySportAndBodyPart(sport: Sport, bodyPart: BodyPart): Flow<List<ClothingItem>> =
-        clothingItemDao.getBySportAndBodyPart(sport, bodyPart)
-
     suspend fun addItem(sport: Sport, bodyPart: BodyPart, name: String): Long =
         clothingItemDao.insert(ClothingItem(sport = sport, bodyPart = bodyPart, name = name))
 

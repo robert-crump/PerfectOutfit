@@ -25,7 +25,4 @@ data class OutfitEntry(
     val createdAt: Long,
     val ratedAt: Long? = null,
     val notes: String = ""
-) {
-    /** True when the user has assigned a rating (-1 / 0 / 1); false for "No rating". */
-    val bHasRating: Boolean get() = comfortRating != null
-}
+)

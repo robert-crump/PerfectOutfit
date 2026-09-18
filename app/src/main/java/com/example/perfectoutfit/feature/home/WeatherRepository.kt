@@ -36,12 +36,6 @@ class WeatherRepository @Inject constructor(
         return allHours
     }
 
-    /** Fetches weather without overwriting the main cached data. */
-    suspend fun fetchWeatherOnly(lat: Double, lon: Double): List<HourlyWeather> {
-        val response = openMeteoApi.getForecast(lat, lon)
-        return WeatherMapper.extractAllHours(response)
-    }
-
     /** Fetches weather for a specific date without affecting the main cache. */
     suspend fun fetchWeatherForDate(lat: Double, lon: Double, date: LocalDate): List<HourlyWeather> {
         val dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)

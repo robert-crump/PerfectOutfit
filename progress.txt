@@ -1,5 +1,37 @@
 PerfectOutfit — Progress Log
 
+2026-09-18 (2)
+- Implemented issue #7 ("Weather warning thresholds in one place; remove dead warning
+  path and unreferenced code"). Three different answers to "when is this hour's UV/wind/
+  rain concerning" (mapper warnings, Home screen's warning cards, WeatherStatusColors'
+  bands) now come from one place, plus removal of dead code the issue identified.
+  Changes:
+    * WeatherSeverity.kt (new, feature/home): WeatherSeverity enum (NONE/NOTABLE/HIGH)
+      and WeatherThresholds object, the single source of truth for UV, wind, and rain
+      bands. UV HIGH is >= 5 (the threshold already visible on the Home screen from issue
+      #1), not the mapper's unused >= 4. Wind HIGH is >= 20 km/h. Rain HIGH is >= 50%.
+    * HomeScreen.kt: UV/wind warning cards now check
+      WeatherThresholds.___Severity(...) == WeatherSeverity.HIGH instead of inlined
+      `>= 5` / `>= 20.0` literals.
+    * WeatherStatusColors.kt: uvStatusColor/windStatusColor/rainStatusColor now derive
+      their good/moderate/severe color from WeatherThresholds instead of their own
+      separate band literals, so color and warning-card severity can never disagree again.
+    * WeatherMapper.kt: removed hasRainWarning/hasUvWarning/hasWindWarning (dead — their
+      only caller was the HomeUiState.warnings field, also removed, which no screen read).
+    * Deleted dead code identified in the issue: ui/components/WarningBanner.kt,
+      ui/components/WeatherCard.kt (both unreferenced), HomeViewModel.selectHour /
+      setAdjustedTemp / saveWeatherForLater (no callers), WeatherRepository.fetchWeatherOnly,
+      CatalogRepository.getItemsBySportAndBodyPart, OutfitEntry.bHasRating (all unused),
+      and the ExampleUnitTest.kt / ExampleInstrumentedTest.kt template leftovers.
+    * WeatherThresholdsTest.kt (new): unit tests for every band boundary, pure JVM, no
+      Android — same style as HourlyWeatherTest.kt.
+    * CONTEXT.md: added a "Weather severity" glossary entry documenting the module and
+      why UV HIGH is 5 and not the WHO-standard 6.
+  Verified: ./gradlew testDebugUnitTest and ./gradlew assembleDebug both succeed. Did not
+  manually verify the Home screen's UV/wind warning cards on-device (no emulator in this
+  environment) — the threshold values are unchanged from what was already shown, so no
+  visible behavior change is expected; worth a quick manual confirmation.
+
 2026-09-18
 - Implemented issue #6 ("Rating reminder seam: make ViewModels and outfit logging
   testable without Android"). First hand-written DI seam in the app: previously every

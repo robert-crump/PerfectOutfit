@@ -40,7 +40,6 @@ data class HomeUiState(
     val hourlyWeather: List<HourlyWeather> = emptyList(),
     /** Index within hourlyWeather that the user has selected. */
     val selectedHourIndex: Int = 0,
-    val warnings: List<String> = emptyList(),
     val selectedSport: Sport = Sport.CYCLING,
     val selectedLocationName: String = "Current location",
     val recommendation: OutfitEntryWithDetails? = null,
@@ -139,23 +138,6 @@ class HomeViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(activeWorkoutTab = tab)
     }
 
-    fun selectHour(index: Int) {
-        val hour = _uiState.value.hourlyWeather.getOrNull(index)
-        val useApparent = _uiState.value.useApparentTemperature
-        val newTemp = hour?.referenceTemp(useApparent)?.roundToInt()
-            ?: _uiState.value.adjustedApparentTemp
-        _uiState.value = _uiState.value.copy(
-            selectedHourIndex = index,
-            adjustedApparentTemp = newTemp
-        )
-        viewModelScope.launch { refreshRecommendation() }
-    }
-
-    fun setAdjustedTemp(temp: Int) {
-        _uiState.value = _uiState.value.copy(adjustedApparentTemp = temp)
-        viewModelScope.launch { refreshRecommendation() }
-    }
-
     /** Accept recommendation: saves a new outfit entry and schedules a rating notification. */
     fun acceptRecommendation(recommendation: OutfitEntryWithDetails) {
         viewModelScope.launch {
@@ -197,29 +179,6 @@ class HomeViewModel @Inject constructor(
         workoutDurationHours = _uiState.value.workoutDurationHours,
         prefillItemIds = prefillItemIds
     )
-
-    /** Save weather with no outfit (no recommendation case) and notify to rate. */
-    fun saveWeatherForLater() {
-        viewModelScope.launch {
-            val weather = _uiState.value.selectedHour ?: return@launch
-            val snapshotId = weatherRepository.saveSnapshot(buildSnapshot(weather))
-            val now = System.currentTimeMillis()
-            val entryId = outfitRepository.createEntry(
-                entry = OutfitEntry(
-                    weatherSnapshotId = snapshotId,
-                    sport = _uiState.value.selectedSport,
-                    createdAt = now
-                ),
-                clothingItemIds = emptyList()
-            )
-            ratingReminder.show(
-                outfitEntryId = entryId,
-                sport = _uiState.value.selectedSport,
-                dateMs = now,
-                durationHours = _uiState.value.workoutDurationHours
-            )
-        }
-    }
 
     private fun fetchCurrentLocationWeather() {
         // Each new fetch attempt invalidates any still-in-flight previous attempt, so a slow
@@ -333,12 +292,6 @@ class HomeViewModel @Inject constructor(
                 lat, lon, locationName ?: _uiState.value.selectedLocationName
             )
             val displayHours = WeatherMapper.extractDisplayedHours(allHours)
-            val warnings = buildList {
-                val nextFour = displayHours.take(4)
-                if (WeatherMapper.hasRainWarning(nextFour)) add("High chance of rain (>50%)")
-                if (WeatherMapper.hasUvWarning(nextFour)) add("UV index >= 4")
-                if (WeatherMapper.hasWindWarning(nextFour)) add("Wind speed >= 20 km/h")
-            }
             val useApparent = _uiState.value.useApparentTemperature
             val firstHourTemp = displayHours.firstOrNull()?.referenceTemp(useApparent)?.roundToInt() ?: 0
             _uiState.value = _uiState.value.copy(
@@ -347,7 +300,6 @@ class HomeViewModel @Inject constructor(
                 hourlyWeather = displayHours,
                 selectedHourIndex = 0,
                 adjustedApparentTemp = firstHourTemp,
-                warnings = warnings,
                 error = null
             )
             refreshRecommendation()

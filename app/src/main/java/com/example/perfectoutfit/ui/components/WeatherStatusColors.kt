@@ -1,27 +1,25 @@
 package com.example.perfectoutfit.ui.components
 
 import androidx.compose.ui.graphics.Color
+import com.example.perfectoutfit.feature.home.WeatherSeverity
+import com.example.perfectoutfit.feature.home.WeatherThresholds
 import com.example.perfectoutfit.ui.theme.StatusColors
 
 /**
- * Shared severity-color mapping for weather indicators (UV index, wind speed,
- * rain probability), used by both [WeatherCard] and the home screen's compact
- * weather row so the thresholds and colors live in one place.
+ * Colours a weather indicator (UV index, wind speed, rain probability) by the severity
+ * band from [WeatherThresholds], the single place those bands are defined.
  */
-fun uvStatusColor(uvIndex: Int, colors: StatusColors): Color = when {
-    uvIndex <= 2 -> colors.good
-    uvIndex <= 5 -> colors.moderate
-    else -> colors.severe
+private fun StatusColors.forSeverity(severity: WeatherSeverity): Color = when (severity) {
+    WeatherSeverity.NONE -> good
+    WeatherSeverity.NOTABLE -> moderate
+    WeatherSeverity.HIGH -> severe
 }
 
-fun windStatusColor(speedKmh: Double, colors: StatusColors): Color = when {
-    speedKmh < 10 -> colors.good
-    speedKmh <= 20 -> colors.moderate
-    else -> colors.severe
-}
+fun uvStatusColor(uvIndex: Int, colors: StatusColors): Color =
+    colors.forSeverity(WeatherThresholds.uvSeverity(uvIndex))
 
-fun rainStatusColor(probabilityPercent: Int, colors: StatusColors): Color = when {
-    probabilityPercent < 20 -> colors.good
-    probabilityPercent < 50 -> colors.moderate
-    else -> colors.severe
-}
+fun windStatusColor(speedKmh: Double, colors: StatusColors): Color =
+    colors.forSeverity(WeatherThresholds.windSeverity(speedKmh))
+
+fun rainStatusColor(probabilityPercent: Int, colors: StatusColors): Color =
+    colors.forSeverity(WeatherThresholds.rainSeverity(probabilityPercent))
