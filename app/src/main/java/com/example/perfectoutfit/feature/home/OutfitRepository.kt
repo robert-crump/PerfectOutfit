@@ -75,11 +75,4 @@ class OutfitRepository @Inject constructor(
         val candidates = outfitEntryDao.getRatedEntriesWithDetails(sport)
         return RecommendationPolicy.likelyItemIds(candidates, temp.roundToInt(), useApparent)
     }
-
-    suspend fun getAllEntries(): List<OutfitEntry> = outfitEntryDao.getAll()
-    suspend fun getAllOutfitItems(): List<OutfitItem> = outfitItemDao.getAll()
-    suspend fun deleteAllEntries() = outfitEntryDao.deleteAll()
-    suspend fun deleteAllOutfitItems() = outfitItemDao.deleteAll()
-    suspend fun insertEntry(entry: OutfitEntry): Long = outfitEntryDao.insert(entry)
-    suspend fun insertOutfitItems(items: List<OutfitItem>) = outfitItemDao.insertAll(items)
 }

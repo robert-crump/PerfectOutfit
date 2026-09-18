@@ -1,4 +1,4 @@
-package com.example.perfectoutfit.core.notification
+package com.example.perfectoutfit.testutil
 
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.model.OutfitEntry
@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 
 class FakeOutfitEntryDao : OutfitEntryDao {
     private val entries = mutableMapOf<Long, OutfitEntry>()
+    private var nextId = 1L
 
     var lastUpdated: OutfitEntry? = null
         private set
@@ -23,8 +24,9 @@ class FakeOutfitEntryDao : OutfitEntryDao {
     }
 
     override suspend fun insert(entry: OutfitEntry): Long {
-        entries[entry.id] = entry
-        return entry.id
+        val id = if (entry.id != 0L) entry.id else nextId++
+        entries[id] = entry.copy(id = id)
+        return id
     }
 
     override suspend fun update(entry: OutfitEntry) {
@@ -49,7 +51,7 @@ class FakeOutfitEntryDao : OutfitEntryDao {
     override suspend fun countEntriesWithAnyItem(itemIds: List<Long>): Int =
         throw UnsupportedOperationException()
 
-    override suspend fun getAll(): List<OutfitEntry> = entries.values.toList()
+    override suspend fun getAll(): List<OutfitEntry> = entries.values.sortedBy { it.id }
 
     override suspend fun deleteById(id: Long) {
         entries.remove(id)

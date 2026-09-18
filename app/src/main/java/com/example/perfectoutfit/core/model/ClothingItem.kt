@@ -2,7 +2,9 @@ package com.example.perfectoutfit.core.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "clothing_items")
 data class ClothingItem(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

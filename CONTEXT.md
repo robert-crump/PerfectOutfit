@@ -48,3 +48,17 @@ recording fake under `app/src/test`). `HomeViewModel`, `RateOutfitViewModel`, an
 `RatingActionHandler` all depend on the interface, never the concrete Android adapter —
 this is the app's first hand-written DI seam (`@Binds` in `core/di/NotificationModule.kt`)
 and the reason those ViewModels can be constructed in a plain JVM test.
+
+### Export/import schema
+Settings' backup/restore feature (`feature/settings/ExportImportManager.kt`) serializes
+the four Room entities (`ClothingItem`, `WeatherSnapshot`, `OutfitEntry`, `OutfitItem`)
+directly with `kotlinx.serialization` — there is no separate mirror DTO, so a field exists
+in exactly one place. `ExportData.version` is a schema version the app can branch on for
+future format changes; it defaults to `CURRENT_EXPORT_VERSION`, so files written before
+the field existed still decode. Import decodes and validates the whole file before any
+delete runs, and the delete-then-insert itself runs inside one `DatabaseTransactionRunner`
+transaction, so neither a malformed file nor a failure partway through import can leave
+the database partially emptied. `DatabaseTransactionRunner` is the same
+interface-plus-Android-adapter seam as [Rating reminder](#rating-reminder) (`RoomTransactionRunner`
+in production, a same-thread fake under `app/src/test`), which is why the round-trip test
+runs on the plain JVM with fake DAOs instead of Robolectric.

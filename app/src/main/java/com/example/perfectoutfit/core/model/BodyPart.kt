@@ -1,5 +1,8 @@
 package com.example.perfectoutfit.core.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class BodyPart(val displayName: String) {
     HEAD_THROAT("Head and Throat"),
     UPPER_BODY("Upper Body"),

@@ -1,5 +1,53 @@
 PerfectOutfit — Progress Log
 
+2026-09-18 (3)
+- Implemented issue #8 ("Export/import: single schema definition, safe import,
+  round-trip test"). ExportImportManager previously defined four hand-written DTOs that
+  mirrored the four Room entities field-by-field, spelling each field out three times
+  (entity, export mapping, import mapping); import also deleted all four tables before
+  parsing had fully validated the file.
+  Changes:
+    * ClothingItem, WeatherSnapshot, OutfitEntry, OutfitItem, Sport, BodyPart: added
+      `@Serializable` directly to the Room entities/enums (core/model). They're now
+      serialized as-is instead of through mirror DTOs — each field exists in exactly one
+      place. Enum JSON output is unchanged (kotlinx serializes an enum by its `.name`,
+      same string `Sport.valueOf`/`BodyPart.valueOf` used to read/write), so the JSON
+      shape is byte-for-byte compatible with files the old code produced.
+    * ExportImportManager.kt: `ExportData` gains a `version` field
+      (`CURRENT_EXPORT_VERSION`, currently 1) marked `@EncodeDefault(...ALWAYS)` so it's
+      always written even though it also has a default (needed for old files, which lack
+      the key, to still decode). Manager now depends on the four DAOs and a
+      `DatabaseTransactionRunner` directly instead of CatalogRepository/OutfitRepository/
+      WeatherRepository (acceptable per the issue — those repos are slated for dissolution
+      by #9/#10). `importFromJson` decodes+validates the whole file first (a parse or
+      unknown-enum-constant failure now throws before any delete runs), then does the
+      delete-then-insert inside one `transactionRunner.runInTransaction { }` block.
+    * DatabaseTransactionRunner.kt (new interface) / RoomTransactionRunner.kt (new,
+      `AppDatabase.withTransaction`) / core/di/DatabaseModule.kt (new `@Binds`): same
+      interface-plus-Android-adapter seam issue #6 used for RatingReminder, so the
+      round-trip test can run on the plain JVM instead of needing Robolectric for a real
+      Room transaction.
+    * CatalogRepository/OutfitRepository/WeatherRepository: removed the getAll/insertAll/
+      deleteAll pass-through methods that existed only for ExportImportManager and are now
+      unused.
+    * Moved FakeOutfitEntryDao/FakeOutfitItemDao from core/notification (app/src/test) to
+      a new shared app/src/test/.../testutil package per the issue's suggestion, since
+      export/import needed them too; gave FakeOutfitItemDao working implementations
+      instead of UnsupportedOperationException (nothing tested the throwing versions).
+      Added FakeClothingItemDao, FakeWeatherSnapshotDao, FakeDatabaseTransactionRunner
+      (runs the block inline, no real transaction) alongside them.
+    * ExportImportManagerTest.kt (new): round-trip test (export through fakes, import into
+      fresh fakes, assert all four tables equal), a test that a malformed JSON string
+      leaves the seeded fakes untouched, a test that a hand-written fixture in the old
+      (pre-#8, no "version" key) shape still imports correctly, and a test that exported
+      JSON contains the version key.
+    * CONTEXT.md: added an "Export/import schema" glossary entry.
+  Verified: ./gradlew testDebugUnitTest and ./gradlew assembleDebug both succeed (Hilt
+  graph resolves with the new DatabaseModule @Binds, Room accepts the @Serializable
+  entities). Did not manually verify export/import on-device (no emulator in this
+  environment) — worth a quick manual round-trip check, and specifically confirming an
+  old on-disk backup file (from before this change) still imports.
+
 2026-09-18 (2)
 - Implemented issue #7 ("Weather warning thresholds in one place; remove dead warning
   path and unreferenced code"). Three different answers to "when is this hour's UV/wind/
@@ -66,26 +114,6 @@ PerfectOutfit — Progress Log
   Verified: ./gradlew testDebugUnitTest and ./gradlew assembleDebug both succeed (Hilt
   graph resolves with the new @Binds module). Could not manually verify the on-device
   notification/deep-link in this environment (no emulator) — worth a quick manual check.
-
-2026-05-26
-- Fixed issue #3 ("Location name does not change"). After navigating Home -> Settings ->
-  Home, selecting a different city in the Home dropdown sometimes had no visible effect.
-  Root cause: an uncancellable FusedLocationProvider lastLocation callback (plus a slow
-  reverse-geocode) from a "Current location" request could resolve late and unconditionally
-  overwrite selectedLocationName, snapping the displayed city back. A redundant dual-trigger
-  design (explicit setter + DataStore-driven combine collector) fetched and wrote the name
-  twice with no cancellation of stale in-flight work, which made the post-navigation timing
-  reproducible.
-  Fix (HomeViewModel.kt):
-    * Added a locationGeneration token; current-location callbacks capture it at request
-      time and re-check after the geocode, so a stale result can no longer overwrite a
-      newer selection.
-    * combine collector now uses distinctUntilChanged().collectLatest so stale fetches are
-      cancelled and unrelated DataStore writes don't re-fire it.
-    * Location setters now only write the optimistic name + DataStore; the collector is the
-      single fetch path (removed the duplicate racing fetch).
-    * Fixed the "Current Location"/"Current location" casing mismatch that broke the
-      startsWith() checks in HomeScreen.
 
 2026-06-04
 - Fixed issue #1 ("Change threshold for extra UV protection from 3 to 5").

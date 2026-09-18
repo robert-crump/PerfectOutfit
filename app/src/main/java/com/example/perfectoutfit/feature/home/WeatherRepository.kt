@@ -46,12 +46,4 @@ class WeatherRepository @Inject constructor(
     suspend fun saveSnapshot(snapshot: WeatherSnapshot): Long {
         return weatherSnapshotDao.insert(snapshot)
     }
-
-    suspend fun getAllSnapshots(): List<WeatherSnapshot> {
-        return weatherSnapshotDao.getAll()
-    }
-
-    suspend fun deleteAllSnapshots() {
-        weatherSnapshotDao.deleteAll()
-    }
 }

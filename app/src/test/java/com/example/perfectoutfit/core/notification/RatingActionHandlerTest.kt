@@ -3,6 +3,8 @@ package com.example.perfectoutfit.core.notification
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.perfectoutfit.feature.home.OutfitRepository
+import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
+import com.example.perfectoutfit.testutil.FakeOutfitItemDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher

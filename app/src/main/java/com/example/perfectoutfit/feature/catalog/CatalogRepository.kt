@@ -28,12 +28,6 @@ class CatalogRepository @Inject constructor(
         clothingItemDao.deleteById(id)
     }
 
-    suspend fun getAllItems(): List<ClothingItem> = clothingItemDao.getAll()
-
-    suspend fun insertAll(items: List<ClothingItem>) = clothingItemDao.insertAll(items)
-
-    suspend fun deleteAll() = clothingItemDao.deleteAll()
-
     suspend fun count(): Int = clothingItemDao.count()
 
     suspend fun countEntriesWithItems(itemIds: List<Long>): Int =

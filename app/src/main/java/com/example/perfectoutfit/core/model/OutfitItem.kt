@@ -3,7 +3,9 @@ package com.example.perfectoutfit.core.model
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(
     tableName = "outfit_items",
     primaryKeys = ["outfitEntryId", "clothingItemId"],
