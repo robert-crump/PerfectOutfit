@@ -12,10 +12,12 @@ import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.referenceTemp
+import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.recommendation.Recommendations
 import com.example.perfectoutfit.feature.outfit.LogLocation
 import com.example.perfectoutfit.feature.outfit.LogMode
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
+import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -74,7 +76,7 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val weatherRepository: WeatherRepository,
+    private val forecast: Forecast,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val outfitLogging: OutfitLogging,
     private val recommendations: Recommendations,
@@ -98,6 +100,13 @@ class HomeViewModel @Inject constructor(
         // GPS is now the only source of location; kick off a fetch immediately.
         fetchCurrentLocationWeather()
 
+        viewModelScope.launch {
+            forecast.locationFlow.collect { location ->
+                if (location != null) {
+                    _uiState.value = _uiState.value.copy(selectedLocationName = location.name)
+                }
+            }
+        }
         viewModelScope.launch {
             preferencesManager.selectedSport.collect { sport ->
                 _uiState.value = _uiState.value.copy(selectedSport = sport)
@@ -136,13 +145,10 @@ class HomeViewModel @Inject constructor(
     fun acceptRecommendation(recommendation: OutfitEntryWithDetails) {
         viewModelScope.launch {
             val weather = _uiState.value.activeHour ?: return@launch
+            val location = forecast.location ?: return@launch
             outfitLogging.log(
                 hour = weather,
-                location = LogLocation(
-                    name = _uiState.value.selectedLocationName,
-                    lat = weatherRepository.cachedLat,
-                    lon = weatherRepository.cachedLon
-                ),
+                location = LogLocation(location.name, location.lat, location.lon),
                 sport = _uiState.value.selectedSport,
                 clothingItemIds = recommendation.clothingItems.map { it.id },
                 workoutDurationHours = _uiState.value.workoutDurationHours,
@@ -161,10 +167,6 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun buildHandoffPayload(prefillItemIds: List<Long>) = LiveOutfitPayload(
-        allHours = weatherRepository.cachedAllHours,
-        lat = weatherRepository.cachedLat,
-        lon = weatherRepository.cachedLon,
-        locationName = weatherRepository.cachedLocationName,
         selectedHourTime = _uiState.value.activeHour?.time,
         workoutDurationHours = _uiState.value.workoutDurationHours,
         prefillItemIds = prefillItemIds
@@ -214,42 +216,35 @@ class HomeViewModel @Inject constructor(
                 }
             } else {
                 // No cached location; request a fresh one.
-                fusedClient.getCurrentLocation(
-                    Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                    cancellationSource.token
-                ).addOnSuccessListener { location ->
-                    if (generation != locationGeneration) return@addOnSuccessListener
-                    if (location != null) {
-                        viewModelScope.launch {
-                            applyCurrentLocation(location.latitude, location.longitude, generation)
-                        }
-                    } else {
-                        failWithError("Could not determine location. Please try again.")
-                    }
-                }.addOnFailureListener {
-                    if (generation != locationGeneration) return@addOnFailureListener
-                    failWithError("Location unavailable. Please try again.")
-                }
+                requestFreshLocation(fusedClient, cancellationSource, generation)
             }
         }.addOnFailureListener {
             if (generation != locationGeneration) return@addOnFailureListener
             // lastLocation failed; fall through to getCurrentLocation.
-            fusedClient.getCurrentLocation(
-                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                cancellationSource.token
-            ).addOnSuccessListener { location ->
-                if (generation != locationGeneration) return@addOnSuccessListener
-                if (location != null) {
-                    viewModelScope.launch {
-                        applyCurrentLocation(location.latitude, location.longitude, generation)
-                    }
-                } else {
-                    failWithError("Could not determine location. Please try again.")
+            requestFreshLocation(fusedClient, cancellationSource, generation)
+        }
+    }
+
+    private fun requestFreshLocation(
+        fusedClient: FusedLocationProviderClient,
+        cancellationSource: CancellationTokenSource,
+        generation: Int
+    ) {
+        fusedClient.getCurrentLocation(
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            cancellationSource.token
+        ).addOnSuccessListener { location ->
+            if (generation != locationGeneration) return@addOnSuccessListener
+            if (location != null) {
+                viewModelScope.launch {
+                    applyCurrentLocation(location.latitude, location.longitude, generation)
                 }
-            }.addOnFailureListener {
-                if (generation != locationGeneration) return@addOnFailureListener
-                failWithError("Location unavailable. Please try again.")
+            } else {
+                failWithError("Could not determine location. Please try again.")
             }
+        }.addOnFailureListener {
+            if (generation != locationGeneration) return@addOnFailureListener
+            failWithError("Location unavailable. Please try again.")
         }
     }
 
@@ -258,7 +253,6 @@ class HomeViewModel @Inject constructor(
         // reverseGeocode is slow; bail out if the user has switched location since.
         if (generation != locationGeneration) return
         val displayName = cityName.ifEmpty { "Current location" }
-        _uiState.value = _uiState.value.copy(selectedLocationName = displayName)
         fetchWeather(lat, lon, displayName)
     }
 
@@ -270,7 +264,7 @@ class HomeViewModel @Inject constructor(
         )
     }
 
-    private suspend fun fetchWeather(lat: Double, lon: Double, locationName: String? = null) {
+    private suspend fun fetchWeather(lat: Double, lon: Double, locationName: String) {
         _uiState.value = _uiState.value.copy(
             isLoading = !_uiState.value.isRefreshing,
             loadingMessage = "Loading weather data...",
@@ -278,10 +272,8 @@ class HomeViewModel @Inject constructor(
         )
 
         try {
-            val allHours = weatherRepository.fetchWeather(
-                lat, lon, locationName ?: _uiState.value.selectedLocationName
-            )
-            val displayHours = WeatherMapper.extractDisplayedHours(allHours)
+            forecast.refresh(lat, lon, locationName)
+            val displayHours = forecast.displayWindow()
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 isRefreshing = false,
@@ -362,10 +354,9 @@ class HomeViewModel @Inject constructor(
     fun refreshWeather() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true)
-            val lat = weatherRepository.cachedLat.takeIf { it != 0.0 }
-            val lon = weatherRepository.cachedLon.takeIf { it != 0.0 }
-            if (lat != null && lon != null) {
-                fetchWeather(lat, lon)
+            val location = forecast.location
+            if (location != null) {
+                fetchWeather(location.lat, location.lon, location.name)
             } else {
                 fetchCurrentLocationWeather()
             }

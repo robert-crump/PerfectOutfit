@@ -22,6 +22,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.time.Clock
 import javax.inject.Named
 import javax.inject.Singleton
 
@@ -92,4 +93,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideJson(): Json = json
+
+    @Provides
+    @Singleton
+    fun provideClock(): Clock = Clock.systemDefaultZone()
 }

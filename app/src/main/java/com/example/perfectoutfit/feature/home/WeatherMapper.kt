@@ -63,15 +63,4 @@ object WeatherMapper {
             )
         }
     }
-
-    /**
-     * From all hours, returns a 24-hour window starting at the current hour.
-     * These are shown in the home screen hour selector.
-     */
-    fun extractDisplayedHours(allHours: List<HourlyWeather>): List<HourlyWeather> {
-        val currentHour = LocalDateTime.now().withMinute(0).withSecond(0).withNano(0)
-        val startIndex = allHours.indexOfFirst { !it.time.isBefore(currentHour) }
-        if (startIndex < 0) return emptyList()
-        return allHours.subList(startIndex, minOf(startIndex + 24, allHours.size))
-    }
 }

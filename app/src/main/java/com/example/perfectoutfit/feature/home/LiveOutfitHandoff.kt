@@ -5,10 +5,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class LiveOutfitPayload(
-    val allHours: List<HourlyWeather>,
-    val lat: Double,
-    val lon: Double,
-    val locationName: String,
     val selectedHourTime: LocalDateTime?,
     val workoutDurationHours: Int,
     val prefillItemIds: List<Long>

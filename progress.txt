@@ -1,5 +1,26 @@
 PerfectOutfit — Progress Log
 
+2026-09-19 (3)
+- Implemented issue #11 (Forecast module: one owner for known hours, display window,
+  per-date fetch, location).
+  Changes:
+    * New `feature/forecast/Forecast` (@Singleton, OpenMeteoApi + injected java.time.Clock,
+      provided in AppModule): `location` (nullable ForecastLocation; no 0.0 sentinel),
+      `locationFlow`, `hours` (reactive, sorted), `refresh(lat, lon, name)`, `displayWindow()`,
+      `hoursFor(date)` (fetch + merge only when the date is missing, stale-location safe),
+      `today()`, and companion `hourNearest` (exact hour, else last before, else first).
+    * WeatherRepository and WeatherMapper.extractDisplayedHours deleted. HomeViewModel uses
+      refresh/displayWindow, takes its location name from forecast.locationFlow, and the
+      duplicated getCurrentLocation fallback is one `requestFreshLocation`.
+    * RateOutfitViewModel holds `hoursForSelectedDate` + a per-day selectedHourIndex (the
+      global-index indirection and selectHour are gone); selectDate/init use hoursFor; live
+      wizard now starts on the date of the handed-off hour. logLat/logLon dropped from state.
+    * LiveOutfitPayload shrunk to selectedHourTime, workoutDurationHours, prefillItemIds.
+    * Tests: FakeOpenMeteoApi (testutil) + ForecastTest (14 cases, plain JVM). CONTEXT.md:
+      "Forecast" and "Display window" entries, wizard-up-to-today rule.
+  Not done: typed error replacing the "permission" substring match (left as the issue allows).
+  Verification: ./gradlew testDebugUnitTest passes. Manual device check not done (no emulator).
+
 2026-09-19 (2)
 - Implemented issue #10 (Outfit logging module: one path for snapshot, entry, reminder).
   Changes:
@@ -126,38 +147,3 @@ PerfectOutfit — Progress Log
   manually verify the Home screen's UV/wind warning cards on-device (no emulator in this
   environment) — the threshold values are unchanged from what was already shown, so no
   visible behavior change is expected; worth a quick manual confirmation.
-
-2026-09-18
-- Implemented issue #6 ("Rating reminder seam: make ViewModels and outfit logging
-  testable without Android"). First hand-written DI seam in the app: previously every
-  interface was generated (Room DAOs, Retrofit) and everything else was a concrete
-  @Singleton, which is why none of the six ViewModels had a unit test.
-  Changes:
-    * RatingReminder.kt (new): interface with exactly two methods, show(outfitEntryId,
-      sport, dateMs, durationHours) and cancel(outfitEntryId) — nothing else about
-      notifications leaks through it.
-    * AndroidRatingReminder.kt (new, replaces NotificationHelper.kt): same notification
-      behaviour (channel, deep link, three quick-response actions) as an adapter for the
-      new interface. Channel creation moved out of the constructor (`init {}`) to a
-      `channelCreated` flag checked lazily on first show(), so constructing the adapter
-      now has no side effects.
-    * FakeRatingReminder.kt (new, app/src/test): recording fake storing every show/cancel
-      call for assertions.
-    * core/di/NotificationModule.kt (new): first @Binds module in the app
-      (@InstallIn(SingletonComponent::class) abstract class), binds RatingReminder to
-      AndroidRatingReminder.
-    * HomeViewModel.kt, RateOutfitViewModel.kt: inject RatingReminder instead of the
-      concrete NotificationHelper.
-    * RatingActionHandler.kt: now injects RatingReminder and routes the cancel through
-      it instead of calling NotificationManagerCompat.from(context).cancel(...) directly.
-      Removed the public mutable `mainDispatcher` var — RatingActionHandlerTest now uses
-      kotlinx-coroutines-test's Dispatchers.setMain(UnconfinedTestDispatcher()) instead of
-      swapping in a custom dispatcher field. Kept RateOutfitActionReceiver's internal
-      `beginAsyncWork()` hook: it exists for a different, unrelated problem (Robolectric
-      cannot supply a real goAsync() PendingResult), not for the notification seam.
-    * build.gradle.kts / libs.versions.toml: added kotlinx-coroutines-test as a test
-      dependency for this and future ViewModel tests.
-    * CONTEXT.md: added a "Rating reminder" glossary entry.
-  Verified: ./gradlew testDebugUnitTest and ./gradlew assembleDebug both succeed (Hilt
-  graph resolves with the new @Binds module). Could not manually verify the on-device
-  notification/deep-link in this environment (no emulator) — worth a quick manual check.

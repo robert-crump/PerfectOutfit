@@ -14,9 +14,10 @@ import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
 import com.example.perfectoutfit.feature.outfit.LogLocation
 import com.example.perfectoutfit.feature.outfit.LogMode
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
-import com.example.perfectoutfit.feature.home.WeatherRepository
+import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.recommendation.Recommendations
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -53,8 +54,10 @@ data class RateOutfitUiState(
     val selectedItemIds: Set<Long> = emptySet(),
     val comfortRating: Int? = null,
     val isSaved: Boolean = false,
-    val availableHours: List<HourlyWeather> = emptyList(),
-    val selectedDate: LocalDate = LocalDate.now(),
+    /** Known hours of [selectedDate]. */
+    val hoursForSelectedDate: List<HourlyWeather> = emptyList(),
+    val selectedDate: LocalDate = LocalDate.MIN,
+    /** Index into [hoursForSelectedDate]; -1 = none picked. */
     val selectedHourIndex: Int = 0,
     // Wizard state (new outfit modes only)
     val logStep: LogOutfitStep = LogOutfitStep.DATE_TIME_LOCATION,
@@ -64,17 +67,12 @@ data class RateOutfitUiState(
     val isLoadingDateWeather: Boolean = false,
     val logLocationSelected: Boolean = false,
     val logLocationName: String = "",
-    val logLat: Double = 0.0,
-    val logLon: Double = 0.0,
     val likelyItemIds: Set<Long> = emptySet(),
     val notes: String = "",
     val workoutDurationHours: Int = 1
 ) {
     val selectedHour: HourlyWeather?
-        get() = availableHours.getOrNull(selectedHourIndex)
-
-    val hoursForSelectedDate: List<HourlyWeather>
-        get() = availableHours.filter { it.time.toLocalDate() == selectedDate }
+        get() = hoursForSelectedDate.getOrNull(selectedHourIndex)
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -84,13 +82,14 @@ class RateOutfitViewModel @Inject constructor(
     private val outfitLogging: OutfitLogging,
     private val recommendations: Recommendations,
     private val catalogRepository: CatalogRepository,
-    private val weatherRepository: WeatherRepository,
+    private val forecast: Forecast,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         RateOutfitUiState(
+            selectedDate = forecast.today(),
             mode = run {
                 val entryId = savedStateHandle.get<Long>("outfitEntryId")
                 val isLive = savedStateHandle.get<Boolean>("isLive") ?: false
@@ -149,46 +148,51 @@ class RateOutfitViewModel @Inject constructor(
                 }
                 is OutfitScreenMode.NewLive -> {
                     val payload = liveOutfitHandoffStore.take()
-                    val allHours = payload?.allHours ?: emptyList()
-                    val matchIdx = payload?.selectedHourTime
-                        ?.let { t -> allHours.indexOfFirst { it.time == t }.takeIf { it >= 0 } } ?: 0
+                    val selectedTime = payload?.selectedHourTime
+                    val date = selectedTime?.toLocalDate() ?: forecast.today()
+                    val hours = loadHours(date)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        availableHours = allHours,
-                        selectedDate = LocalDate.now(),
-                        selectedHourIndex = matchIdx,
+                        hoursForSelectedDate = hours,
+                        selectedDate = date,
+                        selectedHourIndex = hours.indexOfFirst { it.time == selectedTime }
+                            .coerceAtLeast(0),
                         selectedItemIds = payload?.prefillItemIds?.toSet() ?: emptySet(),
                         logStep = LogOutfitStep.OUTFIT_CATEGORIES,
                         logLocationSelected = true,
-                        logLocationName = payload?.locationName ?: "",
-                        logLat = payload?.lat ?: 0.0,
-                        logLon = payload?.lon ?: 0.0,
+                        logLocationName = forecast.location?.name ?: "",
                         workoutDurationHours = payload?.workoutDurationHours ?: 1
                     )
                 }
                 is OutfitScreenMode.NewPast -> {
                     // GPS-only: there is no location picker anymore, so the wizard always uses
-                    // the app's last-known (current) location, same as the Home screen.
-                    val today = LocalDate.now()
-                    val relevantHours = weatherRepository.cachedAllHours
-                        .filter { !it.time.toLocalDate().isAfter(today) }
-
+                    // the forecast's (current) location, same as the Home screen. Only dates up
+                    // to today can be picked (the date picker's max date).
+                    val today = forecast.today()
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        availableHours = relevantHours,
+                        hoursForSelectedDate = loadHours(today),
                         selectedDate = today,
                         selectedHourIndex = -1,
                         selectedItemIds = emptySet(),
                         logStep = LogOutfitStep.DATE_TIME_LOCATION,
                         logLocationSelected = true,
-                        logLocationName = weatherRepository.cachedLocationName,
-                        logLat = weatherRepository.cachedLat,
-                        logLon = weatherRepository.cachedLon
+                        logLocationName = forecast.location?.name ?: ""
                     )
                 }
             }
         }
     }
+
+    /** Hours of [date] from the forecast; empty if unknown and the fetch fails. */
+    private suspend fun loadHours(date: LocalDate): List<HourlyWeather> =
+        try {
+            forecast.hoursFor(date)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
 
     fun toggleItem(itemId: Long) {
         val current = _uiState.value.selectedItemIds
@@ -208,50 +212,26 @@ class RateOutfitViewModel @Inject constructor(
     fun selectDate(date: LocalDate) {
         _uiState.value = _uiState.value.copy(
             selectedDate = date,
-            selectedHourIndex = -1
+            hoursForSelectedDate = emptyList(),
+            selectedHourIndex = -1,
+            isLoadingDateWeather = true
         )
-        // If we don't have weather data for this date yet, fetch it now.
-        val hasHours = _uiState.value.availableHours.any { it.time.toLocalDate() == date }
-        if (!hasHours) {
-            viewModelScope.launch {
-                _uiState.value = _uiState.value.copy(isLoadingDateWeather = true)
-                try {
-                    val newHours = weatherRepository.fetchWeatherForDate(
-                        _uiState.value.logLat, _uiState.value.logLon, date
-                    )
-                    val merged = (_uiState.value.availableHours
-                        .filter { it.time.toLocalDate() != date } + newHours)
-                        .sortedBy { it.time }
-                    _uiState.value = _uiState.value.copy(
-                        isLoadingDateWeather = false,
-                        availableHours = merged
-                    )
-                } catch (e: Exception) {
-                    _uiState.value = _uiState.value.copy(isLoadingDateWeather = false)
-                }
-            }
+        viewModelScope.launch {
+            val hours = loadHours(date)
+            // Ignore the result if the user has picked another date in the meantime.
+            if (_uiState.value.selectedDate != date) return@launch
+            _uiState.value = _uiState.value.copy(
+                isLoadingDateWeather = false,
+                hoursForSelectedDate = hours
+            )
         }
     }
 
     /** Called after the user confirms a time in the Android TimePickerDialog. */
     fun selectHourByClockHour(hour: Int) {
-        val hoursForDate = _uiState.value.hoursForSelectedDate
-        // Find the entry whose hour matches, or the last one before it as fallback.
-        val match = hoursForDate.firstOrNull { it.time.hour == hour }
-            ?: hoursForDate.lastOrNull { it.time.hour < hour }
-            ?: hoursForDate.firstOrNull()
-        val globalIndex = match?.let { _uiState.value.availableHours.indexOf(it) } ?: -1
-        if (globalIndex >= 0) {
-            _uiState.value = _uiState.value.copy(selectedHourIndex = globalIndex)
-        }
-    }
-
-    fun selectHour(indexInDay: Int) {
-        val hoursForDate = _uiState.value.hoursForSelectedDate
-        val globalIndex = _uiState.value.availableHours.indexOf(hoursForDate.getOrNull(indexInDay))
-        if (globalIndex >= 0) {
-            _uiState.value = _uiState.value.copy(selectedHourIndex = globalIndex)
-        }
+        val hours = _uiState.value.hoursForSelectedDate
+        val match = Forecast.hourNearest(hours, hour) ?: return
+        _uiState.value = _uiState.value.copy(selectedHourIndex = hours.indexOf(match))
     }
 
     // ─── Wizard navigation ───────────────────────────────────────────────────
@@ -322,7 +302,7 @@ class RateOutfitViewModel @Inject constructor(
 
                     outfitLogging.log(
                         hour = selectedHour,
-                        location = LogLocation(state.logLocationName, state.logLat, state.logLon),
+                        location = LogLocation(state.logLocationName, forecast.location?.lat ?: 0.0, forecast.location?.lon ?: 0.0),
                         sport = state.sport,
                         clothingItemIds = state.selectedItemIds,
                         rating = state.comfortRating,

@@ -99,3 +99,19 @@ or touch the reminder themselves.
 **Reminder rule:** a reminder is scheduled only if the log is live (`LogMode.LIVE`) or the
 entry is still unrated; a past log that already carries a rating gets none. Rating an entry
 cancels its reminder. A blank location name is stored as "Current Location".
+
+### Forecast
+The set of known hours for the current location, owned by `Forecast`
+(`feature/forecast/Forecast.kt`): the hour cache (API window of past 2 days + today +
+tomorrow, plus any per-date fetches merged in, always sorted and duplicate-free), the
+location (`ForecastLocation`, or `null` = no location yet) and its display name. Callers
+resolve a location themselves (GPS/geocoding stay in the Android layer) and hand it to
+`refresh`. `hoursFor(date)` returns that date's hours and fetches and merges them only if
+none are known. Time comes from an injected `Clock`.
+
+**Wizard rule:** the outfit wizard can only pick hours up to today (the date picker's max
+date); live logs start on the date of the hour Home handed off.
+
+### Display window
+The 24 hours from the current clock hour that Home shows (`Forecast.displayWindow()`),
+shorter if the known hours end sooner, empty if all known hours are in the past.
