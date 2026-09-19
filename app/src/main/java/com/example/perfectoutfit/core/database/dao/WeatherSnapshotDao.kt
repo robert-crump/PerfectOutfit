@@ -13,7 +13,7 @@ interface WeatherSnapshotDao {
     @Query("SELECT * FROM weather_snapshots WHERE id = :id")
     suspend fun getById(id: Long): WeatherSnapshot?
 
-    @Query("SELECT * FROM weather_snapshots ORDER BY timestamp DESC")
+    @Query("SELECT * FROM weather_snapshots ORDER BY timestamp DESC, id DESC")
     suspend fun getAll(): List<WeatherSnapshot>
 
     @Query("DELETE FROM weather_snapshots")

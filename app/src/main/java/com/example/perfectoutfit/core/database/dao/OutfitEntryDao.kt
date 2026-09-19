@@ -48,7 +48,7 @@ interface OutfitEntryDao {
     """)
     suspend fun countEntriesWithAnyItem(itemIds: List<Long>): Int
 
-    @Query("SELECT * FROM outfit_entries ORDER BY createdAt DESC")
+    @Query("SELECT * FROM outfit_entries ORDER BY createdAt DESC, id DESC")
     suspend fun getAll(): List<OutfitEntry>
 
     @Query("DELETE FROM outfit_entries WHERE id = :id")

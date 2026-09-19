@@ -20,7 +20,7 @@ interface ClothingItemDao {
     @Query("SELECT * FROM clothing_items WHERE id = :id")
     suspend fun getById(id: Long): ClothingItem?
 
-    @Query("SELECT * FROM clothing_items ORDER BY sport, bodyPart, name")
+    @Query("SELECT * FROM clothing_items ORDER BY sport, bodyPart, name, id")
     suspend fun getAll(): List<ClothingItem>
 
     @Insert

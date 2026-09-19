@@ -19,7 +19,7 @@ interface OutfitItemDao {
     @Query("DELETE FROM outfit_items WHERE outfitEntryId = :entryId")
     suspend fun deleteByEntryId(entryId: Long)
 
-    @Query("SELECT * FROM outfit_items")
+    @Query("SELECT * FROM outfit_items ORDER BY outfitEntryId, clothingItemId")
     suspend fun getAll(): List<OutfitItem>
 
     @Query("DELETE FROM outfit_items")
