@@ -13,6 +13,9 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,6 +39,15 @@ data class ExportData(
     val outfitItems: List<OutfitItem> = emptyList()
 )
 
+/**
+ * Thrown by [ExportImportManager.importFromJson] when the file was written by a newer app
+ * version than this one. Typed so the UI (and the Drive snapshot picker) can react to it.
+ */
+class UnsupportedExportVersionException(val fileVersion: Int) : Exception(
+    "This backup was created by a newer version of the app (export version $fileVersion, " +
+        "this app supports up to $CURRENT_EXPORT_VERSION). Update the app to restore this backup."
+)
+
 @Singleton
 class ExportImportManager @Inject constructor(
     private val clothingItemDao: ClothingItemDao,
@@ -56,12 +68,20 @@ class ExportImportManager @Inject constructor(
     }
 
     /**
-     * Decodes and validates the whole file before touching the database, so a malformed
+     * Rejects files newer than [CURRENT_EXPORT_VERSION] with [UnsupportedExportVersionException]
+     * (checked before decoding, since a newer shape may not decode here); older or missing
+     * versions decode via field defaults. Decodes and validates the whole file before
+     * touching the database, so a malformed
      * file (bad JSON, wrong types, unknown enum constants) leaves existing data untouched.
      * The delete-then-insert itself runs in one transaction so a failure partway through
      * can't leave the database partially emptied either.
      */
     suspend fun importFromJson(jsonString: String) {
+        val fileVersion = (json.parseToJsonElement(jsonString) as? JsonObject)
+            ?.get("version")?.jsonPrimitive?.intOrNull
+        if (fileVersion != null && fileVersion > CURRENT_EXPORT_VERSION) {
+            throw UnsupportedExportVersionException(fileVersion)
+        }
         val data = json.decodeFromString(ExportData.serializer(), jsonString)
 
         transactionRunner.runInTransaction {

@@ -148,4 +148,55 @@ class ExportImportManagerTest {
         assertEquals(listOf(entry), outfitEntryDao.getAll())
         assertEquals(listOf(outfitItem), outfitItemDao.getAll())
     }
+
+    @Test
+    fun `newer version is rejected and database unchanged`() = runTest {
+        val clothingItemDao = FakeClothingItemDao().apply { insertAll(listOf(clothingItem)) }
+        val weatherSnapshotDao = FakeWeatherSnapshotDao().apply { insert(snapshot) }
+        val outfitEntryDao = FakeOutfitEntryDao().apply { insert(entry) }
+        val outfitItemDao = FakeOutfitItemDao().apply { insertAll(listOf(outfitItem)) }
+        val manager = managerFor(clothingItemDao, weatherSnapshotDao, outfitEntryDao, outfitItemDao)
+        val newer = CURRENT_EXPORT_VERSION + 1
+
+        try {
+            manager.importFromJson("""{"version": $newer, "clothingItems": [], "futureField": 1}""")
+            fail("expected UnsupportedExportVersionException")
+        } catch (e: UnsupportedExportVersionException) {
+            assertEquals(newer, e.fileVersion)
+            assertTrue(e.message!!.contains("Update the app"))
+        }
+
+        assertEquals(listOf(clothingItem), clothingItemDao.getAll())
+        assertEquals(listOf(snapshot), weatherSnapshotDao.getAll())
+        assertEquals(listOf(entry), outfitEntryDao.getAll())
+        assertEquals(listOf(outfitItem), outfitItemDao.getAll())
+    }
+
+    @Test
+    fun `newer version is rejected even when its shape would not decode`() = runTest {
+        val manager = managerFor(
+            FakeClothingItemDao(), FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao()
+        )
+
+        try {
+            manager.importFromJson("""{"version": ${CURRENT_EXPORT_VERSION + 1}, "clothingItems": "new shape"}""")
+            fail("expected UnsupportedExportVersionException")
+        } catch (e: UnsupportedExportVersionException) {
+            // expected
+        }
+    }
+
+    @Test
+    fun `explicit version 1 still imports`() = runTest {
+        val clothingItemDao = FakeClothingItemDao()
+        val manager = managerFor(
+            clothingItemDao, FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao()
+        )
+
+        manager.importFromJson(
+            """{"version": 1, "clothingItems": [{"id": 1, "sport": "CYCLING", "bodyPart": "HEAD_THROAT", "name": "Mütze", "isDefault": true}]}"""
+        )
+
+        assertEquals(listOf(clothingItem), clothingItemDao.getAll())
+    }
 }
