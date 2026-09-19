@@ -1,5 +1,31 @@
 PerfectOutfit — Progress Log
 
+2026-09-19 (1)
+- Implemented issue #9 (Recommendation module: one entry point and one reference-temperature
+  rule for Home and Explorer).
+  Changes:
+    * New `feature/recommendation/Recommendations` (@Singleton, depends only on
+      OutfitEntryDao): find(sport, rawTemp, useApparent), findForWorkoutWindow(...) (coldest/
+      warmest indices + recommendations, returns null if empty or if an `isCurrent` callback
+      turns false mid-query = the staleness rule), likelyItemIds, stops, and a companion
+      `workoutExtremes` (formerly private HomeViewModel.computeExtremes; later hour wins ties).
+      RecommendationPolicy moved into the package and made `internal`.
+    * New core/model/WeatherReading interface (the seven measurements) implemented by both
+      HourlyWeather and WeatherSnapshot, plus one `referenceTemp(useApparent)` extension.
+      OutfitEntryWithDetails.roundedTemp deleted; rounding happens only inside the module.
+    * OutfitRepository lost findRecommendation/getRatedEntries/getLikelyItemIds. HomeViewModel
+      drops the `adjustedApparentTemp` Int shadow and uses one findForWorkoutWindow call
+      (duration 1 -> coldest). ExplorerViewModel now collects the preference reactively (was
+      first()) and uses stops()/find(). RateOutfitViewModel calls recommendations.likelyItemIds
+      (its own first() read is left for #10).
+    * Tests: RecommendationPolicyTest -> RecommendationsTest (same 20 cases through the module);
+      new RecommendationsWindowTest (extremes tie-breaks, window, staleness, stops, rounding).
+      FakeOutfitEntryDao.getRatedEntriesWithDetails now implemented (+ onQuery hook).
+    * CONTEXT.md: reference-temp rule location, reactivity claim, stale DAO note removed,
+      new "Recommendation" entry.
+  Verification: ./gradlew testDebugUnitTest passes. Manual check of Home/Explorer on a device
+  not done (no emulator in this session).
+
 2026-09-18 (3)
 - Implemented issue #8 ("Export/import: single schema definition, safe import,
   round-trip test"). ExportImportManager previously defined four hand-written DTOs that

@@ -45,8 +45,16 @@ class FakeOutfitEntryDao : OutfitEntryDao {
     override fun getAllWithDetails(): Flow<List<OutfitEntryWithDetails>> =
         throw UnsupportedOperationException()
 
-    override suspend fun getRatedEntriesWithDetails(sport: Sport): List<OutfitEntryWithDetails> =
-        throw UnsupportedOperationException()
+    /** Candidates returned by [getRatedEntriesWithDetails] (filtered to rated entries of the sport). */
+    var ratedEntries: List<OutfitEntryWithDetails> = emptyList()
+
+    /** Runs at the start of every [getRatedEntriesWithDetails] call, to simulate in-flight changes. */
+    var onQuery: () -> Unit = {}
+
+    override suspend fun getRatedEntriesWithDetails(sport: Sport): List<OutfitEntryWithDetails> {
+        onQuery()
+        return ratedEntries.filter { it.entry.sport == sport && it.entry.comfortRating != null }
+    }
 
     override suspend fun countEntriesWithAnyItem(itemIds: List<Long>): Int =
         throw UnsupportedOperationException()

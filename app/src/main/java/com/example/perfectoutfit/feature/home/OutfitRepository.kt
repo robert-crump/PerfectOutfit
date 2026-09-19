@@ -9,7 +9,6 @@ import com.example.perfectoutfit.core.model.Sport
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.roundToInt
 
 @Singleton
 class OutfitRepository @Inject constructor(
@@ -48,19 +47,6 @@ class OutfitRepository @Inject constructor(
         return outfitEntryDao.getAllWithDetailsBySport(sport)
     }
 
-    suspend fun getRatedEntries(sport: Sport): List<OutfitEntryWithDetails> {
-        return outfitEntryDao.getRatedEntriesWithDetails(sport)
-    }
-
-    suspend fun findRecommendation(
-        sport: Sport,
-        temp: Double,
-        useApparent: Boolean = true
-    ): OutfitEntryWithDetails? {
-        val candidates = outfitEntryDao.getRatedEntriesWithDetails(sport)
-        return RecommendationPolicy.findRecommendation(candidates, temp.roundToInt(), useApparent)
-    }
-
     suspend fun updateNotes(entryId: Long, notes: String) = outfitEntryDao.updateNotes(entryId, notes)
 
     suspend fun deleteEntry(id: Long) = outfitEntryDao.deleteById(id)
@@ -69,10 +55,5 @@ class OutfitRepository @Inject constructor(
         outfitEntryDao.insert(entry)
         val items = clothingItemIds.map { OutfitItem(outfitEntryId = entry.id, clothingItemId = it) }
         outfitItemDao.insertAll(items)
-    }
-
-    suspend fun getLikelyItemIds(sport: Sport, temp: Double, useApparent: Boolean): Set<Long> {
-        val candidates = outfitEntryDao.getRatedEntriesWithDetails(sport)
-        return RecommendationPolicy.likelyItemIds(candidates, temp.roundToInt(), useApparent)
     }
 }

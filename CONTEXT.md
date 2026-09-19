@@ -13,17 +13,17 @@ is the dry-bulb air temperature.
 
 Every place that recommends, matches, or displays "the temperature" uses the reference
 temperature — no screen ever judges an hour by both bases at once. The selection rule
-lives in exactly one place: `HourlyWeather.referenceTemp(useApparent)`, which returns a
-raw `Double`; callers round at the edge.
-
-Note: the recommendation queries in `OutfitEntryDao` still keep parallel apparent/real
-variants because Room cannot parameterize a column name — that split is not the same
-duplication as the reference-temperature rule and is expected to remain.
+lives in exactly one place: the `WeatherReading.referenceTemp(useApparent)` extension
+(`core/model/WeatherReading.kt`), which returns a raw `Double`; callers round at the edge.
+Both forecast hours (`HourlyWeather`) and persisted snapshots (`WeatherSnapshot`)
+implement `WeatherReading`, so they are judged by the same rule.
 
 ### Apparent vs real temperature
 A user preference toggling whether the app reasons in feels-like ("apparent") or dry-bulb
-("real") temperature. It is reactive — toggling it in Settings re-resolves the
-[reference temperature](#reference-temperature) on any open screen.
+("real") temperature. It is reactive — Home and Explorer collect it, so toggling it in
+Settings re-resolves the [reference temperature](#reference-temperature) (and, in Explorer,
+the stops and recommendation) while they are open. The Rate screen still reads it once
+(tracked in #10).
 
 ### Weather severity
 The three-band answer (`NONE` / `NOTABLE` / `HIGH`) to "how concerning is this hour's UV
@@ -62,3 +62,20 @@ the database partially emptied. `DatabaseTransactionRunner` is the same
 interface-plus-Android-adapter seam as [Rating reminder](#rating-reminder) (`RoomTransactionRunner`
 in production, a same-thread fake under `app/src/test`), which is why the round-trip test
 runs on the plain JVM with fake DAOs instead of Robolectric.
+
+### Recommendation
+The outfit suggested for a sport at a [reference temperature](#reference-temperature),
+owned by `Recommendations` (`feature/recommendation/`) — the single entry point for Home,
+Explorer, and the Rate screen's "likely items". Callers pass sport, a raw reference
+temperature and the apparent-vs-real preference; the module loads rated history
+(`OutfitEntryDao.getRatedEntriesWithDetails(sport)` — one query, matching happens in
+memory), rounds, and matches in three tiers over rated entries: (1) exact rounded
+temperature, newest wins regardless of rating; (2) within ±1 °C, best rating
+(0 > 1 > -1) then newest; (3) within ±2 °C, same. `RecommendationPolicy` is `internal` to
+the module. `likelyItemIds` are the items of perfect-rated (0) entries within ±2 °C. The
+Explorer **stops** are the distinct rounded reference temperatures with rated history.
+
+**Workout window:** for a workout of N hours, the first N forecast hours are the window;
+the *coldest* and *warmest* hours (by reference temperature, ties going to the later hour)
+each get their own recommendation. A one-hour window has coldest == warmest. A result is
+discarded (`null`) if the caller's sport or duration changed while the query ran.

@@ -1,9 +1,10 @@
-package com.example.perfectoutfit.feature.home
+package com.example.perfectoutfit.feature.recommendation
 
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
+import com.example.perfectoutfit.core.model.referenceTemp
 import kotlin.math.roundToInt
 
-object RecommendationPolicy {
+internal object RecommendationPolicy {
 
     fun findRecommendation(
         candidates: List<OutfitEntryWithDetails>,
@@ -40,6 +41,13 @@ object RecommendationPolicy {
         .map { it.id }
         .toSet()
 
+    fun stops(candidates: List<OutfitEntryWithDetails>, useApparent: Boolean): List<Int> =
+        candidates
+            .filter { it.entry.comfortRating != null }
+            .map { it.roundedTemp(useApparent) }
+            .distinct()
+            .sorted()
+
     // Comparator: rating priority (0 → 1 → -1), tiebreak by newest timestamp
     private val byRatingThenNewest: Comparator<OutfitEntryWithDetails> =
         compareBy<OutfitEntryWithDetails> { ratingPriority(it.entry.comfortRating!!) }
@@ -50,8 +58,7 @@ object RecommendationPolicy {
         1 -> 1
         else -> 2
     }
-}
 
-internal fun OutfitEntryWithDetails.roundedTemp(useApparent: Boolean): Int =
-    (if (useApparent) weatherSnapshot.apparentTemperatureCelsius
-    else weatherSnapshot.temperatureCelsius).roundToInt()
+    private fun OutfitEntryWithDetails.roundedTemp(useApparent: Boolean): Int =
+        weatherSnapshot.referenceTemp(useApparent).roundToInt()
+}

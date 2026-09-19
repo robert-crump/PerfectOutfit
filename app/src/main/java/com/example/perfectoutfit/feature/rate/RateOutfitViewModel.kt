@@ -8,6 +8,7 @@ import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.WeatherSnapshot
+import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.core.notification.RatingReminder
 import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.home.HourlyWeather
@@ -15,6 +16,7 @@ import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
 import com.example.perfectoutfit.feature.home.toWeatherSnapshot
 import com.example.perfectoutfit.feature.home.OutfitRepository
 import com.example.perfectoutfit.feature.home.WeatherRepository
+import com.example.perfectoutfit.feature.recommendation.Recommendations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,6 +79,7 @@ data class RateOutfitUiState(
 class RateOutfitViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val outfitRepository: OutfitRepository,
+    private val recommendations: Recommendations,
     private val catalogRepository: CatalogRepository,
     private val weatherRepository: WeatherRepository,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
@@ -136,7 +139,7 @@ class RateOutfitViewModel @Inject constructor(
                     val selHour = allHours.getOrNull(matchIdx)
                     val useApp = preferencesManager.useApparentTemperature.first()
                     val likelyIds = if (selHour != null) {
-                        outfitRepository.getLikelyItemIds(sport, selHour.referenceTemp(useApp), useApp)
+                        recommendations.likelyItemIds(sport, selHour.referenceTemp(useApp), useApp)
                     } else emptySet()
 
                     _uiState.value = _uiState.value.copy(
@@ -250,7 +253,7 @@ class RateOutfitViewModel @Inject constructor(
             val selectedHour = state.selectedHour
             val likelyIds = if (selectedHour != null) {
                 val useApparent = preferencesManager.useApparentTemperature.first()
-                outfitRepository.getLikelyItemIds(state.sport, selectedHour.referenceTemp(useApparent), useApparent)
+                recommendations.likelyItemIds(state.sport, selectedHour.referenceTemp(useApparent), useApparent)
             } else emptySet()
             _uiState.value = _uiState.value.copy(
                 logStep = LogOutfitStep.OUTFIT_CATEGORIES,

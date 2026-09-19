@@ -1,4 +1,4 @@
-package com.example.perfectoutfit.feature.home
+package com.example.perfectoutfit.feature.recommendation
 
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
@@ -6,13 +6,36 @@ import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.WeatherSnapshot
+import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneId
 
-class RecommendationPolicyTest {
+class RecommendationsTest {
+
+    private val dao = FakeOutfitEntryDao()
+    private val recommendations = Recommendations(dao)
+
+    private fun findRecommendation(
+        candidates: List<OutfitEntryWithDetails>,
+        target: Int,
+        useApparent: Boolean
+    ): OutfitEntryWithDetails? {
+        dao.ratedEntries = candidates
+        return runBlocking { recommendations.find(Sport.CYCLING, target.toDouble(), useApparent) }
+    }
+
+    private fun likelyItemIds(
+        candidates: List<OutfitEntryWithDetails>,
+        target: Int,
+        useApparent: Boolean
+    ): Set<Long> {
+        dao.ratedEntries = candidates
+        return runBlocking { recommendations.likelyItemIds(Sport.CYCLING, target.toDouble(), useApparent) }
+    }
 
     // ── Builders ─────────────────────────────────────────────────────────────
 
@@ -66,19 +89,19 @@ class RecommendationPolicyTest {
 
     @Test
     fun `returns null for empty candidates`() {
-        assertNull(RecommendationPolicy.findRecommendation(emptyList(), 10, true))
+        assertNull(findRecommendation(emptyList(), 10, true))
     }
 
     @Test
     fun `returns null when all entries are unrated`() {
         val candidates = listOf(entry(1, rating = null, apparent = 10.0))
-        assertNull(RecommendationPolicy.findRecommendation(candidates, 10, true))
+        assertNull(findRecommendation(candidates, 10, true))
     }
 
     @Test
     fun `exact match returns the only rated entry`() {
         val candidates = listOf(entry(1, rating = 0, apparent = 10.0))
-        val result = RecommendationPolicy.findRecommendation(candidates, 10, true)
+        val result = findRecommendation(candidates, 10, true)
         assertEquals(1L, result?.entry?.id)
     }
 
@@ -88,7 +111,7 @@ class RecommendationPolicyTest {
             entry(1, rating = 0, apparent = 10.0, time = older),
             entry(2, rating = 0, apparent = 10.0, time = newest)
         )
-        val result = RecommendationPolicy.findRecommendation(candidates, 10, true)
+        val result = findRecommendation(candidates, 10, true)
         assertEquals(2L, result?.entry?.id)
     }
 
@@ -98,14 +121,14 @@ class RecommendationPolicyTest {
             entry(1, rating = 0, apparent = 10.0, time = older),   // perfect but older
             entry(2, rating = -1, apparent = 10.0, time = newest)  // too cold but newer
         )
-        val result = RecommendationPolicy.findRecommendation(candidates, 10, true)
+        val result = findRecommendation(candidates, 10, true)
         assertEquals(2L, result?.entry?.id)
     }
 
     @Test
     fun `falls through to plus-minus-1 when no exact match`() {
         val candidates = listOf(entry(1, rating = 0, apparent = 9.0))
-        val result = RecommendationPolicy.findRecommendation(candidates, 10, true)
+        val result = findRecommendation(candidates, 10, true)
         assertEquals(1L, result?.entry?.id)
     }
 
@@ -115,7 +138,7 @@ class RecommendationPolicyTest {
             entry(1, rating = 1, apparent = 9.0, time = newest),  // too hot, newer
             entry(2, rating = 0, apparent = 11.0, time = older)   // perfect, older
         )
-        val result = RecommendationPolicy.findRecommendation(candidates, 10, true)
+        val result = findRecommendation(candidates, 10, true)
         assertEquals(2L, result?.entry?.id)
     }
 
@@ -125,7 +148,7 @@ class RecommendationPolicyTest {
             entry(1, rating = -1, apparent = 9.0, time = newest), // too cold, newer
             entry(2, rating = 1, apparent = 11.0, time = older)   // too hot, older
         )
-        val result = RecommendationPolicy.findRecommendation(candidates, 10, true)
+        val result = findRecommendation(candidates, 10, true)
         assertEquals(2L, result?.entry?.id)
     }
 
@@ -135,21 +158,21 @@ class RecommendationPolicyTest {
             entry(1, rating = 0, apparent = 9.0, time = older),
             entry(2, rating = 0, apparent = 11.0, time = newest)
         )
-        val result = RecommendationPolicy.findRecommendation(candidates, 10, true)
+        val result = findRecommendation(candidates, 10, true)
         assertEquals(2L, result?.entry?.id)
     }
 
     @Test
     fun `falls through to plus-minus-2 when no match in plus-minus-1`() {
         val candidates = listOf(entry(1, rating = 0, apparent = 8.0))
-        val result = RecommendationPolicy.findRecommendation(candidates, 10, true)
+        val result = findRecommendation(candidates, 10, true)
         assertEquals(1L, result?.entry?.id)
     }
 
     @Test
     fun `returns null when no candidates within plus-minus-2`() {
         val candidates = listOf(entry(1, rating = 0, apparent = 7.0))
-        val result = RecommendationPolicy.findRecommendation(candidates, 10, true)
+        val result = findRecommendation(candidates, 10, true)
         assertNull(result)
     }
 
@@ -157,22 +180,22 @@ class RecommendationPolicyTest {
     fun `useApparent false uses real temperature`() {
         // apparent=10 would match target 10; real=20 is outside ±2 of 10
         val candidates = listOf(entry(1, rating = 0, apparent = 10.0, real = 20.0))
-        assertNull(RecommendationPolicy.findRecommendation(candidates, 10, useApparent = false))
-        assertEquals(1L, RecommendationPolicy.findRecommendation(candidates, 20, useApparent = false)?.entry?.id)
+        assertNull(findRecommendation(candidates, 10, useApparent = false))
+        assertEquals(1L, findRecommendation(candidates, 20, useApparent = false)?.entry?.id)
     }
 
     @Test
     fun `temperature rounding at half-degree boundary`() {
         // 9.5 rounds to 10 → exact match at target 10
         val candidates = listOf(entry(1, rating = 0, apparent = 9.5))
-        assertEquals(1L, RecommendationPolicy.findRecommendation(candidates, 10, true)?.entry?.id)
+        assertEquals(1L, findRecommendation(candidates, 10, true)?.entry?.id)
     }
 
     // ── likelyItemIds ─────────────────────────────────────────────────────────
 
     @Test
     fun `likelyItemIds returns empty set for empty candidates`() {
-        assertEquals(emptySet<Long>(), RecommendationPolicy.likelyItemIds(emptyList(), 10, true))
+        assertEquals(emptySet<Long>(), likelyItemIds(emptyList(), 10, true))
     }
 
     @Test
@@ -180,7 +203,7 @@ class RecommendationPolicyTest {
         val candidates = listOf(
             entry(1, rating = 0, apparent = 10.0, items = listOf(item(101), item(102)))
         )
-        assertEquals(setOf(101L, 102L), RecommendationPolicy.likelyItemIds(candidates, 10, true))
+        assertEquals(setOf(101L, 102L), likelyItemIds(candidates, 10, true))
     }
 
     @Test
@@ -189,7 +212,7 @@ class RecommendationPolicyTest {
             entry(1, rating = 1, apparent = 10.0, items = listOf(item(101))),
             entry(2, rating = -1, apparent = 10.0, items = listOf(item(102)))
         )
-        assertEquals(emptySet<Long>(), RecommendationPolicy.likelyItemIds(candidates, 10, true))
+        assertEquals(emptySet<Long>(), likelyItemIds(candidates, 10, true))
     }
 
     @Test
@@ -198,7 +221,7 @@ class RecommendationPolicyTest {
             entry(1, rating = 0, apparent = 7.0, items = listOf(item(101))),  // 7 < 8 = 10-2, outside
             entry(2, rating = 0, apparent = 13.0, items = listOf(item(102)))  // 13 > 12 = 10+2, outside
         )
-        assertEquals(emptySet<Long>(), RecommendationPolicy.likelyItemIds(candidates, 10, true))
+        assertEquals(emptySet<Long>(), likelyItemIds(candidates, 10, true))
     }
 
     @Test
@@ -207,7 +230,7 @@ class RecommendationPolicyTest {
             entry(1, rating = 0, apparent = 8.0, items = listOf(item(101))),  // exactly -2
             entry(2, rating = 0, apparent = 12.0, items = listOf(item(102)))  // exactly +2
         )
-        assertEquals(setOf(101L, 102L), RecommendationPolicy.likelyItemIds(candidates, 10, true))
+        assertEquals(setOf(101L, 102L), likelyItemIds(candidates, 10, true))
     }
 
     @Test
@@ -216,7 +239,7 @@ class RecommendationPolicyTest {
             entry(1, rating = 0, apparent = 9.0, items = listOf(item(101))),
             entry(2, rating = 0, apparent = 11.0, items = listOf(item(101), item(102)))
         )
-        assertEquals(setOf(101L, 102L), RecommendationPolicy.likelyItemIds(candidates, 10, true))
+        assertEquals(setOf(101L, 102L), likelyItemIds(candidates, 10, true))
     }
 
     @Test
@@ -225,7 +248,7 @@ class RecommendationPolicyTest {
         val candidates = listOf(
             entry(1, rating = 0, apparent = 10.0, real = 20.0, items = listOf(item(101)))
         )
-        assertEquals(emptySet<Long>(), RecommendationPolicy.likelyItemIds(candidates, 10, useApparent = false))
-        assertEquals(setOf(101L), RecommendationPolicy.likelyItemIds(candidates, 20, useApparent = false))
+        assertEquals(emptySet<Long>(), likelyItemIds(candidates, 10, useApparent = false))
+        assertEquals(setOf(101L), likelyItemIds(candidates, 20, useApparent = false))
     }
 }

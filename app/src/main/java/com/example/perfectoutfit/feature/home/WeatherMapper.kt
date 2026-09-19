@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.feature.home
 
+import com.example.perfectoutfit.core.model.WeatherReading
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.network.ForecastResponse
 import java.time.LocalDateTime
@@ -9,27 +10,20 @@ import kotlin.math.roundToInt
 
 data class HourlyWeather(
     val time: LocalDateTime,
-    val temperatureCelsius: Double,
-    val apparentTemperatureCelsius: Double,
-    val windSpeedKmh: Double,
-    val windDirectionDegrees: Int,
-    val uvIndex: Int,
-    val cloudCoverPercent: Int,
-    val precipitationProbabilityPercent: Int
-) {
+    override val temperatureCelsius: Double,
+    override val apparentTemperatureCelsius: Double,
+    override val windSpeedKmh: Double,
+    override val windDirectionDegrees: Int,
+    override val uvIndex: Int,
+    override val cloudCoverPercent: Int,
+    override val precipitationProbabilityPercent: Int
+) : WeatherReading {
     val windDirectionLabel: String
         get() {
             val directions = listOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
             val index = ((windDirectionDegrees + 22.5) / 45.0).toInt() % 8
             return directions[index]
         }
-
-    /**
-     * Reference temperature: the single temperature this app reasons about for an hour,
-     * selected by the user's apparent-vs-real preference. Callers round at the edge.
-     */
-    fun referenceTemp(useApparent: Boolean): Double =
-        if (useApparent) apparentTemperatureCelsius else temperatureCelsius
 }
 
 fun HourlyWeather.toWeatherSnapshot(

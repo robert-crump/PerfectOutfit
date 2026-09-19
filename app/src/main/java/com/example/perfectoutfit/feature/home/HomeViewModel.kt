@@ -13,6 +13,8 @@ import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.WeatherSnapshot
+import com.example.perfectoutfit.core.model.referenceTemp
+import com.example.perfectoutfit.feature.recommendation.Recommendations
 import com.example.perfectoutfit.core.notification.RatingReminder
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -43,8 +45,6 @@ data class HomeUiState(
     val selectedSport: Sport = Sport.CYCLING,
     val selectedLocationName: String = "Current location",
     val recommendation: OutfitEntryWithDetails? = null,
-    /** Temperature used for recommendation lookup (apparent or real, user-adjustable). */
-    val adjustedApparentTemp: Int = 0,
     val useApparentTemperature: Boolean = true,
     val error: String? = null,
     val workoutDurationHours: Int = 1,
@@ -68,7 +68,7 @@ data class HomeUiState(
         else -> warmestRecommendation
     }
     val activeDisplayTemp: Int get() =
-        activeHour?.referenceTemp(useApparentTemperature)?.roundToInt() ?: adjustedApparentTemp
+        activeHour?.referenceTemp(useApparentTemperature)?.roundToInt() ?: 0
 }
 
 @HiltViewModel
@@ -77,6 +77,7 @@ class HomeViewModel @Inject constructor(
     private val weatherRepository: WeatherRepository,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val outfitRepository: OutfitRepository,
+    private val recommendations: Recommendations,
     private val preferencesManager: PreferencesManager,
     private val ratingReminder: RatingReminder
 ) : ViewModel() {
@@ -105,13 +106,7 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch {
             preferencesManager.useApparentTemperature.collect { useApparent ->
-                val selectedHour = _uiState.value.selectedHour
-                val newTemp = selectedHour?.referenceTemp(useApparent)?.roundToInt()
-                    ?: _uiState.value.adjustedApparentTemp
-                _uiState.value = _uiState.value.copy(
-                    useApparentTemperature = useApparent,
-                    adjustedApparentTemp = newTemp
-                )
+                _uiState.value = _uiState.value.copy(useApparentTemperature = useApparent)
                 refreshRecommendation()
             }
         }
@@ -292,14 +287,11 @@ class HomeViewModel @Inject constructor(
                 lat, lon, locationName ?: _uiState.value.selectedLocationName
             )
             val displayHours = WeatherMapper.extractDisplayedHours(allHours)
-            val useApparent = _uiState.value.useApparentTemperature
-            val firstHourTemp = displayHours.firstOrNull()?.referenceTemp(useApparent)?.roundToInt() ?: 0
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 isRefreshing = false,
                 hourlyWeather = displayHours,
                 selectedHourIndex = 0,
-                adjustedApparentTemp = firstHourTemp,
                 error = null
             )
             refreshRecommendation()
@@ -316,49 +308,28 @@ class HomeViewModel @Inject constructor(
         val sport = _uiState.value.selectedSport
         val useApparent = _uiState.value.useApparentTemperature
         val duration = _uiState.value.workoutDurationHours
-        val hours = _uiState.value.hourlyWeather
 
-        if (duration <= 1) {
-            val temp = _uiState.value.adjustedApparentTemp.toDouble()
-            val recommendation = outfitRepository.findRecommendation(sport, temp, useApparent)
-            // Discard if sport or duration changed while the query was in flight
-            if (_uiState.value.selectedSport == sport && _uiState.value.workoutDurationHours == duration) {
-                _uiState.value = _uiState.value.copy(recommendation = recommendation)
+        // Module discards the result if sport or duration changed while it queried.
+        val window = recommendations.findForWorkoutWindow(
+            sport = sport,
+            hours = _uiState.value.hourlyWeather,
+            durationHours = duration,
+            useApparent = useApparent,
+            isCurrent = {
+                _uiState.value.selectedSport == sport && _uiState.value.workoutDurationHours == duration
             }
+        ) ?: return
+
+        _uiState.value = if (duration <= 1) {
+            _uiState.value.copy(recommendation = window.coldest)
         } else {
-            val (coldestIdx, warmestIdx) = computeExtremes(hours, duration, useApparent)
-            fun tempAt(idx: Int): Double = hours.getOrNull(idx)?.referenceTemp(useApparent)
-                ?: _uiState.value.adjustedApparentTemp.toDouble()
-            val coldRec = outfitRepository.findRecommendation(sport, tempAt(coldestIdx), useApparent)
-            val warmRec = outfitRepository.findRecommendation(sport, tempAt(warmestIdx), useApparent)
-            // Discard if sport or duration changed while the queries were in flight
-            if (_uiState.value.selectedSport == sport && _uiState.value.workoutDurationHours == duration) {
-                _uiState.value = _uiState.value.copy(
-                    coldestHourIndex = coldestIdx,
-                    warmestHourIndex = warmestIdx,
-                    coldestRecommendation = coldRec,
-                    warmestRecommendation = warmRec
-                )
-            }
+            _uiState.value.copy(
+                coldestHourIndex = window.coldestHourIndex,
+                warmestHourIndex = window.warmestHourIndex,
+                coldestRecommendation = window.coldest,
+                warmestRecommendation = window.warmest
+            )
         }
-    }
-
-    private fun computeExtremes(
-        hours: List<HourlyWeather>,
-        duration: Int,
-        useApparent: Boolean
-    ): Pair<Int, Int> {
-        val window = hours.take(duration)
-        var coldestIdx = 0
-        var warmestIdx = 0
-        window.forEachIndexed { i, h ->
-            val temp = h.referenceTemp(useApparent)
-            val cold = window[coldestIdx].referenceTemp(useApparent)
-            val warm = window[warmestIdx].referenceTemp(useApparent)
-            if (temp <= cold) coldestIdx = i  // <= so later hour wins tiebreak
-            if (temp >= warm) warmestIdx = i  // >= so later hour wins tiebreak
-        }
-        return coldestIdx to warmestIdx
     }
 
     @Suppress("DEPRECATION")

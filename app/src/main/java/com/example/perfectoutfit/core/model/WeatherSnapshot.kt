@@ -12,11 +12,11 @@ data class WeatherSnapshot(
     val latitude: Double,
     val longitude: Double,
     val locationName: String,
-    val temperatureCelsius: Double,
-    val apparentTemperatureCelsius: Double,
-    val windSpeedKmh: Double,
-    val windDirectionDegrees: Int,
-    val uvIndex: Int,
-    val cloudCoverPercent: Int,
-    val precipitationProbabilityPercent: Int
-)
+    override val temperatureCelsius: Double,
+    override val apparentTemperatureCelsius: Double,
+    override val windSpeedKmh: Double,
+    override val windDirectionDegrees: Int,
+    override val uvIndex: Int,
+    override val cloudCoverPercent: Int,
+    override val precipitationProbabilityPercent: Int
+) : WeatherReading
