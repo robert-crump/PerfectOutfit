@@ -65,8 +65,9 @@ class FakeOutfitEntryDao : OutfitEntryDao {
         entries.remove(id)
     }
 
-    override suspend fun updateNotes(entryId: Long, notes: String) =
-        throw UnsupportedOperationException()
+    override suspend fun updateNotes(entryId: Long, notes: String) {
+        entries[entryId]?.let { entries[entryId] = it.copy(notes = notes) }
+    }
 
     override suspend fun deleteAll() {
         entries.clear()

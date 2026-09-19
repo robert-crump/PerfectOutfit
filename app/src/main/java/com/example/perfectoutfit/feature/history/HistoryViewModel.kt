@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
-import com.example.perfectoutfit.feature.home.OutfitRepository
+import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +19,7 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val outfitRepository: OutfitRepository
+    private val outfitLogging: OutfitLogging
 ) : ViewModel() {
 
     private val _filterSport = MutableStateFlow<Sport?>(Sport.CYCLING)
@@ -29,8 +29,8 @@ class HistoryViewModel @Inject constructor(
     // message before the first database emission arrives.
     val entries: StateFlow<List<OutfitEntryWithDetails>?> = _filterSport
         .flatMapLatest { sport ->
-            if (sport != null) outfitRepository.getEntriesBySport(sport)
-            else outfitRepository.getAllEntriesWithDetails()
+            if (sport != null) outfitLogging.entriesBySport(sport)
+            else outfitLogging.allEntries()
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -44,7 +44,7 @@ class HistoryViewModel @Inject constructor(
     fun deleteEntry(entry: OutfitEntryWithDetails) {
         viewModelScope.launch {
             _lastDeletedEntry.value = entry
-            outfitRepository.deleteEntry(entry.entry.id)
+            outfitLogging.delete(entry.entry.id)
         }
     }
 
@@ -52,7 +52,7 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch {
             val deleted = _lastDeletedEntry.value ?: return@launch
             _lastDeletedEntry.value = null
-            outfitRepository.restoreEntry(
+            outfitLogging.restore(
                 entry = deleted.entry,
                 clothingItemIds = deleted.clothingItems.map { it.id }
             )

@@ -1,7 +1,5 @@
 package com.example.perfectoutfit.feature.home
 
-import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
-import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.network.OpenMeteoApi
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -10,8 +8,7 @@ import javax.inject.Singleton
 
 @Singleton
 class WeatherRepository @Inject constructor(
-    private val openMeteoApi: OpenMeteoApi,
-    private val weatherSnapshotDao: WeatherSnapshotDao
+    private val openMeteoApi: OpenMeteoApi
 ) {
     /** All hours from the last fetch (past 2 days + today + tomorrow). */
     var cachedAllHours: List<HourlyWeather> = emptyList()
@@ -41,9 +38,5 @@ class WeatherRepository @Inject constructor(
         val dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val response = openMeteoApi.getWeatherForDateRange(lat, lon, dateStr, dateStr)
         return WeatherMapper.extractAllHours(response)
-    }
-
-    suspend fun saveSnapshot(snapshot: WeatherSnapshot): Long {
-        return weatherSnapshotDao.insert(snapshot)
     }
 }

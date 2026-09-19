@@ -22,8 +22,8 @@ implement `WeatherReading`, so they are judged by the same rule.
 A user preference toggling whether the app reasons in feels-like ("apparent") or dry-bulb
 ("real") temperature. It is reactive — Home and Explorer collect it, so toggling it in
 Settings re-resolves the [reference temperature](#reference-temperature) (and, in Explorer,
-the stops and recommendation) while they are open. The Rate screen still reads it once
-(tracked in #10).
+the stops and recommendation) while they are open. The Rate screen also collects it, so
+its likely-items follow the preference.
 
 ### Weather severity
 The three-band answer (`NONE` / `NOTABLE` / `HIGH`) to "how concerning is this hour's UV
@@ -44,8 +44,7 @@ workout date, duration). Its capability is exactly "show a reminder for entry X"
 Defined by the `RatingReminder` interface (`core/notification/RatingReminder.kt`), with
 two adapters: `AndroidRatingReminder` (system notifications; channel creation is lazy, on
 first `show()`, so constructing it has no side effects) and `FakeRatingReminder` (a
-recording fake under `app/src/test`). `HomeViewModel`, `RateOutfitViewModel`, and
-`RatingActionHandler` all depend on the interface, never the concrete Android adapter —
+recording fake under `app/src/test`). `OutfitLogging` depends on the interface, never the concrete Android adapter —
 this is the app's first hand-written DI seam (`@Binds` in `core/di/NotificationModule.kt`)
 and the reason those ViewModels can be constructed in a plain JVM test.
 
@@ -79,3 +78,24 @@ Explorer **stops** are the distinct rounded reference temperatures with rated hi
 the *coldest* and *warmest* hours (by reference temperature, ties going to the later hour)
 each get their own recommendation. A one-hour window has coldest == warmest. A result is
 discarded (`null`) if the caller's sport or duration changed while the query ran.
+
+### Outfit entry
+The persisted record of one outfit worn for one workout (`OutfitEntry`): sport, its
+clothing items, a `WeatherSnapshot` of the workout hour, an optional comfort rating
+(`ratedAt` set when rated) and notes.
+
+**`createdAt` rule:** `createdAt` is the epoch millis of the workout hour (not the wall
+clock at save time), for live and past logs alike. History sorts by it, so a past-dated log
+sorts by when the workout happened.
+
+### Outfit logging
+The act of recording an outfit entry, owned entirely by `OutfitLogging`
+(`feature/outfit/OutfitLogging.kt`): save the snapshot from the hour, create the entry with
+its items (one transaction), then decide on the [rating reminder](#rating-reminder). Also
+owns rate, update (items + notes + rating atomically), delete and restore (original id).
+Callers (Home accept, the wizard, History, notification rating action) never build snapshots
+or touch the reminder themselves.
+
+**Reminder rule:** a reminder is scheduled only if the log is live (`LogMode.LIVE`) or the
+entry is still unrated; a past log that already carries a rating gets none. Rating an entry
+cancels its reminder. A blank location name is stored as "Current Location".

@@ -1,5 +1,26 @@
 PerfectOutfit — Progress Log
 
+2026-09-19 (2)
+- Implemented issue #10 (Outfit logging module: one path for snapshot, entry, reminder).
+  Changes:
+    * New `feature/outfit/OutfitLogging` (@Singleton; DAOs + DatabaseTransactionRunner +
+      RatingReminder): log(hour, LogLocation, sport, itemIds, rating, notes, duration,
+      LogMode.LIVE/PAST), rate, update (items+notes+rating in one transaction), delete,
+      restore, plus read pass-throughs. `createdAt` = workout hour for every log (Home used
+      the wall clock before; documented in CONTEXT.md "Outfit entry"). Reminder only for
+      LIVE or unrated logs, now enforced for Home too. Rating cancels the reminder.
+    * OutfitRepository deleted; WeatherRepository lost saveSnapshot and its DAO dependency.
+      HomeViewModel.acceptRecommendation / RateOutfitViewModel.save are one call each; dead
+      saveWeatherForLater and buildSnapshot gone. "Current Location" fallback lives only in
+      LogLocation. HistoryViewModel and RatingActionHandler go through the module.
+    * RateOutfitViewModel no longer uses first() on the apparent preference: likelyItemIds
+      is derived reactively from (selected hour, sport, preference).
+    * Tests: OutfitLoggingTest (13 cases, plain JVM, DAO fakes + FakeRatingReminder);
+      existing handler/receiver tests rewired; FakeOutfitEntryDao.updateNotes implemented.
+  Verification: ./gradlew testDebugUnitTest passes. Manual device check not done (no
+  emulator in this session): accept recommendation, wizard live/past, rate from History,
+  undo delete.
+
 2026-09-19 (1)
 - Implemented issue #9 (Recommendation module: one entry point and one reference-temperature
   rule for Home and Explorer).

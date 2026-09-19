@@ -3,7 +3,9 @@ package com.example.perfectoutfit.core.notification
 import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
-import com.example.perfectoutfit.feature.home.OutfitRepository
+import com.example.perfectoutfit.feature.outfit.OutfitLogging
+import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
+import com.example.perfectoutfit.testutil.FakeWeatherSnapshotDao
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import com.example.perfectoutfit.testutil.FakeOutfitItemDao
 import org.junit.Assert.assertEquals
@@ -35,8 +37,10 @@ class RateOutfitActionReceiverTest {
         context = ApplicationProvider.getApplicationContext()
         receiver = TestableReceiver().apply {
             ratingActionHandler = RatingActionHandler(
-                OutfitRepository(FakeOutfitEntryDao(), FakeOutfitItemDao()),
-                FakeRatingReminder()
+                OutfitLogging(
+                    FakeOutfitEntryDao(), FakeOutfitItemDao(), FakeWeatherSnapshotDao(),
+                    FakeDatabaseTransactionRunner(), FakeRatingReminder()
+                )
             )
         }
     }

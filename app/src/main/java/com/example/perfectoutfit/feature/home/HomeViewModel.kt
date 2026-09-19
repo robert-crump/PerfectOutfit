@@ -9,13 +9,13 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
-import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
-import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.recommendation.Recommendations
-import com.example.perfectoutfit.core.notification.RatingReminder
+import com.example.perfectoutfit.feature.outfit.LogLocation
+import com.example.perfectoutfit.feature.outfit.LogMode
+import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -76,10 +76,9 @@ class HomeViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val weatherRepository: WeatherRepository,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
-    private val outfitRepository: OutfitRepository,
+    private val outfitLogging: OutfitLogging,
     private val recommendations: Recommendations,
-    private val preferencesManager: PreferencesManager,
-    private val ratingReminder: RatingReminder
+    private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -137,21 +136,17 @@ class HomeViewModel @Inject constructor(
     fun acceptRecommendation(recommendation: OutfitEntryWithDetails) {
         viewModelScope.launch {
             val weather = _uiState.value.activeHour ?: return@launch
-            val snapshotId = weatherRepository.saveSnapshot(buildSnapshot(weather))
-            val now = System.currentTimeMillis()
-            val entryId = outfitRepository.createEntry(
-                entry = OutfitEntry(
-                    weatherSnapshotId = snapshotId,
-                    sport = _uiState.value.selectedSport,
-                    createdAt = now
+            outfitLogging.log(
+                hour = weather,
+                location = LogLocation(
+                    name = _uiState.value.selectedLocationName,
+                    lat = weatherRepository.cachedLat,
+                    lon = weatherRepository.cachedLon
                 ),
-                clothingItemIds = recommendation.clothingItems.map { it.id }
-            )
-            ratingReminder.show(
-                outfitEntryId = entryId,
                 sport = _uiState.value.selectedSport,
-                dateMs = now,
-                durationHours = _uiState.value.workoutDurationHours
+                clothingItemIds = recommendation.clothingItems.map { it.id },
+                workoutDurationHours = _uiState.value.workoutDurationHours,
+                mode = LogMode.LIVE
             )
         }
     }
@@ -376,11 +371,4 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-
-    private fun buildSnapshot(weather: HourlyWeather): WeatherSnapshot =
-        weather.toWeatherSnapshot(
-            lat = weatherRepository.cachedLat,
-            lon = weatherRepository.cachedLon,
-            locationName = _uiState.value.selectedLocationName
-        )
 }
