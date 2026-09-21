@@ -1,9 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+}
+
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 
 android {
@@ -18,6 +24,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Web OAuth client from the Google Cloud Console; empty when not configured locally.
+        val driveClientId = localProperties.getProperty("drive.oauth.client.id", "")
+        buildConfigField("String", "DRIVE_OAUTH_CLIENT_ID", "\"$driveClientId\"")
     }
 
     buildTypes {
@@ -35,6 +45,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     testOptions {
         unitTests {
@@ -73,6 +84,17 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
+
+    // Background work
+    implementation(libs.work.runtime.ktx)
+
+    // Google sign-in and Drive authorization
+    implementation(libs.credentials)
+    implementation(libs.credentials.play.services.auth)
+    implementation(libs.googleid)
+    implementation(libs.play.services.auth)
 
     // Room
     implementation(libs.room.runtime)
