@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.core.di
 
 import com.example.perfectoutfit.feature.backup.BackupStateStore
+import com.example.perfectoutfit.feature.backup.DriveAuth
 import com.example.perfectoutfit.feature.backup.DriveBackupService
 import com.example.perfectoutfit.feature.backup.DriveClient
 import com.example.perfectoutfit.feature.backup.DriveRestClient
@@ -22,6 +23,9 @@ abstract class BackupModule {
 
     @Binds
     abstract fun bindBackupStateStore(impl: SharedPreferencesBackupStateStore): BackupStateStore
+
+    @Binds
+    abstract fun bindDriveTokenProvider(impl: DriveAuth): DriveTokenProvider
 
     companion object {
         @Provides
