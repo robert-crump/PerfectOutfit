@@ -68,6 +68,13 @@ class ExportImportManager @Inject constructor(
     }
 
     /**
+     * The envelope's `version`, or null for files written before versioning. Throws
+     * [kotlinx.serialization.SerializationException] if [jsonString] is not valid JSON.
+     */
+    fun fileVersion(jsonString: String): Int? =
+        (json.parseToJsonElement(jsonString) as? JsonObject)?.get("version")?.jsonPrimitive?.intOrNull
+
+    /**
      * Rejects files newer than [CURRENT_EXPORT_VERSION] with [UnsupportedExportVersionException]
      * (checked before decoding, since a newer shape may not decode here); older or missing
      * versions decode via field defaults. Decodes and validates the whole file before
@@ -77,10 +84,9 @@ class ExportImportManager @Inject constructor(
      * can't leave the database partially emptied either.
      */
     suspend fun importFromJson(jsonString: String) {
-        val fileVersion = (json.parseToJsonElement(jsonString) as? JsonObject)
-            ?.get("version")?.jsonPrimitive?.intOrNull
-        if (fileVersion != null && fileVersion > CURRENT_EXPORT_VERSION) {
-            throw UnsupportedExportVersionException(fileVersion)
+        val version = fileVersion(jsonString)
+        if (version != null && version > CURRENT_EXPORT_VERSION) {
+            throw UnsupportedExportVersionException(version)
         }
         val data = json.decodeFromString(ExportData.serializer(), jsonString)
 

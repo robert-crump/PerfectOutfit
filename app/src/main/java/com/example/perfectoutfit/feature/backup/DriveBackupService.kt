@@ -1,10 +1,21 @@
 package com.example.perfectoutfit.feature.backup
 
 import com.example.perfectoutfit.feature.settings.ExportImportManager
+import com.example.perfectoutfit.feature.settings.CURRENT_EXPORT_VERSION
+import kotlinx.serialization.SerializationException
 import java.security.MessageDigest
 import java.time.Clock
 
-data class BackupSnapshot(val id: String, val timestamp: Long)
+/** Whether this app can restore a Drive snapshot. */
+enum class SnapshotCompatibility { COMPATIBLE, NEWER_VERSION, UNREADABLE }
+
+data class BackupSnapshot(
+    val id: String,
+    val timestamp: Long,
+    val compatibility: SnapshotCompatibility = SnapshotCompatibility.COMPATIBLE
+) {
+    val restorable: Boolean get() = compatibility == SnapshotCompatibility.COMPATIBLE
+}
 
 enum class BackupOutcome { UPLOADED, SKIPPED }
 
@@ -38,9 +49,11 @@ class DriveBackupService(
         return BackupOutcome.UPLOADED
     }
 
-    /** Backups in the Drive folder, newest first. */
+    /** Backups in the Drive folder, newest first, each marked with whether this app can restore it. */
     suspend fun listSnapshots(): List<BackupSnapshot> =
-        backupsIn(drive.findOrCreateFolder(FOLDER_NAME)).sortedByDescending { it.timestamp }
+        backupsIn(drive.findOrCreateFolder(FOLDER_NAME))
+            .sortedByDescending { it.timestamp }
+            .map { it.copy(compatibility = compatibilityOf(it.id)) }
 
     suspend fun restore(snapshotId: String) {
         exportImport.importFromJson(drive.downloadFile(snapshotId).toString(Charsets.UTF_8))
@@ -48,6 +61,17 @@ class DriveBackupService(
 
     /** Forgets local backup state; Drive files stay. */
     fun onDisconnect() = state.clear()
+
+    private suspend fun compatibilityOf(snapshotId: String): SnapshotCompatibility = try {
+        val version = exportImport.fileVersion(drive.downloadFile(snapshotId).toString(Charsets.UTF_8))
+        if (version != null && version > CURRENT_EXPORT_VERSION) {
+            SnapshotCompatibility.NEWER_VERSION
+        } else {
+            SnapshotCompatibility.COMPATIBLE
+        }
+    } catch (_: SerializationException) {
+        SnapshotCompatibility.UNREADABLE
+    }
 
     private suspend fun backupsIn(folderId: String): List<BackupSnapshot> =
         drive.listFiles(folderId).mapNotNull { file ->

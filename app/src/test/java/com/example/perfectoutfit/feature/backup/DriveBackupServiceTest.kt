@@ -3,6 +3,7 @@ package com.example.perfectoutfit.feature.backup
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.feature.settings.CURRENT_EXPORT_VERSION
 import com.example.perfectoutfit.feature.settings.ExportImportManager
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
@@ -168,5 +169,27 @@ class DriveBackupServiceTest {
         service.restore(snapshot.id)
 
         assertEquals(listOf(item(1), item(2)), clothingDao.getAll())
+    }
+
+    private suspend fun plantFile(name: String, content: String) {
+        val folder = drive.findOrCreateFolder(DriveBackupService.FOLDER_NAME)
+        drive.uploadFile(folder, name, content.toByteArray(), "application/json")
+    }
+
+    @Test
+    fun `listSnapshots marks newer-version and unreadable snapshots as not restorable`() = runTest {
+        addItem(1)
+        service.backup()
+        plantFile("300101-0800 PerfectOutfit.json", "{\"version\": ${CURRENT_EXPORT_VERSION + 1}}")
+        plantFile("290101-0800 PerfectOutfit.json", "not json")
+        plantFile("280101-0800 PerfectOutfit.json", "{}")
+
+        val snapshots = service.listSnapshots()
+
+        assertEquals(4, snapshots.size)
+        assertEquals(2, snapshots.count { it.compatibility == SnapshotCompatibility.COMPATIBLE })
+        assertEquals(1, snapshots.count { it.compatibility == SnapshotCompatibility.NEWER_VERSION })
+        assertEquals(1, snapshots.count { it.compatibility == SnapshotCompatibility.UNREADABLE })
+        assertEquals(2, snapshots.count { !it.restorable })
     }
 }
