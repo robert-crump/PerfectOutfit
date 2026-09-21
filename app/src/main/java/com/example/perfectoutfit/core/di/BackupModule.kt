@@ -6,6 +6,7 @@ import com.example.perfectoutfit.feature.backup.DriveAuth
 import com.example.perfectoutfit.feature.backup.DriveBackupService
 import com.example.perfectoutfit.feature.backup.DriveClient
 import com.example.perfectoutfit.feature.backup.DriveRestClient
+import com.example.perfectoutfit.feature.backup.DriveSession
 import com.example.perfectoutfit.feature.backup.DriveTokenProvider
 import com.example.perfectoutfit.feature.backup.SharedPreferencesBackupStateStore
 import com.example.perfectoutfit.feature.backup.WorkManagerBackupScheduler
@@ -28,6 +29,9 @@ abstract class BackupModule {
 
     @Binds
     abstract fun bindBackupScheduler(impl: WorkManagerBackupScheduler): BackupScheduler
+
+    @Binds
+    abstract fun bindDriveSession(impl: DriveAuth): DriveSession
 
     @Binds
     abstract fun bindDriveTokenProvider(impl: DriveAuth): DriveTokenProvider

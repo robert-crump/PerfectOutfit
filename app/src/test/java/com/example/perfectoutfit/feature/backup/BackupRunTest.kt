@@ -1,6 +1,5 @@
 package com.example.perfectoutfit.feature.backup
 
-import com.example.perfectoutfit.core.notification.BackupFailureNotifier
 import com.example.perfectoutfit.feature.settings.ExportImportManager
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
@@ -16,29 +15,8 @@ import org.junit.Test
 import java.time.Clock
 
 class BackupRunTest {
-
-    private class FakeNotifier : BackupFailureNotifier {
-        var visible = false
-        var shown = 0
-        override fun showFailure() {
-            visible = true
-            shown++
-        }
-        override fun clear() {
-            visible = false
-        }
-    }
-
-    private class FlakyDriveClient(private val delegate: DriveClient = FakeDriveClient()) : DriveClient by delegate {
-        var failing = false
-        override suspend fun findOrCreateFolder(name: String): String {
-            if (failing) throw DriveApiException(500, "boom")
-            return delegate.findOrCreateFolder(name)
-        }
-    }
-
     private val drive = FlakyDriveClient()
-    private val notifier = FakeNotifier()
+    private val notifier = FakeBackupFailureNotifier()
     private val service = DriveBackupService(
         drive,
         ExportImportManager(

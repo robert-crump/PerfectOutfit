@@ -51,7 +51,7 @@ class DriveReconnectRequiredException :
 @Singleton
 class DriveAuth @Inject constructor(
     @param:ApplicationContext private val context: Context
-) : DriveTokenProvider {
+) : DriveTokenProvider, DriveSession {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val _connectedAccount = MutableStateFlow(prefs.getString(KEY_ACCOUNT_EMAIL, null))
 
@@ -105,14 +105,12 @@ class DriveAuth @Inject constructor(
             ?: throw DriveReconnectRequiredException()
     }
 
-    /** Persists the connected account. Call once authorization succeeds. */
-    fun markConnected(accountEmail: String) {
+    override fun markConnected(accountEmail: String) {
         prefs.edit { putString(KEY_ACCOUNT_EMAIL, accountEmail) }
         _connectedAccount.value = accountEmail
     }
 
-    /** Signs out and forgets the connected account. */
-    suspend fun disconnect() {
+    override suspend fun disconnect() {
         prefs.edit { remove(KEY_ACCOUNT_EMAIL) }
         _connectedAccount.value = null
         // Best effort: local state is already cleared, so a failure here must not block disconnect.
