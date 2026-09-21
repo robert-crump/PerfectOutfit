@@ -136,7 +136,11 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Bool
         } else {
             val alreadyAtRoot = currentDestination?.route == item.screen.route
             if (!alreadyAtRoot) {
-                navController.onceResumed {
+                // Deliberately not gated on onceResumed: rapid tab taps can interrupt a
+                // fade and leave the current entry stuck in STARTED, and the guard
+                // would then swallow every later tab tap. popUpTo + launchSingleTop
+                // already make repeated taps idempotent.
+                with(navController) {
                     // If RateOutfit is open, pop it first so its state is not
                     // saved and later restored on top of the destination tab.
                     if (isOnRateOutfit) popBackStack()
@@ -285,7 +289,7 @@ private fun NavGraphContent(
                         val route = pendingTabRoute
                         if (route != null) {
                             onPendingTabRouteChange(null)
-                            navController.onceResumed {
+                            with(navController) {
                                 val startId = graph.findStartDestination().id
                                 if (route == Screen.Home.route) {
                                     // Home is the start destination and already in the back stack;
