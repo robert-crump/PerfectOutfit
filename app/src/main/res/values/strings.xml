@@ -10,4 +10,6 @@
     <string name="temperature_apparent">Apparent temperature</string>
     <string name="settings_use_apparent_temperature">Use %1$s</string>
     <string name="rating_saved_toast">Rated: %1$s</string>
+    <string name="backup_failed_title">Backup failed</string>
+    <string name="backup_failed_text">Your Google Drive backup could not be completed. Tap to check Settings.</string>
 </resources>

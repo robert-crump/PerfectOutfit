@@ -31,9 +31,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             PerfectOutfitTheme {
                 PerfectOutfitNavHost(
-                    deepLinkOutfitEntryId = intent?.data?.getQueryParameter("outfitEntryId")?.toLongOrNull()
+                    deepLinkOutfitEntryId = intent?.data?.getQueryParameter("outfitEntryId")?.toLongOrNull(),
+                    openSettings = intent?.action == ACTION_OPEN_SETTINGS
                 )
             }
         }
+    }
+
+    companion object {
+        const val ACTION_OPEN_SETTINGS = "com.example.perfectoutfit.OPEN_SETTINGS"
     }
 }

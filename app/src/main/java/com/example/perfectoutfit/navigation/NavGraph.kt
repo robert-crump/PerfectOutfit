@@ -104,7 +104,7 @@ private val DestinationEnter = fadeIn(animationSpec = tween(durationMillis = 400
 private val DestinationExit = fadeOut(animationSpec = tween(durationMillis = 200, easing = EmphasizedAccelerate))
 
 @Composable
-fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
+fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Boolean = false) {
     val navController = rememberNavController()
     var pendingTabRoute by remember { mutableStateOf<String?>(null) }
 
@@ -112,6 +112,10 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null) {
         if (deepLinkOutfitEntryId != null) {
             navController.navigate(Screen.RateOutfit.createRoute(deepLinkOutfitEntryId, highlight = true))
         }
+    }
+
+    LaunchedEffect(openSettings) {
+        if (openSettings) navController.navigate(Screen.Settings.route)
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
