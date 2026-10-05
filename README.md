@@ -1,64 +1,33 @@
-# PerfectOutfit
+# Perfect Outfit
 
-An Android app that recommends what to wear for cycling and running based on real-time weather conditions. Rate your outfits after each ride or run to build a personalized recommendation database that learns your preferences over time.
+What to wear for your ride or run — from the forecast and the outfits you've rated.
 
-## Features
+<table>
+  <tr>
+    <td><img src="docs/screenshots/home.png" width="200" alt="Home: the cycling outfit for this hour, with feels-like temperature, UV, wind and rain"></td>
+    <td><img src="docs/screenshots/workout.png" width="200" alt="Home: a 3-hour run, outfit for its warmest hour, with UV and wind warnings"></td>
+    <td><img src="docs/screenshots/rate.png" width="200" alt="Rate: the items you wore and too cold, perfect or too hot"></td>
+    <td><img src="docs/screenshots/history.png" width="200" alt="History: past outfits with their comfort rating"></td>
+    <td><img src="docs/screenshots/explorer.png" width="200" alt="Explorer: what you wore at 1 °C"></td>
+  </tr>
+</table>
 
-- **Smart outfit recommendations** — fetches live weather for your location and suggests clothing based on temperature, wind, rain, and past ratings
-- **Cycling & running support** — separate clothing catalogs and recommendations for each sport
-- **Personal outfit history** — log past and present outfits with comfort ratings (too cold / perfect / too hot)
-- **Weather timeline** — scrollable 24-hour weather view; pick any hour to see what to wear
-- **Custom clothing catalog** — add, edit, or remove items per body part; changes reflect in future recommendations
-- **Export & import** — back up your outfit history to JSON and restore it on any device
-- **Instant rating notifications** — get a reminder to rate your outfit after finishing a ride or run
+- **Recommends** an outfit from the hourly forecast at your location — no API key, via Open-Meteo
+- **Plans** a workout window: what to wear for its coldest and warmest hour
+- **Rates** each outfit too cold, perfect or too hot, with a reminder after your workout
+- **Learns** from your ratings: matches the closest temperatures you've rated
+- **Explores** your history temperature by temperature
+- **Cycling and running**, each with its own editable clothing catalog
+- **Backs up** daily to Google Drive, or export and import a JSON file
 
-## Screenshots
+<sub>Screenshots use generated demo outfits and a synthetic forecast for Aachen at noon;
+regenerate with `./gradlew readmeScreenshots` (needs a running emulator; wipes the app's data on it).</sub>
 
-<!-- Add screenshots here -->
+## Build
 
-## Tech Stack
+Android 8.0+ (API 26), Android Studio, JDK 17. Clone, open, run.
+Google Drive backup needs an OAuth client ID as `drive.oauth.client.id` in `local.properties`;
+everything else works without it.
 
-- **Language:** Kotlin 2.x
-- **UI:** Jetpack Compose + Material 3
-- **Architecture:** MVVM with Hilt dependency injection
-- **Database:** Room (local outfit history)
-- **Networking:** Retrofit + kotlinx-serialization → [Open-Meteo API](https://open-meteo.com/) (no API key required)
-- **Location:** FusedLocationProviderClient + Geocoder
-- **Persistence:** Jetpack DataStore (preferences)
-- **Min SDK:** 26 (Android 8.0) | **Target SDK:** 36
-
-## Getting Started
-
-### Prerequisites
-
-- Android Studio Narwhal (2025.1) or newer
-- JDK 17+
-- Android device or emulator running Android 8.0+
-
-### Build & Run
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/robert-crump/PerfectOutfit.git
-   cd PerfectOutfit
-   ```
-
-2. Open the project in Android Studio.
-
-3. Sync Gradle and run on a device or emulator:
-   ```bash
-   ./gradlew assembleDebug
-   ```
-
-No API keys are required — weather data comes from the free [Open-Meteo](https://open-meteo.com/) API.
-
-## How It Works
-
-1. **Home screen** — your current location is detected and weather is fetched automatically. Select an hour to see recommended clothing items for that time.
-2. **Log an outfit** — tap "Custom outfit" or "Edit outfit" to record exactly what you wore, or use the History FAB to log a past outfit.
-3. **Rate comfort** — after your activity, rate the outfit as too cold, perfect, or too hot.
-4. **Better recommendations** — the app widens its temperature search and prioritizes items from outfits you rated as perfect in similar conditions.
-
-## Development
-
-This project was developed with assistance from [Claude Code](https://claude.ai/code) by Anthropic.
+Built with Kotlin, Jetpack Compose, Room, Hilt, WorkManager and Retrofit.
+Developed with [Claude Code](https://claude.ai/code).
