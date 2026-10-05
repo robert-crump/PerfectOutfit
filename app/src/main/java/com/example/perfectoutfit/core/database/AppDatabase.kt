@@ -23,7 +23,7 @@ import com.example.perfectoutfit.core.model.WeatherSnapshot
         OutfitEntry::class,
         OutfitItem::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -46,6 +46,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Fixes the typo in the German default glove name seeded by installs before version 4. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "UPDATE clothing_items SET name = 'Handschuhe (dünn)' " +
+                        "WHERE isDefault = 1 AND name = 'Handschühe (dünn)'"
+                )
+            }
+        }
+
         val prepopulateCallback = object : Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
@@ -65,23 +75,23 @@ abstract class AppDatabase : RoomDatabase() {
             // Cycling items
             val c = Sport.CYCLING
             items += listOf(
-                ClothingItem(sport = c, bodyPart = BodyPart.HEAD_THROAT, name = "Mütze"),
-                ClothingItem(sport = c, bodyPart = BodyPart.HEAD_THROAT, name = "Skimaske"),
-                ClothingItem(sport = c, bodyPart = BodyPart.UPPER_BODY, name = "Trikot"),
+                ClothingItem(sport = c, bodyPart = BodyPart.HEAD_THROAT, name = "Cap"),
+                ClothingItem(sport = c, bodyPart = BodyPart.HEAD_THROAT, name = "Balaclava"),
+                ClothingItem(sport = c, bodyPart = BodyPart.UPPER_BODY, name = "Jersey"),
                 ClothingItem(sport = c, bodyPart = BodyPart.UPPER_BODY, name = "Fleece"),
-                ClothingItem(sport = c, bodyPart = BodyPart.UPPER_BODY, name = "Weste"),
-                ClothingItem(sport = c, bodyPart = BodyPart.UPPER_BODY, name = "Regenjacke"),
-                ClothingItem(sport = c, bodyPart = BodyPart.ARMS, name = "Armwärmer"),
+                ClothingItem(sport = c, bodyPart = BodyPart.UPPER_BODY, name = "Vest"),
+                ClothingItem(sport = c, bodyPart = BodyPart.UPPER_BODY, name = "Rain Jacket"),
+                ClothingItem(sport = c, bodyPart = BodyPart.ARMS, name = "Arm Warmers"),
                 ClothingItem(sport = c, bodyPart = BodyPart.ARMS, name = "UV Sleeves"),
-                ClothingItem(sport = c, bodyPart = BodyPart.LEGS, name = "Bib (kurz)"),
-                ClothingItem(sport = c, bodyPart = BodyPart.LEGS, name = "Bib (Thermo)"),
-                ClothingItem(sport = c, bodyPart = BodyPart.LEGS, name = "Boxershorts"),
-                ClothingItem(sport = c, bodyPart = BodyPart.FEET, name = "Socken"),
-                ClothingItem(sport = c, bodyPart = BodyPart.FEET, name = "Socken (Thermo)"),
-                ClothingItem(sport = c, bodyPart = BodyPart.FEET, name = "Überschuhe"),
-                ClothingItem(sport = c, bodyPart = BodyPart.FEET, name = "Überschuhe (Thermo)"),
-                ClothingItem(sport = c, bodyPart = BodyPart.HANDS, name = "Handschühe (dünn)"),
-                ClothingItem(sport = c, bodyPart = BodyPart.HANDS, name = "Handschuhe (dick)"),
+                ClothingItem(sport = c, bodyPart = BodyPart.LEGS, name = "Bib Shorts"),
+                ClothingItem(sport = c, bodyPart = BodyPart.LEGS, name = "Thermal Bib Tights"),
+                ClothingItem(sport = c, bodyPart = BodyPart.LEGS, name = "Boxers"),
+                ClothingItem(sport = c, bodyPart = BodyPart.FEET, name = "Socks"),
+                ClothingItem(sport = c, bodyPart = BodyPart.FEET, name = "Thermal Socks"),
+                ClothingItem(sport = c, bodyPart = BodyPart.FEET, name = "Overshoes"),
+                ClothingItem(sport = c, bodyPart = BodyPart.FEET, name = "Thermal Overshoes"),
+                ClothingItem(sport = c, bodyPart = BodyPart.HANDS, name = "Thin Gloves"),
+                ClothingItem(sport = c, bodyPart = BodyPart.HANDS, name = "Thick Gloves"),
             )
 
             // Running items
