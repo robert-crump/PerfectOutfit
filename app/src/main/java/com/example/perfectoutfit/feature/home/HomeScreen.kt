@@ -352,8 +352,9 @@ private fun ResultStep(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(top = 8.dp, bottom = 80.dp)
-                .verticalScroll(rememberScrollState()),
+                // Inside the scroll, so the bottom space scrolls with the cards instead of clipping them.
+                .verticalScroll(rememberScrollState())
+                .padding(top = 8.dp, bottom = 80.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ResultSummaryBar(
