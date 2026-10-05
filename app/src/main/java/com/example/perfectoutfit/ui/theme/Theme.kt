@@ -55,6 +55,9 @@ private val DarkColorScheme = darkColorScheme(
     onSurfaceVariant = md_theme_dark_onSurfaceVariant
 )
 
+/** App-wide theme switches, injected so a test can turn off wallpaper-based colour. */
+data class ThemeOptions(val dynamicColor: Boolean)
+
 @Composable
 fun PerfectOutfitTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

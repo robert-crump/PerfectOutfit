@@ -1,14 +1,10 @@
 package com.example.perfectoutfit.feature.home
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.location.Geocoder
-import android.os.Build
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
+import com.example.perfectoutfit.core.location.LocationResult
+import com.example.perfectoutfit.core.location.LocationSource
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.referenceTemp
@@ -17,20 +13,12 @@ import com.example.perfectoutfit.feature.recommendation.Recommendations
 import com.example.perfectoutfit.feature.outfit.LogLocation
 import com.example.perfectoutfit.feature.outfit.LogMode
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 import javax.inject.Inject
 
@@ -75,7 +63,7 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    private val locationSource: LocationSource,
     private val forecast: Forecast,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val outfitLogging: OutfitLogging,
@@ -86,15 +74,11 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private var locationCancellationSource: CancellationTokenSource? = null
-
     /**
-     * Incremented every time the selected location changes. Async current-location
-     * callbacks (FusedLocationProvider + reverse geocode) capture the value at request
-     * time and apply their result only if it is still current, so a slow callback can no
-     * longer overwrite a location the user has since switched to.
+     * The in-flight current-location request. A new request cancels it, so a slow stale result
+     * (location + reverse geocode + weather) can never overwrite a more recent one.
      */
-    private var locationGeneration = 0
+    private var locationJob: Job? = null
 
     init {
         // GPS is now the only source of location; kick off a fetch immediately.
@@ -173,87 +157,21 @@ class HomeViewModel @Inject constructor(
     )
 
     private fun fetchCurrentLocationWeather() {
-        // Each new fetch attempt invalidates any still-in-flight previous attempt, so a slow
-        // stale callback can no longer overwrite the result of a more recent request.
-        locationGeneration++
-
-        val hasPermission = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (!hasPermission) {
+        locationJob?.cancel()
+        locationJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                isRefreshing = false,
-                error = "Location permission required. Please grant location access."
+                isLoading = true,
+                loadingMessage = "Determining location...",
+                error = null
             )
-            return
-        }
-
-        _uiState.value = _uiState.value.copy(
-            isLoading = true,
-            loadingMessage = "Determining location...",
-            error = null
-        )
-
-        locationCancellationSource?.cancel()
-        val cancellationSource = CancellationTokenSource()
-        locationCancellationSource = cancellationSource
-
-        // Capture the generation at request time; lastLocation callbacks are not bound to
-        // the cancellation token, so this is what stops a slow result from overwriting a
-        // location the user has switched to in the meantime.
-        val generation = locationGeneration
-
-        val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-
-        // Try last known location first — instant cache hit, sufficient for city-level accuracy.
-        fusedClient.lastLocation.addOnSuccessListener { lastLocation ->
-            if (generation != locationGeneration) return@addOnSuccessListener
-            if (lastLocation != null) {
-                viewModelScope.launch {
-                    applyCurrentLocation(lastLocation.latitude, lastLocation.longitude, generation)
-                }
-            } else {
-                // No cached location; request a fresh one.
-                requestFreshLocation(fusedClient, cancellationSource, generation)
+            when (val result = locationSource.current()) {
+                is LocationResult.Found ->
+                    fetchWeather(result.lat, result.lon, result.name.ifEmpty { "Current location" })
+                LocationResult.PermissionDenied ->
+                    failWithError("Location permission required. Please grant location access.")
+                is LocationResult.Unavailable -> failWithError(result.message)
             }
-        }.addOnFailureListener {
-            if (generation != locationGeneration) return@addOnFailureListener
-            // lastLocation failed; fall through to getCurrentLocation.
-            requestFreshLocation(fusedClient, cancellationSource, generation)
         }
-    }
-
-    private fun requestFreshLocation(
-        fusedClient: FusedLocationProviderClient,
-        cancellationSource: CancellationTokenSource,
-        generation: Int
-    ) {
-        fusedClient.getCurrentLocation(
-            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-            cancellationSource.token
-        ).addOnSuccessListener { location ->
-            if (generation != locationGeneration) return@addOnSuccessListener
-            if (location != null) {
-                viewModelScope.launch {
-                    applyCurrentLocation(location.latitude, location.longitude, generation)
-                }
-            } else {
-                failWithError("Could not determine location. Please try again.")
-            }
-        }.addOnFailureListener {
-            if (generation != locationGeneration) return@addOnFailureListener
-            failWithError("Location unavailable. Please try again.")
-        }
-    }
-
-    private suspend fun applyCurrentLocation(lat: Double, lon: Double, generation: Int) {
-        val cityName = reverseGeocode(lat, lon)
-        // reverseGeocode is slow; bail out if the user has switched location since.
-        if (generation != locationGeneration) return
-        val displayName = cityName.ifEmpty { "Current location" }
-        fetchWeather(lat, lon, displayName)
     }
 
     private fun failWithError(message: String) {
@@ -318,31 +236,6 @@ class HomeViewModel @Inject constructor(
             )
         }
     }
-
-    @Suppress("DEPRECATION")
-    private suspend fun reverseGeocode(lat: Double, lon: Double): String =
-        withContext(Dispatchers.IO) {
-            try {
-                val geocoder = Geocoder(context)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    suspendCancellableCoroutine { cont ->
-                        geocoder.getFromLocation(lat, lon, 1) { addresses ->
-                            cont.resume(
-                                addresses.firstOrNull()?.locality
-                                    ?: addresses.firstOrNull()?.subAdminArea
-                                    ?: addresses.firstOrNull()?.adminArea
-                                    ?: ""
-                            )
-                        }
-                    }
-                } else {
-                    geocoder.getFromLocation(lat, lon, 1)
-                        ?.firstOrNull()?.locality ?: ""
-                }
-            } catch (e: Exception) {
-                ""
-            }
-        }
 
     /** Called when the screen resumes; retries weather load if a permission error is showing. */
     fun onLocationPermissionMaybeGranted() {

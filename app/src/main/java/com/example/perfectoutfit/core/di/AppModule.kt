@@ -10,20 +10,14 @@ import com.example.perfectoutfit.core.database.dao.ClothingItemDao
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
-import com.example.perfectoutfit.core.network.OpenMeteoApi
-import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Retrofit
-import java.time.Clock
-import javax.inject.Named
 import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -69,23 +63,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    @Named("weather")
-    fun provideWeatherRetrofit(client: OkHttpClient): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl("https://api.open-meteo.com/")
-            .client(client)
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-            .build()
-    }
-
-    @Provides
-    @Singleton
-    fun provideOpenMeteoApi(@Named("weather") retrofit: Retrofit): OpenMeteoApi {
-        return retrofit.create(OpenMeteoApi::class.java)
-    }
-
-    @Provides
-    @Singleton
     fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
         return context.dataStore
     }
@@ -93,8 +70,4 @@ object AppModule {
     @Provides
     @Singleton
     fun provideJson(): Json = json
-
-    @Provides
-    @Singleton
-    fun provideClock(): Clock = Clock.systemDefaultZone()
 }

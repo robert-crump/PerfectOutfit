@@ -48,6 +48,16 @@ recording fake under `app/src/test`). `OutfitLogging` depends on the interface, 
 this is the app's first hand-written DI seam (`@Binds` in `core/di/NotificationModule.kt`)
 and the reason those ViewModels can be constructed in a plain JVM test.
 
+### Location source
+Where the user is now, as Home's forecast needs it: coordinates plus a place name, or why
+there are none (permission denied, location unavailable). Defined by the `LocationSource`
+interface (`core/location/LocationSource.kt`); `AndroidLocationSource` asks the fused
+location provider (last known location first, then a fresh fix) and reverse-geocodes the
+name. `HomeViewModel` cancels the in-flight request when it starts a new one, so a slow
+stale result never overwrites a newer one. Like `OpenMeteoApi` (`WeatherApiModule`), the
+`Clock` (`ClockModule`) and `ThemeOptions` (`ThemeModule`), it sits in its own Hilt module
+so the README screenshot test can replace it with `@TestInstallIn`.
+
 ### Export/import schema
 Settings' backup/restore feature (`feature/settings/ExportImportManager.kt`) serializes
 the four Room entities (`ClothingItem`, `WeatherSnapshot`, `OutfitEntry`, `OutfitItem`)

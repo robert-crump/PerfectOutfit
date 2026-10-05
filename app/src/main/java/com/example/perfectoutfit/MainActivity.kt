@@ -9,10 +9,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.example.perfectoutfit.navigation.PerfectOutfitNavHost
 import com.example.perfectoutfit.ui.theme.PerfectOutfitTheme
+import com.example.perfectoutfit.ui.theme.ThemeOptions
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var themeOptions: ThemeOptions
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -29,7 +33,7 @@ class MainActivity : ComponentActivity() {
             requestPermissions(permissionsToRequest.toTypedArray(), 0)
         }
         setContent {
-            PerfectOutfitTheme {
+            PerfectOutfitTheme(dynamicColor = themeOptions.dynamicColor) {
                 PerfectOutfitNavHost(
                     deepLinkOutfitEntryId = intent?.data?.getQueryParameter("outfitEntryId")?.toLongOrNull(),
                     openSettings = intent?.action == ACTION_OPEN_SETTINGS
