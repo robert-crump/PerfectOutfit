@@ -55,6 +55,7 @@ import com.example.perfectoutfit.feature.history.HistoryScreen
 import com.example.perfectoutfit.feature.home.HomeScreen
 import com.example.perfectoutfit.feature.rate.RateOutfitScreen
 import com.example.perfectoutfit.feature.settings.SettingsScreen
+import kotlinx.coroutines.flow.first
 
 // Guards against the classic Compose Navigation bug where a screen that's
 // tapped repeatedly (e.g. mashing a back arrow during its exit fade) fires a
@@ -108,14 +109,20 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Bool
     val navController = rememberNavController()
     var pendingTabRoute by remember { mutableStateOf<String?>(null) }
 
+    // NavHost sits in Scaffold's subcomposed content, so its graph may not be set yet when these
+    // effects start; the first back stack entry means it is.
     LaunchedEffect(deepLinkOutfitEntryId) {
         if (deepLinkOutfitEntryId != null) {
+            navController.currentBackStackEntryFlow.first()
             navController.navigate(Screen.RateOutfit.createRoute(deepLinkOutfitEntryId, highlight = true))
         }
     }
 
     LaunchedEffect(openSettings) {
-        if (openSettings) navController.navigate(Screen.Settings.route)
+        if (openSettings) {
+            navController.currentBackStackEntryFlow.first()
+            navController.navigate(Screen.Settings.route)
+        }
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
