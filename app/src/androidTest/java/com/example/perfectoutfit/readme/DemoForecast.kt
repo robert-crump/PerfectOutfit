@@ -13,16 +13,16 @@ import kotlin.math.roundToInt
 
 /**
  * A synthetic autumn forecast for [DemoForecast.PLACE]: a cool, still morning warming to a breezy,
- * sunny early afternoon with a showery evening, so Home shows UV and wind warnings and the
- * hours of a run differ. Every day has the same shape; only the date changes.
+ * sunny early afternoon with a showery evening, so Home at noon shows UV and wind warnings and
+ * the hours of a run differ. Every day has the same shape; only the date changes.
  */
 object DemoForecast {
     const val PLACE = "Aachen"
     const val LAT = 50.7753
     const val LON = 6.0839
 
-    /** The pinned clock's hour, so Home's 24-hour window starts on a morning ride. */
-    const val START_HOUR = 8
+    /** The pinned clock's hour: Home recommends for it, and it's breezy with high UV. */
+    const val START_HOUR = 12
 
     fun hour(time: LocalDateTime): Hour {
         val h = time.hour

@@ -17,6 +17,7 @@ object DemoHistory {
     private const val SEED = 2026
     private const val CYCLING_COUNT = 35
     private const val RUNNING_COUNT = 15
+    private val RUN_SLOTS = setOf(2, 5, 8)
 
     data class Outfit(
         val sport: Sport,
@@ -41,7 +42,10 @@ object DemoHistory {
     fun generate(today: LocalDate, perfectAt: List<Pair<Sport, Int>>): List<Outfit> {
         val random = Random(SEED)
         val days = WEEKS * 7
-        val generated = List(CYCLING_COUNT) { Sport.CYCLING } + List(RUNNING_COUNT) { Sport.RUNNING }
+        // Three runs in every ten workouts, interleaved with the rides.
+        val generated = List(CYCLING_COUNT + RUNNING_COUNT) { i ->
+            if (i % 10 in RUN_SLOTS) Sport.RUNNING else Sport.CYCLING
+        }
         val outfits = generated.mapIndexed { i, sport ->
             // Spread evenly from WEEKS ago up to a week ago; the last week is for the anchors.
             val daysAgo = 7 + (days - 7) * (generated.size - i) / generated.size
@@ -59,10 +63,10 @@ object DemoHistory {
 
         val anchors = perfectAt.mapIndexed { i, (sport, temp) ->
             val time = today.minusDays(2L + i).atTime(17, 0)
-            outfit(sport, time, temp.toDouble(), temp.toDouble(), 0, random)
+            outfit(sport, time, temp.toDouble(), temp.toDouble(), 0, random, dry = true)
         }
-        // Yesterday evening's ride, waiting to be rated.
-        val pending = outfit(Sport.CYCLING, today.minusDays(1).atTime(17, 0), 9.0, 9.0, null, random)
+        // Yesterday evening's ride in a shower, waiting to be rated.
+        val pending = outfit(Sport.CYCLING, today.minusDays(1).atTime(17, 0), 9.0, 9.0, null, random, rain = 70)
 
         return (outfits + anchors + pending).sortedBy { it.time }
     }
@@ -73,10 +77,11 @@ object DemoHistory {
         feelsLike: Double,
         dressedFor: Double,
         rating: Int?,
-        random: Random
+        random: Random,
+        dry: Boolean = false,
+        rain: Int = if (!dry && random.nextInt(5) == 0) random.nextInt(60, 90) else random.nextInt(0, 30)
     ): Outfit {
         val wind = random.nextInt(4, 26).toDouble()
-        val rain = if (random.nextInt(5) == 0) random.nextInt(60, 90) else random.nextInt(0, 30)
         val uv = if (time.hour in 10..16) (feelsLike / 5).roundToInt().coerceIn(0, 6) else 1
         val items = when (sport) {
             Sport.CYCLING -> cyclingOutfit(dressedFor, rain, uv)
