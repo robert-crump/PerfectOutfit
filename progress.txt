@@ -27,6 +27,11 @@ PerfectOutfit — Progress Log
   Verification: ./gradlew testDebugUnitTest passes. ./gradlew readmeScreenshots passes on the
   emulator. Manual emulator check: selection, "2 selected" bar, delete dialog, batch delete,
   Back exits selection.
+- Follow-up: History date on one line ("23 Juni"), so cards no longer shrink in selection
+  mode. The date column is as wide as the widest "28 <month>" of the device locale at the
+  current font scale (measured once with a TextMeasurer), with a 24dp minimum height matching
+  the selection circle, plus an 8dp gap before the temperature. Checked on the emulator in
+  German ("29 Sept.") in both modes; README history.png regenerated.
 
 2026-09-19 (5)
 - Implemented issue #14 (Import rejects snapshots newer than the current export version).

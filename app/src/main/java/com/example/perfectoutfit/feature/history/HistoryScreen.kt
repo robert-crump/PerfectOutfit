@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,16 +43,22 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,6 +67,7 @@ import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.ui.components.ratingEmoji
 import com.example.perfectoutfit.ui.components.verticalScrollbar
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -157,6 +165,7 @@ fun HistoryScreen(
                 )
             } else {
                 val lazyListState = rememberLazyListState()
+                val dateWidth = rememberDateWidth()
                 LazyColumn(
                     state = lazyListState,
                     contentPadding = PaddingValues(vertical = 4.dp),
@@ -169,6 +178,7 @@ fun HistoryScreen(
                             item = item,
                             selecting = selecting,
                             selected = id in selectedIds,
+                            dateWidth = dateWidth,
                             onClick = {
                                 if (selecting) viewModel.toggleSelection(id)
                                 else onNavigateToRateOutfit(id)
@@ -228,16 +238,13 @@ private fun HistoryCard(
     item: HistoryItem,
     selecting: Boolean,
     selected: Boolean,
+    dateWidth: Dp,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val entry = item.details
-    val date = Date(entry.entry.createdAt)
-    val dayFormat = SimpleDateFormat("d", Locale.getDefault())
-    val monthFormat = SimpleDateFormat("MMM", Locale.getDefault())
-    val day = dayFormat.format(date)
-    val month = monthFormat.format(date)
+    val date = SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(Date(entry.entry.createdAt))
 
     val isUnrated = entry.entry.comfortRating == null
     val emoji = ratingEmoji(entry.entry.comfortRating)
@@ -271,43 +278,42 @@ private fun HistoryCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Date column — wide enough for four-letter month abbreviations.
-            // In selection mode the selection circle takes its place.
+            // Date column, one line wide enough for any month ("23 Juni", "28 Sept.").
+            // In selection mode the selection circle takes its place; the minimum
+            // height keeps the card from shrinking or growing when the mode changes.
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.width(48.dp)
+                modifier = Modifier
+                    .width(dateWidth)
+                    .heightIn(min = SELECTION_ICON_SIZE)
             ) {
                 if (selecting) {
                     if (selected) {
                         Icon(
                             Icons.Filled.CheckCircle,
                             contentDescription = "Selected",
+                            modifier = Modifier.size(SELECTION_ICON_SIZE),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     } else {
                         Icon(
                             Icons.Outlined.RadioButtonUnchecked,
                             contentDescription = "Not selected",
+                            modifier = Modifier.size(SELECTION_ICON_SIZE),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = day,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = month,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                    Text(
+                        text = date,
+                        style = DateStyle(),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
                 }
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             // Fixed width so the emojis line up whether it is 5°C or −12°C
             Text(
@@ -349,5 +355,28 @@ private fun HistoryCard(
                 modifier = Modifier.weight(1f)
             )
         }
+    }
+}
+
+private const val DATE_PATTERN = "d MMM"
+private val SELECTION_ICON_SIZE = 24.dp
+
+@Composable
+private fun DateStyle(): TextStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+
+/** Width of the widest date this locale can produce (a two-digit day with each month), at the current font scale. */
+@Composable
+private fun rememberDateWidth(): Dp {
+    val measurer = rememberTextMeasurer()
+    val style = DateStyle()
+    val density = LocalDensity.current
+    val locale = LocalConfiguration.current.locales[0]
+    return remember(measurer, style, density, locale) {
+        val format = SimpleDateFormat(DATE_PATTERN, locale)
+        val widest = (Calendar.JANUARY..Calendar.DECEMBER).maxOf { month ->
+            val date = Calendar.getInstance().apply { set(2000, month, 28) }.time
+            measurer.measure(format.format(date), style, maxLines = 1).size.width
+        }
+        with(density) { widest.toDp() }
     }
 }
