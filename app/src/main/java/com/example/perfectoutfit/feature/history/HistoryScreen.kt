@@ -20,10 +20,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -57,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
-import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.ui.components.ratingEmoji
 import com.example.perfectoutfit.ui.components.verticalScrollbar
@@ -169,7 +166,8 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.verticalScrollbar(lazyListState)
                 ) {
-                    items(loadedEntries, key = { "${it.entry.id}_${restoredVersions[it.entry.id] ?: 0}" }) { entry ->
+                    items(loadedEntries, key = { "${it.details.entry.id}_${restoredVersions[it.details.entry.id] ?: 0}" }) { item ->
+                        val entry = item.details
                         val dismissState = rememberSwipeToDismissBoxState(
                             positionalThreshold = { totalDistance -> totalDistance * 0.40f },
                             confirmValueChange = { value ->
@@ -187,7 +185,7 @@ fun HistoryScreen(
                             }
                         ) {
                             HistoryCard(
-                                entry = entry,
+                                item = item,
                                 onClick = { onNavigateToRateOutfit(entry.entry.id) }
                             )
                         }
@@ -243,9 +241,10 @@ private fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
 
 @Composable
 private fun HistoryCard(
-    entry: OutfitEntryWithDetails,
+    item: HistoryItem,
     onClick: () -> Unit
 ) {
+    val entry = item.details
     val date = Date(entry.entry.createdAt)
     val dayFormat = SimpleDateFormat("d", Locale.getDefault())
     val monthFormat = SimpleDateFormat("MMM", Locale.getDefault())
@@ -261,6 +260,7 @@ private fun HistoryCard(
         "No items"
 
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (isUnrated)
@@ -294,7 +294,17 @@ private fun HistoryCard(
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            // Fixed width so the emojis line up whether it is 5°C or −12°C
+            Text(
+                text = "${item.temperatureCelsius}°C",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.width(52.dp)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             // Rating emoji (or bold hyphen if unrated)
             if (emoji != null) {
@@ -323,16 +333,6 @@ private fun HistoryCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
-
-            // Edit icon
-            IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
