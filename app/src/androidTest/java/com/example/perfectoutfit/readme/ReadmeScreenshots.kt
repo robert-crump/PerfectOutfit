@@ -127,6 +127,7 @@ class ReadmeScreenshots {
         captureWorkout()
         captureHistory()
         captureRate()
+        captureSettings()
     }
 
     /** Home's cycling recommendation for noon, then Explorer from it, slid to a cold stop. */
@@ -187,6 +188,14 @@ class ReadmeScreenshots {
             Thread.sleep(RATE_FLASH_MS)
             compose.onAllNodesWithText("Too hot", substring = true).onFirst().performScrollTo()
             screenshots.capture(compose, "rate")
+        }
+    }
+
+    private fun captureSettings() {
+        val intent = Intent(MainActivity.ACTION_OPEN_SETTINGS).setClass(context, MainActivity::class.java)
+        ActivityScenario.launch<MainActivity>(intent).use {
+            waitForText("Clothing catalog")
+            screenshots.capture(compose, "settings")
         }
     }
 

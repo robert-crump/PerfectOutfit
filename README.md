@@ -7,8 +7,9 @@ What to wear for your ride or run — from the forecast and the outfits you've r
     <td><img src="docs/screenshots/home.png" width="200" alt="Home: the cycling outfit for this hour, with feels-like temperature, UV, wind and rain"></td>
     <td><img src="docs/screenshots/workout.png" width="200" alt="Home: a 3-hour run, outfit for its warmest hour, with UV and wind warnings"></td>
     <td><img src="docs/screenshots/rate.png" width="200" alt="Rate: the items you wore and too cold, perfect or too hot"></td>
-    <td><img src="docs/screenshots/history.png" width="200" alt="History: past outfits with their comfort rating"></td>
+    <td><img src="docs/screenshots/history.png" width="200" alt="History: past outfits with their temperature and comfort rating"></td>
     <td><img src="docs/screenshots/explorer.png" width="200" alt="Explorer: what you wore at 1 °C"></td>
+    <td><img src="docs/screenshots/settings.png" width="200" alt="Settings: clothing catalog, feels-like temperature, file backup and Google Drive"></td>
   </tr>
 </table>
 
