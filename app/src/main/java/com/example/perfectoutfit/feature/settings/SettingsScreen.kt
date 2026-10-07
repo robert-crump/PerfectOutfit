@@ -1,36 +1,40 @@
 package com.example.perfectoutfit.feature.settings
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Checkroom
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -46,17 +50,24 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    // Which of Export/Import shows the spinner while the view model is processing.
+    var exporting by rememberSaveable { mutableStateOf(false) }
+    // A picked file waiting for the user to confirm that it replaces all data.
+    var pendingImport by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
-        uri?.let { viewModel.exportData(it) }
+        uri?.let {
+            exporting = true
+            viewModel.exportData(it)
+        }
     }
 
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        uri?.let { viewModel.importData(it) }
+        pendingImport = uri
     }
 
     LaunchedEffect(uiState.message) {
@@ -81,75 +92,86 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Catalog", style = MaterialTheme.typography.titleMedium)
-
-            Button(
-                onClick = onNavigateToCatalog,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Clothing Catalog")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text("Recommendations", style = MaterialTheme.typography.titleMedium)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(
-                        R.string.settings_use_apparent_temperature,
-                        stringResource(R.string.temperature_apparent)
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f)
-                )
-                Switch(
-                    checked = uiState.useApparentTemperature,
-                    onCheckedChange = viewModel::setUseApparentTemperature
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text("Data Management", style = MaterialTheme.typography.titleMedium)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = {
-                        val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"))
-                        exportLauncher.launch("${date}_perfect_outfit_data.json")
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = !uiState.isProcessing
-                ) {
-                    Text("Backup")
+            SectionHeader("Catalog")
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Checkroom,
+                        title = "Clothing catalog",
+                        summary = "Add, rename and organise items",
+                        onClick = onNavigateToCatalog,
+                        trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) }
+                    )
                 }
-                OutlinedButton(
-                    onClick = { importLauncher.launch(arrayOf("application/json")) },
-                    modifier = Modifier.weight(1f),
-                    enabled = !uiState.isProcessing
-                ) {
-                    Text("Import")
+            )
+
+            SectionHeader("Recommendations")
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Thermostat,
+                        title = stringResource(
+                            R.string.settings_use_apparent_temperature,
+                            stringResource(R.string.temperature_apparent)
+                        ),
+                        summary = "Feels-like instead of actual temperature",
+                        onClick = { viewModel.setUseApparentTemperature(!uiState.useApparentTemperature) },
+                        trailing = { Switch(checked = uiState.useApparentTemperature, onCheckedChange = null) }
+                    )
                 }
-            }
+            )
+            SectionHint("Affects matching on Home and the temperatures shown in History.")
 
-            if (uiState.isProcessing) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-            }
+            SectionHeader("Backup")
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Upload,
+                        title = "Export",
+                        summary = "Save all data to a JSON file",
+                        enabled = !uiState.isProcessing,
+                        onClick = {
+                            val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"))
+                            exportLauncher.launch("${date}_perfect_outfit_data.json")
+                        },
+                        trailing = if (uiState.isProcessing && exporting) ({ RowProgress() }) else null
+                    )
+                },
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Download,
+                        title = "Import",
+                        summary = "Replace all data from a JSON file",
+                        enabled = !uiState.isProcessing,
+                        onClick = { importLauncher.launch(arrayOf("application/json")) },
+                        trailing = if (uiState.isProcessing && !exporting) ({ RowProgress() }) else null
+                    )
+                }
+            )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
+            SectionHeader("Google Drive")
             DriveBackupSection(snackbarHostState)
         }
+    }
+
+    pendingImport?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            title = { Text("Replace all data?") },
+            text = { Text("Importing replaces all outfits, clothing items and weather data in the app with the file's contents.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingImport = null
+                    exporting = false
+                    viewModel.importData(uri)
+                }) { Text("Import") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingImport = null }) { Text("Cancel") }
+            }
+        )
     }
 }

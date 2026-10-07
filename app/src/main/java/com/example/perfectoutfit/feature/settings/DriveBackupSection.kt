@@ -5,18 +5,17 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -24,10 +23,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.feature.backup.BackupSnapshot
@@ -63,62 +60,54 @@ fun DriveBackupSection(
     }
 
     val connected = state.account != null
+    // The row whose action is running shows the spinner.
+    var busyAction by rememberSaveable { mutableStateOf(DriveAction.CONNECTION) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Google Drive Backup", style = MaterialTheme.typography.titleMedium)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Auto-backup to Drive", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = state.account?.let { "Connected as $it" } ?: "Not connected",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Switch(
-                checked = connected,
-                enabled = !state.isBusy,
-                onCheckedChange = { enable ->
-                    if (enable) activity?.let(viewModel::connect) else viewModel.disconnect()
-                }
-            )
-        }
-
-        if (connected) {
-            Text(
-                text = "Last backed up: " + (state.lastBackupTime?.let(BackupTimeFormat::format) ?: "never"),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = viewModel::backupNow,
-                    modifier = Modifier.weight(1f),
-                    enabled = !state.isBusy
-                ) {
-                    Text("Back up now")
-                }
-                OutlinedButton(
-                    onClick = viewModel::openRestorePicker,
-                    modifier = Modifier.weight(1f),
-                    enabled = !state.isBusy
-                ) {
-                    Text("Restore from Drive")
-                }
-            }
-        }
-
-        if (state.isBusy) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-        }
+    fun start(action: DriveAction, block: () -> Unit) {
+        busyAction = action
+        block()
     }
+
+    fun spinnerFor(action: DriveAction): (@Composable () -> Unit)? =
+        if (state.isBusy && busyAction == action) ({ RowProgress() }) else null
+
+    SettingsGroup(
+        {
+            SettingsRow(
+                icon = Icons.Filled.Cloud,
+                title = "Auto-backup to Drive",
+                summary = state.account?.let { "Connected as $it" } ?: "Not connected",
+                enabled = !state.isBusy,
+                onClick = {
+                    start(DriveAction.CONNECTION) {
+                        if (connected) viewModel.disconnect() else activity?.let(viewModel::connect)
+                    }
+                },
+                trailing = spinnerFor(DriveAction.CONNECTION)
+                    ?: { Switch(checked = connected, onCheckedChange = null, enabled = !state.isBusy) }
+            )
+        },
+        {
+            SettingsRow(
+                icon = Icons.Filled.CloudUpload,
+                title = "Back up now",
+                summary = "Last backed up: " + (state.lastBackupTime?.let(BackupTimeFormat::format) ?: "never"),
+                enabled = connected && !state.isBusy,
+                onClick = { start(DriveAction.BACKUP, viewModel::backupNow) },
+                trailing = spinnerFor(DriveAction.BACKUP)
+            )
+        },
+        {
+            SettingsRow(
+                icon = Icons.Filled.CloudDownload,
+                title = "Restore from Drive",
+                summary = "Pick one of the saved backups",
+                enabled = connected && !state.isBusy,
+                onClick = { start(DriveAction.RESTORE, viewModel::openRestorePicker) },
+                trailing = spinnerFor(DriveAction.RESTORE)
+            )
+        }
+    )
 
     state.snapshots?.let { snapshots ->
         SnapshotPickerDialog(
@@ -138,11 +127,15 @@ fun DriveBackupSection(
                         "This replaces all current data in the app."
                 )
             },
-            confirmButton = { TextButton(onClick = viewModel::confirmRestore) { Text("Restore") } },
+            confirmButton = {
+                TextButton(onClick = { start(DriveAction.RESTORE, viewModel::confirmRestore) }) { Text("Restore") }
+            },
             dismissButton = { TextButton(onClick = viewModel::dismissRestoreConfirmation) { Text("Cancel") } }
         )
     }
 }
+
+private enum class DriveAction { CONNECTION, BACKUP, RESTORE }
 
 @Composable
 private fun SnapshotPickerDialog(
