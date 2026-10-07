@@ -5,6 +5,9 @@ import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.Sport
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
 class FakeOutfitEntryDao : OutfitEntryDao {
     private val entries = mutableMapOf<Long, OutfitEntry>()
@@ -39,11 +42,13 @@ class FakeOutfitEntryDao : OutfitEntryDao {
     override suspend fun getWithDetailsById(id: Long): OutfitEntryWithDetails? =
         throw UnsupportedOperationException()
 
-    override fun getAllWithDetailsBySport(sport: Sport): Flow<List<OutfitEntryWithDetails>> =
-        throw UnsupportedOperationException()
+    /** What the observable queries emit; [deleteById] removes from it too. */
+    val details = MutableStateFlow<List<OutfitEntryWithDetails>>(emptyList())
 
-    override fun getAllWithDetails(): Flow<List<OutfitEntryWithDetails>> =
-        throw UnsupportedOperationException()
+    override fun getAllWithDetailsBySport(sport: Sport): Flow<List<OutfitEntryWithDetails>> =
+        details.map { list -> list.filter { it.entry.sport == sport } }
+
+    override fun getAllWithDetails(): Flow<List<OutfitEntryWithDetails>> = details
 
     /** Candidates returned by [getRatedEntriesWithDetails] (filtered to rated entries of the sport). */
     var ratedEntries: List<OutfitEntryWithDetails> = emptyList()
@@ -63,6 +68,7 @@ class FakeOutfitEntryDao : OutfitEntryDao {
 
     override suspend fun deleteById(id: Long) {
         entries.remove(id)
+        details.update { list -> list.filterNot { it.entry.id == id } }
     }
 
     override suspend fun updateNotes(entryId: Long, notes: String) {

@@ -1,6 +1,5 @@
 package com.example.perfectoutfit.feature.outfit
 
-import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.notification.FakeRatingReminder
 import com.example.perfectoutfit.feature.home.HourlyWeather
@@ -152,12 +151,13 @@ class OutfitLoggingTest {
     }
 
     @Test
-    fun `restore re-inserts entry and items with the original id`() = runTest {
-        val entry = OutfitEntry(id = 77L, weatherSnapshotId = 1L, sport = Sport.CYCLING, createdAt = 5L)
+    fun `delete removes exactly the given entries`() = runTest {
+        val first = log(mode = LogMode.PAST)
+        val second = log(mode = LogMode.PAST)
+        val kept = log(mode = LogMode.PAST)
 
-        logging.restore(entry, listOf(4L, 5L))
+        logging.delete(listOf(first, second))
 
-        assertEquals(entry, entryDao.getById(77L))
-        assertEquals(listOf(4L, 5L), itemDao.getByEntryId(77L).map { it.clothingItemId })
+        assertEquals(listOf(kept), entryDao.getAll().map { it.id })
     }
 }

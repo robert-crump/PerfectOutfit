@@ -94,13 +94,10 @@ class OutfitLogging @Inject constructor(
         }
     }
 
-    suspend fun delete(entryId: Long) = outfitEntryDao.deleteById(entryId)
-
-    /** Re-inserts a deleted entry with its original id and items. */
-    suspend fun restore(entry: OutfitEntry, clothingItemIds: Collection<Long>) {
+    /** Deletes all [entryIds] in one transaction, so History never shows half a batch gone. */
+    suspend fun delete(entryIds: Collection<Long>) {
         transactionRunner.runInTransaction {
-            outfitEntryDao.insert(entry)
-            insertItems(entry.id, clothingItemIds)
+            entryIds.forEach { outfitEntryDao.deleteById(it) }
         }
     }
 

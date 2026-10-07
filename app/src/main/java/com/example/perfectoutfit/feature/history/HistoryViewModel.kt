@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.roundToInt
@@ -48,32 +49,28 @@ class HistoryViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    private val _lastDeletedEntry = MutableStateFlow<OutfitEntryWithDetails?>(null)
-    val lastDeletedEntry: StateFlow<OutfitEntryWithDetails?> = _lastDeletedEntry.asStateFlow()
+    // Selection mode is on exactly while this is non-empty.
+    private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedIds: StateFlow<Set<Long>> = _selectedIds.asStateFlow()
 
+    /** Clears the selection too, so entries the new filter hides can't be deleted unseen. */
     fun setFilter(sport: Sport?) {
         _filterSport.value = sport
+        clearSelection()
     }
 
-    fun deleteEntry(entry: OutfitEntryWithDetails) {
-        viewModelScope.launch {
-            _lastDeletedEntry.value = entry
-            outfitLogging.delete(entry.entry.id)
-        }
+    fun toggleSelection(entryId: Long) {
+        _selectedIds.update { if (entryId in it) it - entryId else it + entryId }
     }
 
-    fun undoDelete() {
-        viewModelScope.launch {
-            val deleted = _lastDeletedEntry.value ?: return@launch
-            _lastDeletedEntry.value = null
-            outfitLogging.restore(
-                entry = deleted.entry,
-                clothingItemIds = deleted.clothingItems.map { it.id }
-            )
-        }
+    fun clearSelection() {
+        _selectedIds.value = emptySet()
     }
 
-    fun clearLastDeleted() {
-        _lastDeletedEntry.value = null
+    fun deleteSelected() {
+        val ids = _selectedIds.value
+        if (ids.isEmpty()) return
+        clearSelection()
+        viewModelScope.launch { outfitLogging.delete(ids) }
     }
 }

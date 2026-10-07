@@ -1,7 +1,8 @@
 package com.example.perfectoutfit.feature.history
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,35 +20,35 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxState
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -71,41 +72,37 @@ fun HistoryScreen(
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val filterSport by viewModel.filterSport.collectAsStateWithLifecycle()
-    val lastDeletedEntry by viewModel.lastDeletedEntry.collectAsStateWithLifecycle()
+    val selectedIds by viewModel.selectedIds.collectAsStateWithLifecycle()
+    val selecting = selectedIds.isNotEmpty()
+    var confirmingDelete by rememberSaveable { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
 
-    val snackbarHostState = remember { SnackbarHostState() }
-    val restoredVersions = remember { mutableStateMapOf<Long, Int>() }
-
-    LaunchedEffect(lastDeletedEntry) {
-        val entry = lastDeletedEntry ?: return@LaunchedEffect
-        val result = snackbarHostState.showSnackbar(
-            message = "Entry deleted",
-            actionLabel = "UNDO",
-            duration = SnackbarDuration.Short
-        )
-        if (result == SnackbarResult.ActionPerformed) {
-            restoredVersions[entry.entry.id] = (restoredVersions[entry.entry.id] ?: 0) + 1
-            viewModel.undoDelete()
-        } else {
-            viewModel.clearLastDeleted()
-        }
-    }
+    BackHandler(enabled = selecting, onBack = viewModel::clearSelection)
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Outfit History") },
-                windowInsets = WindowInsets(0)
-            )
+            if (selecting) {
+                TopAppBar(
+                    title = { Text("${selectedIds.size} selected") },
+                    actions = {
+                        IconButton(onClick = { confirmingDelete = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete selected")
+                        }
+                        IconButton(onClick = viewModel::clearSelection) {
+                            Icon(Icons.Default.Close, contentDescription = "Cancel selection")
+                        }
+                    },
+                    windowInsets = WindowInsets(0)
+                )
+            } else {
+                TopAppBar(
+                    title = { Text("Outfit History") },
+                    windowInsets = WindowInsets(0)
+                )
+            }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0)
     ) { innerPadding ->
-        val isSnackbarVisible = snackbarHostState.currentSnackbarData != null
-        val fabBottomPadding by animateDpAsState(
-            targetValue = if (isSnackbarVisible) 68.dp else 16.dp,
-            label = "fab_bottom_padding"
-        )
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -166,83 +163,74 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.verticalScrollbar(lazyListState)
                 ) {
-                    items(loadedEntries, key = { "${it.details.entry.id}_${restoredVersions[it.details.entry.id] ?: 0}" }) { item ->
-                        val entry = item.details
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            positionalThreshold = { totalDistance -> totalDistance * 0.40f },
-                            confirmValueChange = { value ->
-                                if (value != SwipeToDismissBoxValue.Settled) {
-                                    viewModel.deleteEntry(entry)
-                                    true
-                                } else false
-                            }
+                    items(loadedEntries, key = { it.details.entry.id }) { item ->
+                        val id = item.details.entry.id
+                        HistoryCard(
+                            item = item,
+                            selecting = selecting,
+                            selected = id in selectedIds,
+                            onClick = {
+                                if (selecting) viewModel.toggleSelection(id)
+                                else onNavigateToRateOutfit(id)
+                            },
+                            onLongClick = {
+                                if (!selecting) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    viewModel.toggleSelection(id)
+                                }
+                            },
+                            modifier = Modifier.animateItem()
                         )
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            modifier = Modifier.animateItem().clipToBounds(),
-                            backgroundContent = {
-                                SwipeBackground(dismissState = dismissState)
-                            }
-                        ) {
-                            HistoryCard(
-                                item = item,
-                                onClick = { onNavigateToRateOutfit(entry.entry.id) }
-                            )
-                        }
                     }
                 }
             }
         }
-        ExtendedFloatingActionButton(
-            onClick = onNavigateToNewOutfit,
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            icon = { Icon(Icons.Default.Add, contentDescription = null) },
-            text = { Text("Outfit") },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = fabBottomPadding, end = 16.dp)
-        )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
-    val progress = dismissState.progress
-    val targetValue = dismissState.targetValue
-    // Show red as soon as the user drags even a little
-    val alpha = (progress * 5f).coerceIn(0f, 1f)
-    val color = if (progress > 0f)
-        MaterialTheme.colorScheme.error.copy(alpha = alpha)
-    else
-        Color.Transparent
-    val alignment = when (targetValue) {
-        SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-        else -> Alignment.CenterEnd
-    }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(color, MaterialTheme.shapes.medium)
-            .padding(horizontal = 20.dp),
-        contentAlignment = alignment
-    ) {
-        if (progress > 0f) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete",
-                tint = MaterialTheme.colorScheme.onError.copy(alpha = alpha)
+        if (!selecting) {
+            ExtendedFloatingActionButton(
+                onClick = onNavigateToNewOutfit,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Outfit") },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
             )
         }
+        }
+    }
+
+    if (confirmingDelete) {
+        val count = selectedIds.size
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = { Text(if (count == 1) "Delete 1 entry?" else "Delete $count entries?") },
+            text = { Text("This can't be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingDelete = false
+                        viewModel.deleteSelected()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingDelete = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryCard(
     item: HistoryItem,
-    onClick: () -> Unit
+    selecting: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val entry = item.details
     val date = Date(entry.entry.createdAt)
@@ -259,14 +247,22 @@ private fun HistoryCard(
     else
         "No items"
 
+    val secondaryText = if (selected)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onSurfaceVariant
+
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(CardDefaults.shape)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(
-            containerColor = if (isUnrated)
-                MaterialTheme.colorScheme.secondaryContainer
-            else
-                MaterialTheme.colorScheme.surfaceVariant
+            containerColor = when {
+                selected -> MaterialTheme.colorScheme.primaryContainer
+                isUnrated -> MaterialTheme.colorScheme.secondaryContainer
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            }
         )
     ) {
         Row(
@@ -275,30 +271,49 @@ private fun HistoryCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Date column — wide enough for four-letter month abbreviations
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            // Date column — wide enough for four-letter month abbreviations.
+            // In selection mode the selection circle takes its place.
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier.width(48.dp)
             ) {
-                Text(
-                    text = day,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = month,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
+                if (selecting) {
+                    if (selected) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = "Selected",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        Icon(
+                            Icons.Outlined.RadioButtonUnchecked,
+                            contentDescription = "Not selected",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = day,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = month,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
 
             // Fixed width so the emojis line up whether it is 5°C or −12°C
             Text(
                 text = "${item.temperatureCelsius}°C",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = secondaryText,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 modifier = Modifier.width(52.dp)
@@ -316,7 +331,7 @@ private fun HistoryCard(
                 )
             } else {
                 Text(
-                    text = "\u2013",
+                    text = "–",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -330,7 +345,7 @@ private fun HistoryCard(
             Text(
                 text = outfitText,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = secondaryText,
                 modifier = Modifier.weight(1f)
             )
         }
