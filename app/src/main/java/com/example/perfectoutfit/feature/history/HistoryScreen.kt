@@ -41,21 +41,16 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,7 +58,6 @@ import com.example.perfectoutfit.ui.components.ActivityTypeSelector
 import com.example.perfectoutfit.ui.components.ratingEmoji
 import com.example.perfectoutfit.ui.components.verticalScrollbar
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -138,7 +132,6 @@ fun HistoryScreen(
                 )
             } else {
                 val lazyListState = rememberLazyListState()
-                val dateWidth = rememberDateWidth()
                 LazyColumn(
                     state = lazyListState,
                     contentPadding = PaddingValues(vertical = 4.dp),
@@ -151,7 +144,6 @@ fun HistoryScreen(
                             item = item,
                             selecting = selecting,
                             selected = id in selectedIds,
-                            dateWidth = dateWidth,
                             onClick = {
                                 if (selecting) viewModel.toggleSelection(id)
                                 else onNavigateToRateOutfit(id)
@@ -211,21 +203,15 @@ private fun HistoryCard(
     item: HistoryItem,
     selecting: Boolean,
     selected: Boolean,
-    dateWidth: Dp,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val entry = item.details
-    val date = SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(Date(entry.entry.createdAt))
+    val entry = item.details.entry
+    val date = SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(Date(entry.createdAt))
 
-    val isUnrated = entry.entry.comfortRating == null
-    val emoji = ratingEmoji(entry.entry.comfortRating)
-
-    val outfitText = if (entry.clothingItems.isNotEmpty())
-        entry.clothingItems.joinToString(", ") { it.name }
-    else
-        "No items"
+    val isUnrated = entry.comfortRating == null
+    val emoji = ratingEmoji(entry.comfortRating)
 
     val secondaryText = if (selected)
         MaterialTheme.colorScheme.onPrimaryContainer
@@ -248,108 +234,69 @@ private fun HistoryCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .heightIn(min = CARD_MIN_HEIGHT)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Date column, one line wide enough for any month ("23 Juni", "28 Sept.").
-            // In selection mode the selection circle takes its place; the minimum
-            // height keeps the card from shrinking or growing when the mode changes.
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .width(dateWidth)
-                    .heightIn(min = SELECTION_ICON_SIZE)
-            ) {
-                if (selecting) {
-                    if (selected) {
-                        Icon(
-                            Icons.Filled.CheckCircle,
-                            contentDescription = "Selected",
-                            modifier = Modifier.size(SELECTION_ICON_SIZE),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    } else {
-                        Icon(
-                            Icons.Outlined.RadioButtonUnchecked,
-                            contentDescription = "Not selected",
-                            modifier = Modifier.size(SELECTION_ICON_SIZE),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    Text(
-                        text = date,
-                        style = DateStyle(),
-                        textAlign = TextAlign.Center,
-                        maxLines = 1
-                    )
-                }
+            // Activity icon; in selection mode the selection circle takes its place,
+            // both the same size so the card keeps its height when the mode changes.
+            when {
+                !selecting -> Icon(
+                    painter = painterResource(entry.activityType.iconRes),
+                    contentDescription = entry.activityType.displayName,
+                    modifier = Modifier.size(LEADING_ICON_SIZE),
+                    tint = secondaryText
+                )
+                selected -> Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = "Selected",
+                    modifier = Modifier.size(LEADING_ICON_SIZE),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                else -> Icon(
+                    Icons.Outlined.RadioButtonUnchecked,
+                    contentDescription = "Not selected",
+                    modifier = Modifier.size(LEADING_ICON_SIZE),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Text(
+                text = date,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
+            )
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Fixed width so the emojis line up whether it is 5°C or −12°C
+            // Fixed width so the columns line up whether it is 5°C or −12°C
             Text(
                 text = "${item.temperatureCelsius}°C",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 color = secondaryText,
-                textAlign = TextAlign.Center,
+                textAlign = TextAlign.End,
                 maxLines = 1,
-                modifier = Modifier.width(52.dp)
+                modifier = Modifier.width(64.dp)
             )
 
             Spacer(modifier = Modifier.width(8.dp))
 
             // Rating emoji (or bold hyphen if unrated)
-            if (emoji != null) {
-                Text(
-                    text = emoji,
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.width(32.dp)
-                )
-            } else {
-                Text(
-                    text = "–",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.width(32.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Outfit items
             Text(
-                text = outfitText,
-                style = MaterialTheme.typography.bodySmall,
-                color = secondaryText,
-                modifier = Modifier.weight(1f)
+                text = emoji ?: "–",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (emoji == null) FontWeight.Bold else null,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(32.dp)
             )
         }
     }
 }
 
 private const val DATE_PATTERN = "d MMM"
-private val SELECTION_ICON_SIZE = 24.dp
-
-@Composable
-private fun DateStyle(): TextStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-
-/** Width of the widest date this locale can produce (a two-digit day with each month), at the current font scale. */
-@Composable
-private fun rememberDateWidth(): Dp {
-    val measurer = rememberTextMeasurer()
-    val style = DateStyle()
-    val density = LocalDensity.current
-    val locale = LocalConfiguration.current.locales[0]
-    return remember(measurer, style, density, locale) {
-        val format = SimpleDateFormat(DATE_PATTERN, locale)
-        val widest = (Calendar.JANUARY..Calendar.DECEMBER).maxOf { month ->
-            val date = Calendar.getInstance().apply { set(2000, month, 28) }.time
-            measurer.measure(format.format(date), style, maxLines = 1).size.width
-        }
-        with(density) { widest.toDp() }
-    }
-}
+private val CARD_MIN_HEIGHT = 72.dp
+private val LEADING_ICON_SIZE = 24.dp

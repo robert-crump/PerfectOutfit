@@ -1,5 +1,19 @@
 PerfectOutfit — Progress Log
 
+2026-10-19 (3)
+- Implemented issue #20 (History card: activity icon, date, temperature, rating).
+  Changes:
+    * HistoryCard is now [activity icon] date ...... temp emoji; clothing item names dropped
+      (tapping still opens the entry). The icon is the entry's ActivityType.iconRes; in
+      selection mode the selection circle (same 24dp size) replaces the icon, so the date
+      stays visible and the card height doesn't change.
+    * Date takes the remaining width (weight 1f); rememberDateWidth and DateStyle removed.
+      Temperature (64dp, end-aligned) and emoji (32dp) are fixed-width trailing columns.
+    * Min height 72dp (was 48dp), row centred; date/temperature/emoji use bodyLarge.
+      Unrated keeps the bold "–" and secondaryContainer.
+  Verification: ./gradlew testDebugUnitTest passes; androidTest compiles; ./gradlew
+  readmeScreenshots passes, history.png committed (the other five only re-rendered, left as is).
+
 2026-10-19 (2)
 - Implemented issue #19 (Shared ActivityTypeSelector and Home activity grid).
   Changes:
@@ -94,20 +108,4 @@ PerfectOutfit — Progress Log
     * SettingsViewModel already shows "Import failed: ${e.message}", so the message surfaces.
     * Tests: newer version rejected + DB unchanged, newer with undecodable shape, explicit v1.
   Not done: Drive snapshot picker marking incompatible snapshots (belongs to #16).
-  Verification: ./gradlew testDebugUnitTest passes.
-
-2026-09-19 (4)
-- Implemented issue #13 (Drive backup service: decisions, DriveClient seam, fake, tests).
-  Changes:
-    * New `feature/backup/`: `DriveClient` (+ `DriveFile`), `BackupStateStore` (last time +
-      hash, `clear()`), `BackupFilename` ("yyMMdd-HHmm PerfectOutfit.json", java.time, strict
-      parse), `BackupRetention` (newest 9 = 7 daily + 1 weekly + 1 monthly), and a plain
-      `DriveBackupService` (backup/listSnapshots/restore/onDisconnect; no Hilt binding yet
-      since there is no real DriveClient until #16). backup() skips only when the hash
-      matches AND the folder lists >= 1 parsable backup; unrelated files are ignored/never pruned.
-    * Every DAO getAll() used by exportToJson now has a total ORDER BY (added id / composite
-      key tie-breakers; outfit_items had none) so identical data serializes identically.
-    * Tests (plain JVM): BackupFilenameTest, BackupRetentionTest, DriveBackupServiceTest (10
-      cases) with FakeDriveClient and FakeBackupStateStore under app/src/test.
-  Not done: "newer snapshot rejected" lives in #14; real client/auth/worker/UI in #16.
   Verification: ./gradlew testDebugUnitTest passes.
