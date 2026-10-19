@@ -32,8 +32,8 @@ PerfectOutfit — Progress Log
   Verification: ./gradlew testDebugUnitTest passes (3 consecutive runs); androidTest compiles.
   Emulator: installed the previous build, picked Running and logged a Running outfit, upgraded
   in place: Running still selected, entry intact; Edit dialog moved "Shirt" to Cycling only and
-  the Running entry still shows Shirt selected. README screenshots not regenerated (no visible
-  change on the captured screens).
+  the Running entry still shows Shirt selected. README screenshots not regenerated: settings.png still shows
+  the old "Add, rename and organise items" subtitle (now "Add, edit and organise items").
 
 2026-10-07
 - History temperature, multiselect delete, and Settings in the Plantry / Hue and You style
