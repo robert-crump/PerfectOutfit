@@ -37,12 +37,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
-import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -60,24 +58,23 @@ import kotlinx.coroutines.flow.first
 // Guards against the classic Compose Navigation bug where a screen that's
 // tapped repeatedly (e.g. mashing a back arrow during its exit fade) fires a
 // second navigate()/popBackStack() before the first transition has settled.
-// The in-flight destination's entry isn't RESUMED yet at that point, so
-// checking it before acting on a tap makes every extra tap a no-op instead of
-// racing the back stack — which otherwise can leave a destination composed
+// The first tap moves the back stack off the tapped screen's entry, so acting
+// only while that entry is still on top makes every extra tap a no-op instead
+// of racing the back stack — which otherwise can leave a destination composed
 // but never actually drawn (a blank/black screen with the nav bar still up).
-private fun NavBackStackEntry.lifecycleIsResumed() =
-    lifecycle.currentState == Lifecycle.State.RESUMED
-
-private inline fun NavHostController.onceResumed(action: NavHostController.() -> Unit) {
-    if (currentBackStackEntry?.lifecycleIsResumed() != false) {
+// Not gated on the entry being RESUMED: an interrupted fade can leave it stuck
+// in STARTED, and the screen would then swallow every tap until it is left.
+private inline fun NavHostController.ifOnTop(from: NavBackStackEntry, action: NavHostController.() -> Unit) {
+    if (currentBackStackEntry?.id == from.id) {
         action()
     }
 }
 
-private fun NavHostController.navigateOnce(route: String, builder: NavOptionsBuilder.() -> Unit = {}) =
-    onceResumed { navigate(route, builder) }
+private fun NavHostController.navigateOnce(from: NavBackStackEntry, route: String) =
+    ifOnTop(from) { navigate(route) }
 
-private fun NavHostController.popBackStackOnce() =
-    onceResumed { popBackStack() }
+private fun NavHostController.popBackStackOnce(from: NavBackStackEntry) =
+    ifOnTop(from) { popBackStack() }
 
 data class BottomNavItem(
     val screen: Screen,
@@ -143,10 +140,8 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Bool
         } else {
             val alreadyAtRoot = currentDestination?.route == item.screen.route
             if (!alreadyAtRoot) {
-                // Deliberately not gated on onceResumed: rapid tab taps can interrupt a
-                // fade and leave the current entry stuck in STARTED, and the guard
-                // would then swallow every later tab tap. popUpTo + launchSingleTop
-                // already make repeated taps idempotent.
+                // Not gated on ifOnTop: popUpTo + launchSingleTop already make
+                // repeated tab taps idempotent.
                 with(navController) {
                     // If RateOutfit is open, pop it first so its state is not
                     // saved and later restored on top of the destination tab.
@@ -250,11 +245,11 @@ private fun NavGraphContent(
             popEnterTransition = { DestinationEnter },
             popExitTransition = { DestinationExit }
         ) {
-            composable(Screen.Home.route) {
+            composable(Screen.Home.route) { entry ->
                 HomeScreen(
-                    onNavigateToNewOutfit = { navController.navigateOnce(Screen.NewOutfit.createRoute(isLive = true)) },
+                    onNavigateToNewOutfit = { navController.navigateOnce(entry, Screen.NewOutfit.createRoute(isLive = true)) },
                     onNavigateToExplorer = { forecastTemp ->
-                        navController.navigateOnce(Screen.Explorer.createRoute(forecastTemp))
+                        navController.navigateOnce(entry, Screen.Explorer.createRoute(forecastTemp))
                     }
                 )
             }
@@ -266,11 +261,11 @@ private fun NavGraphContent(
                         defaultValue = Screen.Explorer.NO_FORECAST_TEMP
                     }
                 )
-            ) {
-                ExplorerScreen(onNavigateBack = { navController.popBackStackOnce() })
+            ) { entry ->
+                ExplorerScreen(onNavigateBack = { navController.popBackStackOnce(entry) })
             }
-            composable(Screen.Catalog.route) {
-                CatalogScreen(onNavigateBack = { navController.popBackStackOnce() })
+            composable(Screen.Catalog.route) { entry ->
+                CatalogScreen(onNavigateBack = { navController.popBackStackOnce(entry) })
             }
             composable(
                 route = Screen.RateOutfit.route,
@@ -278,19 +273,19 @@ private fun NavGraphContent(
                     navArgument("outfitEntryId") { type = NavType.LongType },
                     navArgument("highlight") { type = NavType.BoolType; defaultValue = false }
                 )
-            ) { backStackEntry ->
-                val highlight = backStackEntry.arguments?.getBoolean("highlight") ?: false
+            ) { entry ->
+                val highlight = entry.arguments?.getBoolean("highlight") ?: false
                 RateOutfitScreen(
-                    onNavigateBack = { navController.popBackStackOnce() },
+                    onNavigateBack = { navController.popBackStackOnce(entry) },
                     highlightRating = highlight
                 )
             }
             composable(
                 route = Screen.NewOutfit.route,
                 arguments = listOf(navArgument("isLive") { type = NavType.BoolType; defaultValue = false })
-            ) {
+            ) { entry ->
                 RateOutfitScreen(
-                    onNavigateBack = { navController.popBackStackOnce() },
+                    onNavigateBack = { navController.popBackStackOnce(entry) },
                     externalCancelRequested = pendingTabRoute != null,
                     onExternalCancelConfirmed = {
                         val route = pendingTabRoute
@@ -314,17 +309,17 @@ private fun NavGraphContent(
                     onExternalCancelDismissed = { onPendingTabRouteChange(null) }
                 )
             }
-            composable(Screen.History.route) {
+            composable(Screen.History.route) { entry ->
                 HistoryScreen(
                     onNavigateToRateOutfit = { entryId ->
-                        navController.navigateOnce(Screen.RateOutfit.createRoute(entryId, highlight = false))
+                        navController.navigateOnce(entry, Screen.RateOutfit.createRoute(entryId, highlight = false))
                     },
-                    onNavigateToNewOutfit = { navController.navigateOnce(Screen.NewOutfit.createRoute(isLive = false)) }
+                    onNavigateToNewOutfit = { navController.navigateOnce(entry, Screen.NewOutfit.createRoute(isLive = false)) }
                 )
             }
-            composable(Screen.Settings.route) {
+            composable(Screen.Settings.route) { entry ->
                 SettingsScreen(
-                    onNavigateToCatalog = { navController.navigateOnce(Screen.Catalog.route) }
+                    onNavigateToCatalog = { navController.navigateOnce(entry, Screen.Catalog.route) }
                 )
             }
         }

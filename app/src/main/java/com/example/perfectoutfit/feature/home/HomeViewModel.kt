@@ -91,11 +91,8 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
-        viewModelScope.launch {
-            preferencesManager.selectedActivityType.collect { activityType ->
-                _uiState.value = _uiState.value.copy(selectedActivityType = activityType)
-            }
-        }
+        // selectedActivityType is deliberately not observed from preferences: a tile tap sets it
+        // before the result step shows, and a late preference emission would overwrite that pick.
         viewModelScope.launch {
             preferencesManager.useApparentTemperature.collect { useApparent ->
                 _uiState.value = _uiState.value.copy(useApparentTemperature = useApparent)
