@@ -32,7 +32,7 @@ import com.example.perfectoutfit.core.location.LocationResult
 import com.example.perfectoutfit.core.location.LocationSource
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.network.OpenMeteoApi
 import com.example.perfectoutfit.ui.theme.ThemeOptions
@@ -112,10 +112,10 @@ class ReadmeScreenshots {
         outfits = DemoHistory.generate(
             today,
             perfectAt = listOf(
-                Sport.CYCLING to noon,
-                Sport.RUNNING to noon,
-                Sport.RUNNING to warmestOfRun(),
-                Sport.CYCLING to EXPLORER_TEMP
+                ActivityType.CYCLING to noon,
+                ActivityType.RUNNING to noon,
+                ActivityType.RUNNING to warmestOfRun(),
+                ActivityType.CYCLING to EXPLORER_TEMP
             )
         )
         runBlocking { seed(outfits) }
@@ -140,7 +140,7 @@ class ReadmeScreenshots {
             compose.onAllNodesWithContentDescription("Outfit Explorer").onFirst().performClick()
             waitForText("What you wore")
             val stops = outfits
-                .filter { it.sport == Sport.CYCLING && it.rating != null }
+                .filter { it.activityType == ActivityType.CYCLING && it.rating != null }
                 .map { it.feelsLike.roundToInt() }
                 .distinct()
                 .sorted()
@@ -200,7 +200,10 @@ class ReadmeScreenshots {
     }
 
     private suspend fun seed(outfits: List<DemoHistory.Outfit>) {
-        val catalog = clothingItemDao.getAll().associateBy { it.sport to it.name }
+        val itemsById = clothingItemDao.getAll().associateBy { it.id }
+        val catalog = clothingItemDao.getAllActivityTypes().associate { row ->
+            (row.activityType to itemsById.getValue(row.clothingItemId).name) to itemsById.getValue(row.clothingItemId)
+        }
         transactionRunner.runInTransaction {
             outfits.forEach { outfit ->
                 val workoutMs = outfit.time.atZone(zone).toInstant().toEpochMilli()
@@ -222,14 +225,14 @@ class ReadmeScreenshots {
                 val entryId = outfitEntryDao.insert(
                     OutfitEntry(
                         weatherSnapshotId = snapshotId,
-                        sport = outfit.sport,
+                        activityType = outfit.activityType,
                         comfortRating = outfit.rating,
                         createdAt = workoutMs,
                         ratedAt = outfit.rating?.let { workoutMs + RATED_AFTER.toMillis() }
                     )
                 )
                 outfitItemDao.insertAll(outfit.items.map { name ->
-                    val item = catalog[outfit.sport to name] ?: error("No default ${outfit.sport} item \"$name\"")
+                    val item = catalog[outfit.activityType to name] ?: error("No default ${outfit.activityType} item \"$name\"")
                     OutfitItem(entryId, item.id)
                 })
                 if (outfit.rating == null) pendingEntryId = entryId

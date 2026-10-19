@@ -1,6 +1,6 @@
 package com.example.perfectoutfit.core.notification
 
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 
 /**
  * Rating reminder: prompts the user to rate an outfit entry after a workout.
@@ -8,6 +8,6 @@ import com.example.perfectoutfit.core.model.Sport
  * under `app/src/test` for JVM unit tests.
  */
 interface RatingReminder {
-    fun show(outfitEntryId: Long, sport: Sport, dateMs: Long, durationHours: Int)
+    fun show(outfitEntryId: Long, activityType: ActivityType, dateMs: Long, durationHours: Int)
     fun cancel(outfitEntryId: Long)
 }

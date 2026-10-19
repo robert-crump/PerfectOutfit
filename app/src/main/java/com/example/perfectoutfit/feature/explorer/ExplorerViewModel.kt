@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.feature.recommendation.Recommendations
 import com.example.perfectoutfit.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,10 +18,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ExplorerUiState(
-    val sport: Sport = Sport.CYCLING,
+    val activityType: ActivityType = ActivityType.CYCLING,
     val isLoading: Boolean = true,
     val useApparent: Boolean = true,
-    /** Sorted, distinct rounded temperatures that have rated outfit history for [sport]. */
+    /** Sorted, distinct rounded temperatures that have rated outfit history for [activityType]. */
     val stops: List<Int> = emptyList(),
     val selectedIndex: Int = 0,
     val recommendation: OutfitEntryWithDetails? = null
@@ -44,14 +44,14 @@ class ExplorerViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val sport = preferencesManager.selectedSport.first()
+            val activityType = preferencesManager.selectedActivityType.first()
             var initial = true
             // Observed, not read once: toggling the preference re-resolves stops and recommendation.
             preferencesManager.useApparentTemperature.collect { useApparent ->
                 if (initial) {
                     initial = false
                     _uiState.value = _uiState.value.copy(useApparent = useApparent)
-                    loadStops(sport, preferredTarget = forecastTemp)
+                    loadStops(activityType, preferredTarget = forecastTemp)
                 } else {
                     applyTemperatureMode(useApparent)
                 }
@@ -59,8 +59,8 @@ class ExplorerViewModel @Inject constructor(
         }
     }
 
-    fun selectSport(sport: Sport) {
-        viewModelScope.launch { loadStops(sport, preferredTarget = forecastTemp) }
+    fun selectActivityType(activityType: ActivityType) {
+        viewModelScope.launch { loadStops(activityType, preferredTarget = forecastTemp) }
     }
 
     fun selectTemperatureMode(useApparent: Boolean) {
@@ -71,7 +71,7 @@ class ExplorerViewModel @Inject constructor(
         if (useApparent == _uiState.value.useApparent) return
         val previousTemp = _uiState.value.selectedTemp
         _uiState.value = _uiState.value.copy(useApparent = useApparent)
-        loadStops(_uiState.value.sport, preferredTarget = previousTemp)
+        loadStops(_uiState.value.activityType, preferredTarget = previousTemp)
     }
 
     fun selectIndex(index: Int) {
@@ -81,10 +81,10 @@ class ExplorerViewModel @Inject constructor(
         applyRecommendationForCurrentStop()
     }
 
-    private suspend fun loadStops(sport: Sport, preferredTarget: Int?) {
-        _uiState.value = _uiState.value.copy(isLoading = true, sport = sport, recommendation = null)
+    private suspend fun loadStops(activityType: ActivityType, preferredTarget: Int?) {
+        _uiState.value = _uiState.value.copy(isLoading = true, activityType = activityType, recommendation = null)
         val useApparent = _uiState.value.useApparent
-        val stops = recommendations.stops(sport, useApparent)
+        val stops = recommendations.stops(activityType, useApparent)
         val initialIndex = when {
             stops.isEmpty() -> 0
             else -> nearestIndex(stops, preferredTarget ?: stops[stops.size / 2])
@@ -102,13 +102,13 @@ class ExplorerViewModel @Inject constructor(
 
     private fun applyRecommendationForCurrentStop() {
         val temp = _uiState.value.selectedTemp ?: return
-        val sport = _uiState.value.sport
+        val activityType = _uiState.value.activityType
         val useApparent = _uiState.value.useApparent
         viewModelScope.launch {
-            val recommendation = recommendations.find(sport, temp.toDouble(), useApparent)
-            // Discard if the sport, mode or stop changed while the query was in flight.
+            val recommendation = recommendations.find(activityType, temp.toDouble(), useApparent)
+            // Discard if the activityType, mode or stop changed while the query was in flight.
             val s = _uiState.value
-            if (s.sport == sport && s.useApparent == useApparent && s.selectedTemp == temp) {
+            if (s.activityType == activityType && s.useApparent == useApparent && s.selectedTemp == temp) {
                 _uiState.value = s.copy(recommendation = recommendation)
             }
         }

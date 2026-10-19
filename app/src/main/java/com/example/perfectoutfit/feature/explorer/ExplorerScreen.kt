@@ -34,7 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.ui.components.ClothingItemChip
-import com.example.perfectoutfit.ui.components.SportToggle
+import com.example.perfectoutfit.ui.components.ActivityTypeToggle
 import com.example.perfectoutfit.ui.components.TemperatureModeToggle
 import com.example.perfectoutfit.ui.components.ratingLabel
 import kotlin.math.roundToInt
@@ -70,9 +70,9 @@ fun ExplorerScreen(
                 .padding(horizontal = 16.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            SportToggle(
-                selectedSport = uiState.sport,
-                onSportSelected = viewModel::selectSport
+            ActivityTypeToggle(
+                selectedActivityType = uiState.activityType,
+                onActivityTypeSelected = viewModel::selectActivityType
             )
 
             TemperatureModeToggle(
@@ -85,8 +85,7 @@ fun ExplorerScreen(
                     modifier = Modifier.padding(top = 24.dp)
                 )
                 uiState.stops.isEmpty() -> Text(
-                    text = "Rate some outfits for ${uiState.sport.name.lowercase()
-                        .replaceFirstChar { it.uppercase() }} to unlock the explorer.",
+                    text = "Rate some outfits for ${uiState.activityType.displayName} to unlock the explorer.",
                     style = MaterialTheme.typography.bodyLarge
                 )
                 else -> {

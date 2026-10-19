@@ -2,7 +2,7 @@ package com.example.perfectoutfit.feature.recommendation
 
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
@@ -33,7 +33,7 @@ class RecommendationsWindowTest {
     private fun entry(id: Long, rating: Int?, apparent: Double, real: Double = apparent) =
         OutfitEntryWithDetails(
             entry = OutfitEntry(
-                id = id, weatherSnapshotId = id, sport = Sport.CYCLING,
+                id = id, weatherSnapshotId = id, activityType = ActivityType.CYCLING,
                 comfortRating = rating, createdAt = 0
             ),
             weatherSnapshot = WeatherSnapshot(
@@ -50,7 +50,7 @@ class RecommendationsWindowTest {
     @Test
     fun `find rounds a fractional reference temperature before matching`() {
         dao.ratedEntries = listOf(entry(1, rating = 0, apparent = 10.0))
-        val result = runBlocking { recommendations.find(Sport.CYCLING, 9.5, true) }
+        val result = runBlocking { recommendations.find(ActivityType.CYCLING, 9.5, true) }
         assertEquals(1L, result?.entry?.id)
     }
 
@@ -89,7 +89,7 @@ class RecommendationsWindowTest {
             entry(2, rating = 0, apparent = 9.0)
         )
         val result = runBlocking {
-            recommendations.findForWorkoutWindow(Sport.CYCLING, listOf(hour(9.0), hour(2.0)), 2, true)
+            recommendations.findForWorkoutWindow(ActivityType.CYCLING, listOf(hour(9.0), hour(2.0)), 2, true)
         }!!
         assertEquals(1, result.coldestHourIndex)
         assertEquals(0, result.warmestHourIndex)
@@ -99,17 +99,17 @@ class RecommendationsWindowTest {
 
     @Test
     fun `findForWorkoutWindow returns null when hours are empty`() {
-        assertNull(runBlocking { recommendations.findForWorkoutWindow(Sport.CYCLING, emptyList(), 2, true) })
+        assertNull(runBlocking { recommendations.findForWorkoutWindow(ActivityType.CYCLING, emptyList(), 2, true) })
     }
 
     @Test
-    fun `findForWorkoutWindow discards the result when sport or duration changed mid-query`() {
+    fun `findForWorkoutWindow discards the result when activityType or duration changed mid-query`() {
         dao.ratedEntries = listOf(entry(1, rating = 0, apparent = 5.0))
         var current = true
-        dao.onQuery = { current = false } // user switches sport while the query runs
+        dao.onQuery = { current = false } // user switches activityType while the query runs
         val result = runBlocking {
             recommendations.findForWorkoutWindow(
-                Sport.CYCLING, listOf(hour(5.0)), 1, true, isCurrent = { current }
+                ActivityType.CYCLING, listOf(hour(5.0)), 1, true, isCurrent = { current }
             )
         }
         assertNull(result)
@@ -120,7 +120,7 @@ class RecommendationsWindowTest {
         dao.ratedEntries = listOf(entry(1, rating = 0, apparent = 5.0))
         val result = runBlocking {
             recommendations.findForWorkoutWindow(
-                Sport.CYCLING, listOf(hour(5.0)), 1, true, isCurrent = { true }
+                ActivityType.CYCLING, listOf(hour(5.0)), 1, true, isCurrent = { true }
             )
         }
         assertEquals(1L, result?.coldest?.entry?.id)
@@ -136,18 +136,18 @@ class RecommendationsWindowTest {
             entry(3, rating = -1, apparent = 12.0),   // duplicate stop 12
             entry(4, rating = null, apparent = 30.0)  // unrated → no stop
         )
-        assertEquals(listOf(4, 12), runBlocking { recommendations.stops(Sport.CYCLING, true) })
+        assertEquals(listOf(4, 12), runBlocking { recommendations.stops(ActivityType.CYCLING, true) })
     }
 
     @Test
     fun `stops follow the apparent-vs-real preference`() {
         dao.ratedEntries = listOf(entry(1, rating = 0, apparent = 5.0, real = 15.0))
-        assertEquals(listOf(5), runBlocking { recommendations.stops(Sport.CYCLING, true) })
-        assertEquals(listOf(15), runBlocking { recommendations.stops(Sport.CYCLING, false) })
+        assertEquals(listOf(5), runBlocking { recommendations.stops(ActivityType.CYCLING, true) })
+        assertEquals(listOf(15), runBlocking { recommendations.stops(ActivityType.CYCLING, false) })
     }
 
     @Test
     fun `stops is empty without rated history`() {
-        assertEquals(emptyList<Int>(), runBlocking { recommendations.stops(Sport.CYCLING, true) })
+        assertEquals(emptyList<Int>(), runBlocking { recommendations.stops(ActivityType.CYCLING, true) })
     }
 }

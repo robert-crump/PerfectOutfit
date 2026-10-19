@@ -3,7 +3,7 @@ package com.example.perfectoutfit.feature.history
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.notification.FakeRatingReminder
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
@@ -36,9 +36,9 @@ class HistoryViewModelTest {
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         entryDao.details.value = listOf(
-            details(1L, Sport.CYCLING, temp = 12.4, feelsLike = 9.6),
-            details(2L, Sport.CYCLING, temp = -3.0, feelsLike = -7.0),
-            details(3L, Sport.RUNNING, temp = 20.0, feelsLike = 21.0)
+            details(1L, ActivityType.CYCLING, temp = 12.4, feelsLike = 9.6),
+            details(2L, ActivityType.CYCLING, temp = -3.0, feelsLike = -7.0),
+            details(3L, ActivityType.RUNNING, temp = 20.0, feelsLike = 21.0)
         )
         val logging = OutfitLogging(
             entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeDatabaseTransactionRunner(), FakeRatingReminder()
@@ -83,10 +83,10 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun `changing the sport filter clears the selection`() {
+    fun `changing the activityType filter clears the selection`() {
         viewModel.toggleSelection(1L)
 
-        viewModel.setFilter(Sport.RUNNING)
+        viewModel.setFilter(ActivityType.RUNNING)
 
         assertTrue(viewModel.selectedIds.value.isEmpty())
     }
@@ -113,8 +113,8 @@ class HistoryViewModelTest {
         assertEquals(listOf(1L, 2L), viewModel.entries.value!!.map { it.details.entry.id })
     }
 
-    private fun details(id: Long, sport: Sport, temp: Double, feelsLike: Double) = OutfitEntryWithDetails(
-        entry = OutfitEntry(id = id, weatherSnapshotId = id, sport = sport, createdAt = id),
+    private fun details(id: Long, activityType: ActivityType, temp: Double, feelsLike: Double) = OutfitEntryWithDetails(
+        entry = OutfitEntry(id = id, weatherSnapshotId = id, activityType = activityType, createdAt = id),
         weatherSnapshot = WeatherSnapshot(
             id = id,
             timestamp = id,

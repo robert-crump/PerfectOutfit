@@ -1,6 +1,6 @@
 package com.example.perfectoutfit.readme
 
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
@@ -20,7 +20,7 @@ object DemoHistory {
     private val RUN_SLOTS = setOf(2, 5, 8)
 
     data class Outfit(
-        val sport: Sport,
+        val activityType: ActivityType,
         val time: LocalDateTime,
         val feelsLike: Double,
         val windKmh: Double,
@@ -36,17 +36,17 @@ object DemoHistory {
     }
 
     /**
-     * [perfectAt] are (sport, rounded feels-like °C) pairs that get the newest rated entry at that
+     * [perfectAt] are (activityType, rounded feels-like °C) pairs that get the newest rated entry at that
      * temperature, rated perfect, so the screenshots' recommendations are outfits that worked.
      */
-    fun generate(today: LocalDate, perfectAt: List<Pair<Sport, Int>>): List<Outfit> {
+    fun generate(today: LocalDate, perfectAt: List<Pair<ActivityType, Int>>): List<Outfit> {
         val random = Random(SEED)
         val days = WEEKS * 7
         // Three runs in every ten workouts, interleaved with the rides.
         val generated = List(CYCLING_COUNT + RUNNING_COUNT) { i ->
-            if (i % 10 in RUN_SLOTS) Sport.RUNNING else Sport.CYCLING
+            if (i % 10 in RUN_SLOTS) ActivityType.RUNNING else ActivityType.CYCLING
         }
-        val outfits = generated.mapIndexed { i, sport ->
+        val outfits = generated.mapIndexed { i, activityType ->
             // Spread evenly from WEEKS ago up to a week ago; the last week is for the anchors.
             val daysAgo = 7 + (days - 7) * (generated.size - i) / generated.size
             val hour = random.nextInt(7, 19)
@@ -58,21 +58,21 @@ object DemoHistory {
             }
             // Too cold: dressed for 4 °C warmer. Too hot: dressed for 4 °C colder.
             val dressedFor = feelsLike - 4 * rating
-            outfit(sport, today.minusDays(daysAgo.toLong()).atTime(hour, 0), feelsLike, dressedFor, rating, random)
+            outfit(activityType, today.minusDays(daysAgo.toLong()).atTime(hour, 0), feelsLike, dressedFor, rating, random)
         }.sortedBy { it.time }
 
-        val anchors = perfectAt.mapIndexed { i, (sport, temp) ->
+        val anchors = perfectAt.mapIndexed { i, (activityType, temp) ->
             val time = today.minusDays(2L + i).atTime(17, 0)
-            outfit(sport, time, temp.toDouble(), temp.toDouble(), 0, random, dry = true)
+            outfit(activityType, time, temp.toDouble(), temp.toDouble(), 0, random, dry = true)
         }
         // Yesterday evening's ride in a shower, waiting to be rated.
-        val pending = outfit(Sport.CYCLING, today.minusDays(1).atTime(17, 0), 9.0, 9.0, null, random, rain = 70)
+        val pending = outfit(ActivityType.CYCLING, today.minusDays(1).atTime(17, 0), 9.0, 9.0, null, random, rain = 70)
 
         return (outfits + anchors + pending).sortedBy { it.time }
     }
 
     private fun outfit(
-        sport: Sport,
+        activityType: ActivityType,
         time: LocalDateTime,
         feelsLike: Double,
         dressedFor: Double,
@@ -83,11 +83,11 @@ object DemoHistory {
     ): Outfit {
         val wind = random.nextInt(4, 26).toDouble()
         val uv = if (time.hour in 10..16) (feelsLike / 5).roundToInt().coerceIn(0, 6) else 1
-        val items = when (sport) {
-            Sport.CYCLING -> cyclingOutfit(dressedFor, rain, uv)
-            Sport.RUNNING -> runningOutfit(dressedFor, rain)
+        val items = when (activityType) {
+            ActivityType.CYCLING -> cyclingOutfit(dressedFor, rain, uv)
+            ActivityType.RUNNING -> runningOutfit(dressedFor, rain)
         }
-        return Outfit(sport, time, feelsLike, wind, uv, random.nextInt(0, 101), rain, items, rating)
+        return Outfit(activityType, time, feelsLike, wind, uv, random.nextInt(0, 101), rain, items, rating)
     }
 
     /** Default catalog names, by the feels-like temperature the rider dressed for. */

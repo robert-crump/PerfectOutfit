@@ -6,7 +6,7 @@ import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.location.LocationResult
 import com.example.perfectoutfit.core.location.LocationSource
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.recommendation.Recommendations
@@ -32,7 +32,7 @@ data class HomeUiState(
     val hourlyWeather: List<HourlyWeather> = emptyList(),
     /** Index within hourlyWeather that the user has selected. */
     val selectedHourIndex: Int = 0,
-    val selectedSport: Sport = Sport.CYCLING,
+    val selectedActivityType: ActivityType = ActivityType.CYCLING,
     val selectedLocationName: String = "Current location",
     val recommendation: OutfitEntryWithDetails? = null,
     val useApparentTemperature: Boolean = true,
@@ -92,8 +92,8 @@ class HomeViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            preferencesManager.selectedSport.collect { sport ->
-                _uiState.value = _uiState.value.copy(selectedSport = sport)
+            preferencesManager.selectedActivityType.collect { activityType ->
+                _uiState.value = _uiState.value.copy(selectedActivityType = activityType)
             }
         }
         viewModelScope.launch {
@@ -104,9 +104,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun selectSport(sport: Sport, workoutDurationHours: Int = 1) {
+    fun selectActivityType(activityType: ActivityType, workoutDurationHours: Int = 1) {
         _uiState.value = _uiState.value.copy(
-            selectedSport = sport,
+            selectedActivityType = activityType,
             workoutDurationHours = workoutDurationHours,
             activeWorkoutTab = WorkoutTab.COLDEST,
             recommendation = null,
@@ -116,7 +116,7 @@ class HomeViewModel @Inject constructor(
             warmestHourIndex = -1
         )
         viewModelScope.launch {
-            preferencesManager.setSelectedSport(sport)
+            preferencesManager.setSelectedActivityType(activityType)
             refreshRecommendation()
         }
     }
@@ -133,7 +133,7 @@ class HomeViewModel @Inject constructor(
             outfitLogging.log(
                 hour = weather,
                 location = LogLocation(location.name, location.lat, location.lon),
-                sport = _uiState.value.selectedSport,
+                activityType = _uiState.value.selectedActivityType,
                 clothingItemIds = recommendation.clothingItems.map { it.id },
                 workoutDurationHours = _uiState.value.workoutDurationHours,
                 mode = LogMode.LIVE
@@ -210,18 +210,18 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun refreshRecommendation() {
-        val sport = _uiState.value.selectedSport
+        val activityType = _uiState.value.selectedActivityType
         val useApparent = _uiState.value.useApparentTemperature
         val duration = _uiState.value.workoutDurationHours
 
-        // Module discards the result if sport or duration changed while it queried.
+        // Module discards the result if activityType or duration changed while it queried.
         val window = recommendations.findForWorkoutWindow(
-            sport = sport,
+            activityType = activityType,
             hours = _uiState.value.hourlyWeather,
             durationHours = duration,
             useApparent = useApparent,
             isCurrent = {
-                _uiState.value.selectedSport == sport && _uiState.value.workoutDurationHours == duration
+                _uiState.value.selectedActivityType == activityType && _uiState.value.workoutDurationHours == duration
             }
         ) ?: return
 

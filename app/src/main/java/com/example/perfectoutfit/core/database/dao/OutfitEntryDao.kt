@@ -7,7 +7,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -26,8 +26,8 @@ interface OutfitEntryDao {
     suspend fun getWithDetailsById(id: Long): OutfitEntryWithDetails?
 
     @Transaction
-    @Query("SELECT * FROM outfit_entries WHERE sport = :sport ORDER BY createdAt DESC")
-    fun getAllWithDetailsBySport(sport: Sport): Flow<List<OutfitEntryWithDetails>>
+    @Query("SELECT * FROM outfit_entries WHERE activityType = :activityType ORDER BY createdAt DESC")
+    fun getAllWithDetailsByActivityType(activityType: ActivityType): Flow<List<OutfitEntryWithDetails>>
 
     @Transaction
     @Query("SELECT * FROM outfit_entries ORDER BY createdAt DESC")
@@ -36,10 +36,10 @@ interface OutfitEntryDao {
     @Transaction
     @Query("""
         SELECT oe.* FROM outfit_entries oe
-        WHERE oe.sport = :sport
+        WHERE oe.activityType = :activityType
         AND oe.comfortRating IS NOT NULL
     """)
-    suspend fun getRatedEntriesWithDetails(sport: Sport): List<OutfitEntryWithDetails>
+    suspend fun getRatedEntriesWithDetails(activityType: ActivityType): List<OutfitEntryWithDetails>
 
     @Query("""
         SELECT COUNT(DISTINCT oi.outfitEntryId)

@@ -2,14 +2,14 @@ package com.example.perfectoutfit.core.database
 
 import androidx.room.TypeConverter
 import com.example.perfectoutfit.core.model.BodyPart
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 
 class Converters {
     @TypeConverter
-    fun fromSport(sport: Sport): String = sport.name
+    fun fromActivityType(activityType: ActivityType): String = activityType.name
 
     @TypeConverter
-    fun toSport(value: String): Sport = Sport.valueOf(value)
+    fun toActivityType(value: String): ActivityType = ActivityType.valueOf(value)
 
     @TypeConverter
     fun fromBodyPart(bodyPart: BodyPart): String = bodyPart.name

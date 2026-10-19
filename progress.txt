@@ -1,5 +1,40 @@
 PerfectOutfit — Progress Log
 
+2026-10-19
+- Implemented issue #18 (Rename Sport to ActivityType; clothing items belong to a set of
+  activity types).
+  Changes:
+    * `ActivityType` enum (was `Sport`) carries `displayName` and `iconRes`; the `when (sport)`
+      icon blocks and the lowercase/replaceFirstChar label trick are gone (Home header + tiles,
+      History chips, `ActivityTypeToggle` (was SportToggle), Explorer hint, reminder title).
+    * DB v5 (MIGRATION_4_5): new join table `clothing_item_activity_types` (item id, activity
+      type; cascade on item delete), each item's sport -> one row; `clothing_items` and
+      `outfit_entries` rebuilt (no RENAME COLUMN on minSdk 26) with `sport` dropped/renamed to
+      `activityType`. Room turns foreign keys on only after migrating, so the drops cascade
+      nowhere. Fresh-install seeding writes join rows via last_insert_rowid().
+    * DataStore: reads `selected_activity_type`, falls back to `selected_sport`, writes only the
+      new key.
+    * Wardrobe: Add dialog has multi-select activity chips, pre-ticking the viewed one; Rename
+      became Edit (name + chips); Save/Add disabled with nothing ticked. Delete removes items
+      everywhere and the dialog reads e.g. "“Jersey” is also used for Running, and appears in
+      37 outfit entries. Delete it everywhere?" (`deleteConfirmationMessage`). Edits clear the
+      selection, so an item that left the list can't stay selected unseen.
+    * Rate/Edit outfit: `itemsToOffer` adds the entry's own items to the activity type's catalog,
+      so untagged items stay visible and selected.
+    * Export v2: `activityType` plus `clothingItemActivityTypes`; v1/unversioned files are
+      rewritten on import (`upgradeFromV1`), one row per item; a v1 item without sport is rejected.
+    * Tests: AppDatabaseMigrationTest (Robolectric, real Room: 4->5 data kept, cascades still
+      work, seeding), PreferencesManagerTest, CatalogViewModelTest, DeleteConfirmationMessageTest,
+      ItemsToOfferTest, export v2 round trip / v1 import. CONTEXT.md: new "Activity type" entry.
+  Gotcha: the migration test must not share the SDK 34 Robolectric sandbox with the
+  notification tests (RatingActionHandlerTest's Toast then fails intermittently); it runs on
+  sdk = 35.
+  Verification: ./gradlew testDebugUnitTest passes (3 consecutive runs); androidTest compiles.
+  Emulator: installed the previous build, picked Running and logged a Running outfit, upgraded
+  in place: Running still selected, entry intact; Edit dialog moved "Shirt" to Cycling only and
+  the Running entry still shows Shirt selected. README screenshots not regenerated (no visible
+  change on the captured screens).
+
 2026-10-07
 - History temperature, multiselect delete, and Settings in the Plantry / Hue and You style
   (decided in a /grill-me session).
@@ -81,50 +116,3 @@ PerfectOutfit — Progress Log
       "Forecast" and "Display window" entries, wizard-up-to-today rule.
   Not done: typed error replacing the "permission" substring match (left as the issue allows).
   Verification: ./gradlew testDebugUnitTest passes. Manual device check not done (no emulator).
-
-2026-09-19 (2)
-- Implemented issue #10 (Outfit logging module: one path for snapshot, entry, reminder).
-  Changes:
-    * New `feature/outfit/OutfitLogging` (@Singleton; DAOs + DatabaseTransactionRunner +
-      RatingReminder): log(hour, LogLocation, sport, itemIds, rating, notes, duration,
-      LogMode.LIVE/PAST), rate, update (items+notes+rating in one transaction), delete,
-      restore, plus read pass-throughs. `createdAt` = workout hour for every log (Home used
-      the wall clock before; documented in CONTEXT.md "Outfit entry"). Reminder only for
-      LIVE or unrated logs, now enforced for Home too. Rating cancels the reminder.
-    * OutfitRepository deleted; WeatherRepository lost saveSnapshot and its DAO dependency.
-      HomeViewModel.acceptRecommendation / RateOutfitViewModel.save are one call each; dead
-      saveWeatherForLater and buildSnapshot gone. "Current Location" fallback lives only in
-      LogLocation. HistoryViewModel and RatingActionHandler go through the module.
-    * RateOutfitViewModel no longer uses first() on the apparent preference: likelyItemIds
-      is derived reactively from (selected hour, sport, preference).
-    * Tests: OutfitLoggingTest (13 cases, plain JVM, DAO fakes + FakeRatingReminder);
-      existing handler/receiver tests rewired; FakeOutfitEntryDao.updateNotes implemented.
-  Verification: ./gradlew testDebugUnitTest passes. Manual device check not done (no
-  emulator in this session): accept recommendation, wizard live/past, rate from History,
-  undo delete.
-
-2026-09-19 (1)
-- Implemented issue #9 (Recommendation module: one entry point and one reference-temperature
-  rule for Home and Explorer).
-  Changes:
-    * New `feature/recommendation/Recommendations` (@Singleton, depends only on
-      OutfitEntryDao): find(sport, rawTemp, useApparent), findForWorkoutWindow(...) (coldest/
-      warmest indices + recommendations, returns null if empty or if an `isCurrent` callback
-      turns false mid-query = the staleness rule), likelyItemIds, stops, and a companion
-      `workoutExtremes` (formerly private HomeViewModel.computeExtremes; later hour wins ties).
-      RecommendationPolicy moved into the package and made `internal`.
-    * New core/model/WeatherReading interface (the seven measurements) implemented by both
-      HourlyWeather and WeatherSnapshot, plus one `referenceTemp(useApparent)` extension.
-      OutfitEntryWithDetails.roundedTemp deleted; rounding happens only inside the module.
-    * OutfitRepository lost findRecommendation/getRatedEntries/getLikelyItemIds. HomeViewModel
-      drops the `adjustedApparentTemp` Int shadow and uses one findForWorkoutWindow call
-      (duration 1 -> coldest). ExplorerViewModel now collects the preference reactively (was
-      first()) and uses stops()/find(). RateOutfitViewModel calls recommendations.likelyItemIds
-      (its own first() read is left for #10).
-    * Tests: RecommendationPolicyTest -> RecommendationsTest (same 20 cases through the module);
-      new RecommendationsWindowTest (extremes tie-breaks, window, staleness, stops, rounding).
-      FakeOutfitEntryDao.getRatedEntriesWithDetails now implemented (+ onQuery hook).
-    * CONTEXT.md: reference-temp rule location, reactivity claim, stale DAO note removed,
-      new "Recommendation" entry.
-  Verification: ./gradlew testDebugUnitTest passes. Manual check of Home/Explorer on a device
-  not done (no emulator in this session).

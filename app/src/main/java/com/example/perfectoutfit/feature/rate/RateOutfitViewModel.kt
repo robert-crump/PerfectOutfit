@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.ClothingItem
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.catalog.CatalogRepository
@@ -50,7 +50,7 @@ data class RateOutfitUiState(
     val mode: OutfitScreenMode = OutfitScreenMode.NewPast,
     val isLoading: Boolean = true,
     val weatherSnapshot: WeatherSnapshot? = null,
-    val sport: Sport = Sport.CYCLING,
+    val activityType: ActivityType = ActivityType.CYCLING,
     val selectedItemIds: Set<Long> = emptySet(),
     val comfortRating: Int? = null,
     val isSaved: Boolean = false,
@@ -73,6 +73,19 @@ data class RateOutfitUiState(
 ) {
     val selectedHour: HourlyWeather?
         get() = hoursForSelectedDate.getOrNull(selectedHourIndex)
+}
+
+/**
+ * The items an outfit can be built from: the activity type's catalog plus any item already on
+ * the entry, so an item later untagged from that activity type is never hidden or silently
+ * dropped on save.
+ */
+internal fun itemsToOffer(catalogItems: List<ClothingItem>, entryItems: List<ClothingItem>): List<ClothingItem> {
+    val catalogIds = catalogItems.mapTo(HashSet()) { it.id }
+    val extra = entryItems.filter { it.id !in catalogIds }
+    if (extra.isEmpty()) return catalogItems
+    // Same order as the catalog query (body part, then name), so extras sit among their peers.
+    return (catalogItems + extra).sortedWith(compareBy({ it.bodyPart.name }, { it.name }))
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -103,41 +116,46 @@ class RateOutfitViewModel @Inject constructor(
     )
     val uiState: StateFlow<RateOutfitUiState> = _uiState.asStateFlow()
 
-    private val _sport = MutableStateFlow(Sport.CYCLING)
+    private val _activityType = MutableStateFlow(ActivityType.CYCLING)
 
-    val availableItems: StateFlow<List<ClothingItem>> = _sport
-        .flatMapLatest { sport -> catalogRepository.getItemsBySport(sport) }
+    /** Items already on the entry being edited; empty for new outfits. */
+    private val _entryItems = MutableStateFlow<List<ClothingItem>>(emptyList())
+
+    val availableItems: StateFlow<List<ClothingItem>> = _activityType
+        .flatMapLatest { activityType -> catalogRepository.getItemsByActivityType(activityType) }
+        .combine(_entryItems, ::itemsToOffer)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // Likely items follow the selected hour, the sport and the (reactive) apparent/real
+        // Likely items follow the selected hour, the activityType and the (reactive) apparent/real
         // temperature preference.
         viewModelScope.launch {
             combine(
-                _uiState.map { it.selectedHour to it.sport }.distinctUntilChanged(),
+                _uiState.map { it.selectedHour to it.activityType }.distinctUntilChanged(),
                 preferencesManager.useApparentTemperature
-            ) { (hour, sport), useApparent -> Triple(hour, sport, useApparent) }
-                .collectLatest { (hour, sport, useApparent) ->
+            ) { (hour, activityType), useApparent -> Triple(hour, activityType, useApparent) }
+                .collectLatest { (hour, activityType, useApparent) ->
                     val ids = if (hour != null) {
-                        recommendations.likelyItemIds(sport, hour.referenceTemp(useApparent), useApparent)
+                        recommendations.likelyItemIds(activityType, hour.referenceTemp(useApparent), useApparent)
                     } else emptySet()
                     _uiState.update { it.copy(likelyItemIds = ids) }
                 }
         }
         viewModelScope.launch {
-            val sport = preferencesManager.selectedSport.first()
-            _sport.value = sport
-            _uiState.value = _uiState.value.copy(sport = sport)
+            val activityType = preferencesManager.selectedActivityType.first()
+            _activityType.value = activityType
+            _uiState.value = _uiState.value.copy(activityType = activityType)
 
             when (val mode = _uiState.value.mode) {
                 is OutfitScreenMode.RateExisting -> {
                     val details = outfitLogging.getEntryWithDetails(mode.entryId)
                     if (details != null) {
-                        _sport.value = details.entry.sport
+                        _activityType.value = details.entry.activityType
+                        _entryItems.value = details.clothingItems
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             weatherSnapshot = details.weatherSnapshot,
-                            sport = details.entry.sport,
+                            activityType = details.entry.activityType,
                             selectedItemIds = details.clothingItems.map { it.id }.toSet(),
                             comfortRating = details.entry.comfortRating,
                             notes = details.entry.notes
@@ -303,7 +321,7 @@ class RateOutfitViewModel @Inject constructor(
                     outfitLogging.log(
                         hour = selectedHour,
                         location = LogLocation(state.logLocationName, forecast.location?.lat ?: 0.0, forecast.location?.lon ?: 0.0),
-                        sport = state.sport,
+                        activityType = state.activityType,
                         clothingItemIds = state.selectedItemIds,
                         rating = state.comfortRating,
                         notes = state.notes,

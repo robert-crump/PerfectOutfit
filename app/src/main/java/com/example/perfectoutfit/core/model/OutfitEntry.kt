@@ -22,7 +22,7 @@ import kotlinx.serialization.Serializable
 data class OutfitEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val weatherSnapshotId: Long,
-    val sport: Sport,
+    val activityType: ActivityType,
     val comfortRating: Int? = null,
     val createdAt: Long,
     val ratedAt: Long? = null,

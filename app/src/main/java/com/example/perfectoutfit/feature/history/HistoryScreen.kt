@@ -62,8 +62,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.perfectoutfit.R
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.ui.components.ratingEmoji
 import com.example.perfectoutfit.ui.components.verticalScrollbar
 import java.text.SimpleDateFormat
@@ -79,7 +78,7 @@ fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
-    val filterSport by viewModel.filterSport.collectAsStateWithLifecycle()
+    val filterActivityType by viewModel.filterActivityType.collectAsStateWithLifecycle()
     val selectedIds by viewModel.selectedIds.collectAsStateWithLifecycle()
     val selecting = selectedIds.isNotEmpty()
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
@@ -121,28 +120,24 @@ fun HistoryScreen(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
         ) {
-            // Sport filter chips — no "All" button; deselect to show all
+            // Activity type filter chips — no "All" button; deselect to show all
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Sport.entries.forEach { sport ->
-                    val iconRes = when (sport) {
-                        Sport.CYCLING -> R.drawable.ic_bike
-                        Sport.RUNNING -> R.drawable.ic_sprint
-                    }
+                ActivityType.entries.forEach { activityType ->
                     FilterChip(
-                        selected = filterSport == sport,
+                        selected = filterActivityType == activityType,
                         onClick = {
-                            viewModel.setFilter(if (filterSport == sport) null else sport)
+                            viewModel.setFilter(if (filterActivityType == activityType) null else activityType)
                         },
-                        label = { Text(sport.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                        leadingIcon = if (filterSport == sport) {
+                        label = { Text(activityType.displayName) },
+                        leadingIcon = if (filterActivityType == activityType) {
                             {
                                 Icon(
-                                    painter = painterResource(iconRes),
+                                    painter = painterResource(activityType.iconRes),
                                     contentDescription = null,
                                     modifier = Modifier.size(FilterChipDefaults.IconSize)
                                 )

@@ -4,7 +4,7 @@ import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import kotlinx.coroutines.runBlocking
@@ -25,7 +25,7 @@ class RecommendationsTest {
         useApparent: Boolean
     ): OutfitEntryWithDetails? {
         dao.ratedEntries = candidates
-        return runBlocking { recommendations.find(Sport.CYCLING, target.toDouble(), useApparent) }
+        return runBlocking { recommendations.find(ActivityType.CYCLING, target.toDouble(), useApparent) }
     }
 
     private fun likelyItemIds(
@@ -34,7 +34,7 @@ class RecommendationsTest {
         useApparent: Boolean
     ): Set<Long> {
         dao.ratedEntries = candidates
-        return runBlocking { recommendations.likelyItemIds(Sport.CYCLING, target.toDouble(), useApparent) }
+        return runBlocking { recommendations.likelyItemIds(ActivityType.CYCLING, target.toDouble(), useApparent) }
     }
 
     // ── Builders ─────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ class RecommendationsTest {
         entry = OutfitEntry(
             id = id,
             weatherSnapshotId = id,
-            sport = Sport.CYCLING,
+            activityType = ActivityType.CYCLING,
             comfortRating = rating,
             createdAt = 0
         ),
@@ -78,7 +78,7 @@ class RecommendationsTest {
     )
 
     private fun item(id: Long) = ClothingItem(
-        id = id, sport = Sport.CYCLING, bodyPart = BodyPart.HEAD_THROAT, name = "item$id"
+        id = id, bodyPart = BodyPart.HEAD_THROAT, name = "item$id"
     )
 
     private val t = LocalDateTime.of(2026, 1, 1, 12, 0)

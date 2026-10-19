@@ -2,7 +2,6 @@ package com.example.perfectoutfit.feature.backup
 
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
-import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.feature.settings.CURRENT_EXPORT_VERSION
 import com.example.perfectoutfit.feature.settings.ExportImportManager
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
@@ -46,7 +45,7 @@ class DriveBackupServiceTest {
     private val service = DriveBackupService(drive, exportImport, state, clock)
 
     private fun item(id: Long) =
-        ClothingItem(id = id, sport = Sport.CYCLING, bodyPart = BodyPart.HEAD_THROAT, name = "Item $id", isDefault = false)
+        ClothingItem(id = id, bodyPart = BodyPart.HEAD_THROAT, name = "Item $id", isDefault = false)
 
     private suspend fun addItem(id: Long) = clothingDao.insertAll(listOf(item(id)))
 

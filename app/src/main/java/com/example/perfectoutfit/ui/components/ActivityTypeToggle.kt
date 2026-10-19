@@ -10,32 +10,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import com.example.perfectoutfit.R
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 
 @Composable
-fun SportToggle(
-    selectedSport: Sport,
-    onSportSelected: (Sport) -> Unit,
+fun ActivityTypeToggle(
+    selectedActivityType: ActivityType,
+    onActivityTypeSelected: (ActivityType) -> Unit,
     modifier: Modifier = Modifier
 ) {
     SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
-        Sport.entries.forEachIndexed { index, sport ->
-            val iconRes = when (sport) {
-                Sport.CYCLING -> R.drawable.ic_bike
-                Sport.RUNNING -> R.drawable.ic_sprint
-            }
+        ActivityType.entries.forEachIndexed { index, activityType ->
             SegmentedButton(
-                selected = sport == selectedSport,
-                onClick = { onSportSelected(sport) },
+                selected = activityType == selectedActivityType,
+                onClick = { onActivityTypeSelected(activityType) },
                 shape = SegmentedButtonDefaults.itemShape(
                     index = index,
-                    count = Sport.entries.size
+                    count = ActivityType.entries.size
                 ),
                 icon = {
-                    if (sport == selectedSport) {
+                    if (activityType == selectedActivityType) {
                         Icon(
-                            painter = painterResource(iconRes),
+                            painter = painterResource(activityType.iconRes),
                             contentDescription = null,
                             modifier = Modifier.size(SegmentedButtonDefaults.IconSize)
                         )
@@ -44,7 +39,7 @@ fun SportToggle(
                     }
                 }
             ) {
-                Text(sport.name.lowercase().replaceFirstChar { it.uppercase() })
+                Text(activityType.displayName)
             }
         }
     }

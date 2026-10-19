@@ -1,6 +1,6 @@
 package com.example.perfectoutfit.feature.outfit
 
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.notification.FakeRatingReminder
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
@@ -38,7 +38,7 @@ class OutfitLoggingTest {
     private val location = LogLocation("Berlin", 52.5, 13.4)
 
     private suspend fun log(rating: Int? = null, mode: LogMode) = logging.log(
-        hour = hour, location = location, sport = Sport.CYCLING, clothingItemIds = listOf(1L, 2L),
+        hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L, 2L),
         rating = rating, notes = "n", workoutDurationHours = 2, mode = mode
     )
 
@@ -46,7 +46,7 @@ class OutfitLoggingTest {
     fun `live log schedules a reminder at the workout hour`() = runTest {
         val id = log(mode = LogMode.LIVE)
 
-        assertEquals(listOf(FakeRatingReminder.ShowCall(id, Sport.CYCLING, hourMs, 2)), reminder.showCalls)
+        assertEquals(listOf(FakeRatingReminder.ShowCall(id, ActivityType.CYCLING, hourMs, 2)), reminder.showCalls)
     }
 
     @Test
@@ -110,7 +110,7 @@ class OutfitLoggingTest {
     @Test
     fun `blank location name falls back to Current Location`() = runTest {
         val id = logging.log(
-            hour = hour, location = LogLocation("", 1.0, 2.0), sport = Sport.CYCLING,
+            hour = hour, location = LogLocation("", 1.0, 2.0), activityType = ActivityType.CYCLING,
             clothingItemIds = listOf(1L), mode = LogMode.LIVE
         )
 

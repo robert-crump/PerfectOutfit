@@ -4,23 +4,25 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
-import com.example.perfectoutfit.core.model.BodyPart
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.ClothingItem
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ClothingItemActivityType
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ClothingItemDao {
-    @Query("SELECT * FROM clothing_items WHERE sport = :sport ORDER BY bodyPart, name")
-    fun getBySport(sport: Sport): Flow<List<ClothingItem>>
-
-    @Query("SELECT * FROM clothing_items WHERE sport = :sport AND bodyPart = :bodyPart ORDER BY name")
-    fun getBySportAndBodyPart(sport: Sport, bodyPart: BodyPart): Flow<List<ClothingItem>>
+    @Query("""
+        SELECT ci.* FROM clothing_items ci
+        JOIN clothing_item_activity_types t ON t.clothingItemId = ci.id
+        WHERE t.activityType = :activityType
+        ORDER BY ci.bodyPart, ci.name
+    """)
+    fun getByActivityType(activityType: ActivityType): Flow<List<ClothingItem>>
 
     @Query("SELECT * FROM clothing_items WHERE id = :id")
     suspend fun getById(id: Long): ClothingItem?
 
-    @Query("SELECT * FROM clothing_items ORDER BY sport, bodyPart, name, id")
+    @Query("SELECT * FROM clothing_items ORDER BY bodyPart, name, id")
     suspend fun getAll(): List<ClothingItem>
 
     @Insert
@@ -40,4 +42,19 @@ interface ClothingItemDao {
 
     @Query("SELECT COUNT(*) FROM clothing_items")
     suspend fun count(): Int
+
+    @Query("SELECT * FROM clothing_item_activity_types WHERE clothingItemId IN (:itemIds) ORDER BY clothingItemId, activityType")
+    suspend fun getActivityTypesOf(itemIds: List<Long>): List<ClothingItemActivityType>
+
+    @Query("SELECT * FROM clothing_item_activity_types ORDER BY clothingItemId, activityType")
+    suspend fun getAllActivityTypes(): List<ClothingItemActivityType>
+
+    @Insert
+    suspend fun insertActivityTypes(rows: List<ClothingItemActivityType>)
+
+    @Query("DELETE FROM clothing_item_activity_types WHERE clothingItemId = :itemId")
+    suspend fun deleteActivityTypesOf(itemId: Long)
+
+    @Query("DELETE FROM clothing_item_activity_types")
+    suspend fun deleteAllActivityTypes()
 }

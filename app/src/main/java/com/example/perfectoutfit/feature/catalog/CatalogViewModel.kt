@@ -3,8 +3,8 @@ package com.example.perfectoutfit.feature.catalog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.model.BodyPart
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.ClothingItem
-import com.example.perfectoutfit.core.model.Sport
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,11 +23,11 @@ class CatalogViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository
 ) : ViewModel() {
 
-    private val _selectedSport = MutableStateFlow(Sport.CYCLING)
-    val selectedSport: StateFlow<Sport> = _selectedSport.asStateFlow()
+    private val _selectedActivityType = MutableStateFlow(ActivityType.CYCLING)
+    val selectedActivityType: StateFlow<ActivityType> = _selectedActivityType.asStateFlow()
 
-    val clothingItems: StateFlow<List<ClothingItem>> = selectedSport
-        .flatMapLatest { sport -> catalogRepository.getItemsBySport(sport) }
+    val clothingItems: StateFlow<List<ClothingItem>> = selectedActivityType
+        .flatMapLatest { activityType -> catalogRepository.getItemsByActivityType(activityType) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _dialogState = MutableStateFlow<CatalogDialogState>(CatalogDialogState.Hidden)
@@ -40,8 +40,8 @@ class CatalogViewModel @Inject constructor(
         .map { it.isNotEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    fun selectSport(sport: Sport) {
-        _selectedSport.value = sport
+    fun selectActivityType(activityType: ActivityType) {
+        _selectedActivityType.value = activityType
         clearSelection()
     }
 
@@ -59,17 +59,27 @@ class CatalogViewModel @Inject constructor(
     }
 
     fun showAddDialog(bodyPart: BodyPart? = null) {
-        _dialogState.value = CatalogDialogState.Add(bodyPart)
+        _dialogState.value = CatalogDialogState.Add(bodyPart, setOf(selectedActivityType.value))
     }
 
-    fun showRenameDialog(item: ClothingItem) {
-        _dialogState.value = CatalogDialogState.Rename(item)
+    fun showEditDialog(item: ClothingItem) {
+        viewModelScope.launch {
+            val activityTypes = catalogRepository.activityTypesOf(listOf(item.id))[item.id].orEmpty()
+            _dialogState.value = CatalogDialogState.Edit(item, activityTypes)
+        }
     }
 
     fun showDeleteConfirmDialog() {
         viewModelScope.launch {
-            val count = catalogRepository.countEntriesWithItems(_selectedItemIds.value.toList())
-            _dialogState.value = CatalogDialogState.DeleteConfirm(count)
+            val ids = _selectedItemIds.value
+            val count = catalogRepository.countEntriesWithItems(ids.toList())
+            val otherTypes = catalogRepository.activityTypesOf(ids).values.flatten().toSet() -
+                selectedActivityType.value
+            _dialogState.value = CatalogDialogState.DeleteConfirm(
+                itemNames = clothingItems.value.filter { it.id in ids }.map { it.name },
+                otherActivityTypes = ActivityType.entries.filter { it in otherTypes },
+                affectedEntryCount = count
+            )
         }
     }
 
@@ -77,25 +87,27 @@ class CatalogViewModel @Inject constructor(
         _dialogState.value = CatalogDialogState.Hidden
     }
 
-    fun addItem(bodyPart: BodyPart?, name: String) {
-        if (name.isBlank() || bodyPart == null) return
+    fun addItem(bodyPart: BodyPart?, name: String, activityTypes: Set<ActivityType>) {
+        if (name.isBlank() || bodyPart == null || activityTypes.isEmpty()) return
         viewModelScope.launch {
-            catalogRepository.addItem(selectedSport.value, bodyPart, name.trim())
+            catalogRepository.addItem(bodyPart, name.trim(), activityTypes)
             _dialogState.value = CatalogDialogState.Hidden
         }
     }
 
-    fun renameItem(item: ClothingItem, newName: String) {
-        if (newName.isBlank()) return
+    /** Saves name and activity types; unticking the viewed activity type drops the item from this list. */
+    fun editItem(item: ClothingItem, newName: String, activityTypes: Set<ActivityType>) {
+        if (newName.isBlank() || activityTypes.isEmpty()) return
         viewModelScope.launch {
-            catalogRepository.renameItem(item, newName.trim())
+            catalogRepository.editItem(item, newName.trim(), activityTypes)
             _dialogState.value = CatalogDialogState.Hidden
+            clearSelection()
         }
     }
 
     fun deleteSelectedItems() {
         viewModelScope.launch {
-            _selectedItemIds.value.forEach { id -> catalogRepository.deleteItem(id) }
+            catalogRepository.deleteItems(_selectedItemIds.value)
             _selectedItemIds.value = emptySet()
             _dialogState.value = CatalogDialogState.Hidden
         }
@@ -104,7 +116,47 @@ class CatalogViewModel @Inject constructor(
 
 sealed class CatalogDialogState {
     data object Hidden : CatalogDialogState()
-    data class Add(val bodyPart: BodyPart? = null) : CatalogDialogState()
-    data class Rename(val item: ClothingItem) : CatalogDialogState()
-    data class DeleteConfirm(val affectedEntryCount: Int = 0) : CatalogDialogState()
+    data class Add(
+        val bodyPart: BodyPart? = null,
+        /** Pre-ticked: the activity type currently viewed. */
+        val activityTypes: Set<ActivityType> = emptySet()
+    ) : CatalogDialogState()
+    data class Edit(val item: ClothingItem, val activityTypes: Set<ActivityType>) : CatalogDialogState()
+    data class DeleteConfirm(
+        val itemNames: List<String>,
+        /** Activity types other than the viewed one that the items also belong to, in enum order. */
+        val otherActivityTypes: List<ActivityType>,
+        val affectedEntryCount: Int
+    ) : CatalogDialogState() {
+        val message: String get() = deleteConfirmationMessage(itemNames, otherActivityTypes, affectedEntryCount)
+    }
 }
+
+/**
+ * E.g. "“Jersey” is also used for Cycling and Running, and appears in 37 outfit entries.
+ * Delete it everywhere?" Deleting removes the items from every activity type and entry.
+ */
+fun deleteConfirmationMessage(
+    itemNames: List<String>,
+    otherActivityTypes: List<ActivityType>,
+    affectedEntryCount: Int
+): String {
+    val single = itemNames.size == 1
+    val subject = if (single) "“${itemNames.single()}”" else "The ${itemNames.size} selected items"
+    val entries = when (affectedEntryCount) {
+        0 -> "no outfit entries"
+        1 -> "1 outfit entry"
+        else -> "$affectedEntryCount outfit entries"
+    }
+    val appears = "${if (single) "appears" else "appear"} in $entries"
+    val clauses = if (otherActivityTypes.isEmpty()) appears
+    else "${if (single) "is" else "are"} also used for ${joinWithAnd(otherActivityTypes.map { it.displayName })}, and $appears"
+    val pronoun = if (single) "it" else "them"
+    val question = if (otherActivityTypes.isEmpty() && affectedEntryCount == 0) "Delete $pronoun?"
+    else "Delete $pronoun everywhere?"
+    return "$subject $clauses. $question"
+}
+
+private fun joinWithAnd(words: List<String>): String =
+    if (words.size <= 1) words.joinToString()
+    else words.dropLast(1).joinToString(", ") + " and " + words.last()

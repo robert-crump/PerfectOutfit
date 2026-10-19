@@ -5,6 +5,21 @@ and refactors should use these terms.
 
 ## Glossary
 
+### Activity type
+Anything the user dresses for — a sport or not (`ActivityType`, `core/model/ActivityType.kt`).
+Each value carries its own `displayName` and icon, so no screen maps activity types to labels
+or drawables itself. Outfit entries, recommendations, History's filter and the selected
+activity type on Home (DataStore `selected_activity_type`, falling back to the pre-rename
+`selected_sport`) are all per activity type.
+
+**Items ↔ activity types:** a clothing item belongs to a *set* of activity types (at least
+one), stored as rows of `clothing_item_activity_types` (`ClothingItemActivityType`: item id,
+activity type). The Wardrobe lists an activity type's items through that join; Add pre-ticks
+the activity type being viewed, Edit changes name and set. Deleting an item removes it
+everywhere — from every activity type and every outfit entry. The Rate/Edit outfit screen
+offers the entry's activity type's items plus any item already on the entry, so an item
+later untagged from that activity type is never hidden or silently dropped.
+
 ### Reference temperature
 The single temperature the app reasons about for a given hour, chosen by the user's
 **apparent-vs-real preference** (`PreferencesManager.useApparentTemperature`). When the
@@ -38,8 +53,8 @@ used (issue #1), so it was kept as the one true threshold rather than the mapper
 has no Home screen warning card, only a colour).
 
 ### Rating reminder
-The notification that asks the user to rate an outfit entry after a workout (sport,
-workout date, duration). Its capability is exactly "show a reminder for entry X" and
+The notification that asks the user to rate an outfit entry after a workout (activity
+type, workout date, duration). Its capability is exactly "show a reminder for entry X" and
 "cancel the reminder for entry X" — nothing else about notifications leaks past it.
 Defined by the `RatingReminder` interface (`core/notification/RatingReminder.kt`), with
 two adapters: `AndroidRatingReminder` (system notifications; channel creation is lazy, on
@@ -60,11 +75,14 @@ so the README screenshot test can replace it with `@TestInstallIn`.
 
 ### Export/import schema
 Settings' backup/restore feature (`feature/settings/ExportImportManager.kt`) serializes
-the four Room entities (`ClothingItem`, `WeatherSnapshot`, `OutfitEntry`, `OutfitItem`)
-directly with `kotlinx.serialization` — there is no separate mirror DTO, so a field exists
+the five Room entities (`ClothingItem`, `ClothingItemActivityType`, `WeatherSnapshot`,
+`OutfitEntry`, `OutfitItem`) directly with `kotlinx.serialization` — there is no separate mirror DTO, so a field exists
 in exactly one place. `ExportData.version` is a schema version the app can branch on for
 future format changes; it defaults to `CURRENT_EXPORT_VERSION`, so files written before
-the field existed still decode. Import decodes and validates the whole file before any
+the field existed still decode. Version 2 renamed `sport` to `activityType` and added the
+item ↔ activity-type rows; a v1 file (or one without a version) is rewritten on import, each
+item's single `sport` becoming one row. Files newer than the app are rejected.
+Import decodes and validates the whole file before any
 delete runs, and the delete-then-insert itself runs inside one `DatabaseTransactionRunner`
 transaction, so neither a malformed file nor a failure partway through import can leave
 the database partially emptied. `DatabaseTransactionRunner` is the same
@@ -73,11 +91,11 @@ in production, a same-thread fake under `app/src/test`), which is why the round-
 runs on the plain JVM with fake DAOs instead of Robolectric.
 
 ### Recommendation
-The outfit suggested for a sport at a [reference temperature](#reference-temperature),
+The outfit suggested for an [activity type](#activity-type) at a [reference temperature](#reference-temperature),
 owned by `Recommendations` (`feature/recommendation/`) — the single entry point for Home,
-Explorer, and the Rate screen's "likely items". Callers pass sport, a raw reference
+Explorer, and the Rate screen's "likely items". Callers pass the activity type, a raw reference
 temperature and the apparent-vs-real preference; the module loads rated history
-(`OutfitEntryDao.getRatedEntriesWithDetails(sport)` — one query, matching happens in
+(`OutfitEntryDao.getRatedEntriesWithDetails(activityType)` — one query, matching happens in
 memory), rounds, and matches in three tiers over rated entries: (1) exact rounded
 temperature, newest wins regardless of rating; (2) within ±1 °C, best rating
 (0 > 1 > -1) then newest; (3) within ±2 °C, same. `RecommendationPolicy` is `internal` to
@@ -87,11 +105,11 @@ Explorer **stops** are the distinct rounded reference temperatures with rated hi
 **Workout window:** for a workout of N hours, the first N forecast hours are the window;
 the *coldest* and *warmest* hours (by reference temperature, ties going to the later hour)
 each get their own recommendation. A one-hour window has coldest == warmest. A result is
-discarded (`null`) if the caller's sport or duration changed while the query ran.
+discarded (`null`) if the caller's activity type or duration changed while the query ran.
 
 ### Outfit entry
-The persisted record of one outfit worn for one workout (`OutfitEntry`): sport, its
-clothing items, a `WeatherSnapshot` of the workout hour, an optional comfort rating
+The persisted record of one outfit worn for one workout (`OutfitEntry`): its
+[activity type](#activity-type), its clothing items, a `WeatherSnapshot` of the workout hour, an optional comfort rating
 (`ratedAt` set when rated) and notes.
 
 **`createdAt` rule:** `createdAt` is the epoch millis of the workout hour (not the wall

@@ -6,10 +6,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,6 +28,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,14 +47,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.ui.components.BodyPartSection
-import com.example.perfectoutfit.ui.components.SportToggle
+import com.example.perfectoutfit.ui.components.ActivityTypeToggle
 import com.example.perfectoutfit.ui.components.verticalScrollbar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,7 +65,7 @@ fun CatalogScreen(
     onNavigateBack: (() -> Unit)? = null,
     viewModel: CatalogViewModel = hiltViewModel()
 ) {
-    val selectedSport by viewModel.selectedSport.collectAsStateWithLifecycle()
+    val selectedActivityType by viewModel.selectedActivityType.collectAsStateWithLifecycle()
     val items by viewModel.clothingItems.collectAsStateWithLifecycle()
     val dialogState by viewModel.dialogState.collectAsStateWithLifecycle()
     val selectedItemIds by viewModel.selectedItemIds.collectAsStateWithLifecycle()
@@ -98,11 +105,11 @@ fun CatalogScreen(
                             items.find { it.id == selectedItemIds.first() } else null
                         IconButton(
                             onClick = {
-                                singleSelectedItem?.let { viewModel.showRenameDialog(it) }
+                                singleSelectedItem?.let { viewModel.showEditDialog(it) }
                             },
                             enabled = singleSelectedItem != null
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Rename")
+                            Icon(Icons.Default.Edit, contentDescription = "Edit")
                         }
                         IconButton(onClick = viewModel::showDeleteConfirmDialog) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete")
@@ -141,9 +148,9 @@ fun CatalogScreen(
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            SportToggle(
-                selectedSport = selectedSport,
-                onSportSelected = viewModel::selectSport,
+            ActivityTypeToggle(
+                selectedActivityType = selectedActivityType,
+                onActivityTypeSelected = viewModel::selectActivityType,
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
             )
 
@@ -202,6 +209,7 @@ fun CatalogScreen(
         is CatalogDialogState.Add -> {
             var text by remember { mutableStateOf("") }
             var selectedBodyPart by remember { mutableStateOf(state.bodyPart) }
+            var activityTypes by remember { mutableStateOf(state.activityTypes) }
             var bodyPartExpanded by remember { mutableStateOf(false) }
 
             AlertDialog(
@@ -257,12 +265,16 @@ fun CatalogScreen(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        ActivityTypeChips(
+                            selected = activityTypes,
+                            onSelectedChange = { activityTypes = it }
+                        )
                     }
                 },
                 confirmButton = {
                     TextButton(
-                        onClick = { viewModel.addItem(selectedBodyPart, text) },
-                        enabled = selectedBodyPart != null && text.isNotBlank()
+                        onClick = { viewModel.addItem(selectedBodyPart, text, activityTypes) },
+                        enabled = selectedBodyPart != null && text.isNotBlank() && activityTypes.isNotEmpty()
                     ) {
                         Text("Add")
                     }
@@ -273,22 +285,33 @@ fun CatalogScreen(
             )
         }
 
-        is CatalogDialogState.Rename -> {
+        is CatalogDialogState.Edit -> {
             var text by remember(state.item.id) { mutableStateOf(state.item.name) }
+            var activityTypes by remember(state.item.id) { mutableStateOf(state.activityTypes) }
             AlertDialog(
                 onDismissRequest = viewModel::dismissDialog,
-                title = { Text("Rename Item") },
+                title = { Text("Edit Item") },
                 text = {
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = { text = it },
-                        label = { Text("New name") },
-                        singleLine = true
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = text,
+                            onValueChange = { text = it },
+                            label = { Text("Name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        ActivityTypeChips(
+                            selected = activityTypes,
+                            onSelectedChange = { activityTypes = it }
+                        )
+                    }
                 },
                 confirmButton = {
-                    TextButton(onClick = { viewModel.renameItem(state.item, text) }) {
-                        Text("Rename")
+                    TextButton(
+                        onClick = { viewModel.editItem(state.item, text, activityTypes) },
+                        enabled = text.isNotBlank() && activityTypes.isNotEmpty()
+                    ) {
+                        Text("Save")
                     }
                 },
                 dismissButton = {
@@ -298,22 +321,10 @@ fun CatalogScreen(
         }
 
         is CatalogDialogState.DeleteConfirm -> {
-            val affectedCount = state.affectedEntryCount
             AlertDialog(
                 onDismissRequest = viewModel::dismissDialog,
                 title = { Text("Delete Items") },
-                text = {
-                    val entryText = if (affectedCount == 0)
-                        "No outfit ratings reference these items."
-                    else if (affectedCount == 1)
-                        "1 outfit rating references these items and will be affected."
-                    else
-                        "$affectedCount outfit ratings reference these items and will be affected."
-                    Text(
-                        "The selected ${selectedItemIds.size} item(s) will be permanently deleted. " +
-                            "$entryText Continue?"
-                    )
-                },
+                text = { Text(state.message) },
                 confirmButton = {
                     TextButton(
                         onClick = viewModel::deleteSelectedItems,
@@ -331,5 +342,36 @@ fun CatalogScreen(
         }
 
         CatalogDialogState.Hidden -> {}
+    }
+}
+
+/** Multi-select activity type chips (icon + label) for an item's activity types. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ActivityTypeChips(
+    selected: Set<ActivityType>,
+    onSelectedChange: (Set<ActivityType>) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Activities", style = MaterialTheme.typography.labelLarge)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActivityType.entries.forEach { activityType ->
+                val isSelected = activityType in selected
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        onSelectedChange(if (isSelected) selected - activityType else selected + activityType)
+                    },
+                    label = { Text(activityType.displayName) },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(activityType.iconRes),
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    }
+                )
+            }
+        }
     }
 }

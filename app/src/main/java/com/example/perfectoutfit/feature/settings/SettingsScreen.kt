@@ -101,7 +101,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.Filled.Checkroom,
                         title = "Clothing catalog",
-                        summary = "Add, rename and organise items",
+                        summary = "Add, edit and organise items",
                         onClick = onNavigateToCatalog,
                         trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) }
                     )

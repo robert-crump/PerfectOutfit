@@ -7,7 +7,7 @@ import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.OutfitItem
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.notification.RatingReminder
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.toWeatherSnapshot
@@ -46,7 +46,7 @@ class OutfitLogging @Inject constructor(
     suspend fun log(
         hour: HourlyWeather,
         location: LogLocation,
-        sport: Sport,
+        activityType: ActivityType,
         clothingItemIds: Collection<Long>,
         rating: Int? = null,
         notes: String = "",
@@ -61,7 +61,7 @@ class OutfitLogging @Inject constructor(
             val id = outfitEntryDao.insert(
                 OutfitEntry(
                     weatherSnapshotId = snapshotId,
-                    sport = sport,
+                    activityType = activityType,
                     comfortRating = rating,
                     createdAt = workoutMs,
                     ratedAt = rating?.let { System.currentTimeMillis() },
@@ -72,7 +72,7 @@ class OutfitLogging @Inject constructor(
             id
         }
         if (mode == LogMode.LIVE || rating == null) {
-            ratingReminder.show(entryId, sport, workoutMs, workoutDurationHours)
+            ratingReminder.show(entryId, activityType, workoutMs, workoutDurationHours)
         }
         return entryId
     }
@@ -106,8 +106,8 @@ class OutfitLogging @Inject constructor(
 
     fun allEntries(): Flow<List<OutfitEntryWithDetails>> = outfitEntryDao.getAllWithDetails()
 
-    fun entriesBySport(sport: Sport): Flow<List<OutfitEntryWithDetails>> =
-        outfitEntryDao.getAllWithDetailsBySport(sport)
+    fun entriesByActivityType(activityType: ActivityType): Flow<List<OutfitEntryWithDetails>> =
+        outfitEntryDao.getAllWithDetailsByActivityType(activityType)
 
     private suspend fun insertItems(entryId: Long, clothingItemIds: Collection<Long>) {
         outfitItemDao.insertAll(clothingItemIds.map { OutfitItem(outfitEntryId = entryId, clothingItemId = it) })

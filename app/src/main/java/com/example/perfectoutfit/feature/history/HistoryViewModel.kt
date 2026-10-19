@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,14 +34,14 @@ class HistoryViewModel @Inject constructor(
     preferencesManager: PreferencesManager
 ) : ViewModel() {
 
-    private val _filterSport = MutableStateFlow<Sport?>(Sport.CYCLING)
-    val filterSport: StateFlow<Sport?> = _filterSport
+    private val _filterActivityType = MutableStateFlow<ActivityType?>(ActivityType.CYCLING)
+    val filterActivityType: StateFlow<ActivityType?> = _filterActivityType
 
     // Null means "not loaded yet" so the UI can avoid flashing the empty-state
     // message before the first database emission arrives.
-    val entries: StateFlow<List<HistoryItem>?> = _filterSport
-        .flatMapLatest { sport ->
-            if (sport != null) outfitLogging.entriesBySport(sport)
+    val entries: StateFlow<List<HistoryItem>?> = _filterActivityType
+        .flatMapLatest { activityType ->
+            if (activityType != null) outfitLogging.entriesByActivityType(activityType)
             else outfitLogging.allEntries()
         }
         .combine(preferencesManager.useApparentTemperature) { entries, useApparent ->
@@ -54,8 +54,8 @@ class HistoryViewModel @Inject constructor(
     val selectedIds: StateFlow<Set<Long>> = _selectedIds.asStateFlow()
 
     /** Clears the selection too, so entries the new filter hides can't be deleted unseen. */
-    fun setFilter(sport: Sport?) {
-        _filterSport.value = sport
+    fun setFilter(activityType: ActivityType?) {
+        _filterActivityType.value = activityType
         clearSelection()
     }
 

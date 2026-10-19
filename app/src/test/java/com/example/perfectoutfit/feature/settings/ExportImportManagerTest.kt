@@ -1,10 +1,11 @@
 package com.example.perfectoutfit.feature.settings
 
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
+import com.example.perfectoutfit.core.model.ClothingItemActivityType
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
-import com.example.perfectoutfit.core.model.Sport
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
@@ -41,7 +42,11 @@ class ExportImportManagerTest {
     )
 
     private val clothingItem = ClothingItem(
-        id = 1, sport = Sport.CYCLING, bodyPart = BodyPart.HEAD_THROAT, name = "Mütze", isDefault = true
+        id = 1, bodyPart = BodyPart.HEAD_THROAT, name = "Mütze", isDefault = true
+    )
+    private val itemActivityTypes = listOf(
+        ClothingItemActivityType(clothingItemId = 1, activityType = ActivityType.CYCLING),
+        ClothingItemActivityType(clothingItemId = 1, activityType = ActivityType.RUNNING)
     )
     private val snapshot = WeatherSnapshot(
         id = 1, timestamp = 1_000L, latitude = 52.5, longitude = 13.4, locationName = "Berlin",
@@ -49,13 +54,16 @@ class ExportImportManagerTest {
         windDirectionDegrees = 180, uvIndex = 3, cloudCoverPercent = 40, precipitationProbabilityPercent = 20
     )
     private val entry = OutfitEntry(
-        id = 1, weatherSnapshotId = 1, sport = Sport.CYCLING, comfortRating = 0,
+        id = 1, weatherSnapshotId = 1, activityType = ActivityType.CYCLING, comfortRating = 0,
         createdAt = 2_000L, ratedAt = 2_500L, notes = "Good ride"
     )
     private val outfitItem = OutfitItem(outfitEntryId = 1, clothingItemId = 1)
 
     private suspend fun seededSource(): ExportImportManager {
-        val clothingItemDao = FakeClothingItemDao().apply { insertAll(listOf(clothingItem)) }
+        val clothingItemDao = FakeClothingItemDao().apply {
+            insertAll(listOf(clothingItem))
+            insertActivityTypes(itemActivityTypes)
+        }
         val weatherSnapshotDao = FakeWeatherSnapshotDao().apply { insert(snapshot) }
         val outfitEntryDao = FakeOutfitEntryDao().apply { insert(entry) }
         val outfitItemDao = FakeOutfitItemDao().apply { insertAll(listOf(outfitItem)) }
@@ -63,7 +71,7 @@ class ExportImportManagerTest {
     }
 
     @Test
-    fun `round trip preserves all four tables`() = runTest {
+    fun `round trip preserves all tables, including item activity types`() = runTest {
         val exported = seededSource().exportToJson()
 
         val targetClothingItemDao = FakeClothingItemDao()
@@ -77,6 +85,7 @@ class ExportImportManagerTest {
         target.importFromJson(exported)
 
         assertEquals(listOf(clothingItem), targetClothingItemDao.getAll())
+        assertEquals(itemActivityTypes, targetClothingItemDao.getAllActivityTypes())
         assertEquals(listOf(snapshot), targetWeatherSnapshotDao.getAll())
         assertEquals(listOf(entry), targetOutfitEntryDao.getAll())
         assertEquals(listOf(outfitItem), targetOutfitItemDao.getAll())
@@ -87,6 +96,14 @@ class ExportImportManagerTest {
         val exported = seededSource().exportToJson()
 
         assertTrue(exported.contains("\"version\":$CURRENT_EXPORT_VERSION"))
+    }
+
+    @Test
+    fun `export uses activityType and never sport`() = runTest {
+        val exported = seededSource().exportToJson()
+
+        assertTrue(exported.contains("\"activityType\":\"RUNNING\""))
+        assertTrue(!exported.contains("sport"))
     }
 
     @Test
@@ -144,6 +161,10 @@ class ExportImportManagerTest {
         manager.importFromJson(legacyJson)
 
         assertEquals(listOf(clothingItem), clothingItemDao.getAll())
+        assertEquals(
+            listOf(ClothingItemActivityType(clothingItemId = 1, activityType = ActivityType.CYCLING)),
+            clothingItemDao.getAllActivityTypes()
+        )
         assertEquals(listOf(snapshot), weatherSnapshotDao.getAll())
         assertEquals(listOf(entry), outfitEntryDao.getAll())
         assertEquals(listOf(outfitItem), outfitItemDao.getAll())
@@ -187,15 +208,52 @@ class ExportImportManagerTest {
     }
 
     @Test
-    fun `explicit version 1 still imports`() = runTest {
+    fun `version 1 file imports with one activity type row per item`() = runTest {
         val clothingItemDao = FakeClothingItemDao()
-        val manager = managerFor(
-            clothingItemDao, FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao()
-        )
+        val outfitEntryDao = FakeOutfitEntryDao()
+        val manager = managerFor(clothingItemDao, FakeWeatherSnapshotDao(), outfitEntryDao, FakeOutfitItemDao())
 
         manager.importFromJson(
-            """{"version": 1, "clothingItems": [{"id": 1, "sport": "CYCLING", "bodyPart": "HEAD_THROAT", "name": "Mütze", "isDefault": true}]}"""
+            """
+            {"version": 1,
+             "clothingItems": [
+               {"id": 1, "sport": "CYCLING", "bodyPart": "HEAD_THROAT", "name": "Mütze", "isDefault": true},
+               {"id": 2, "sport": "RUNNING", "bodyPart": "LEGS", "name": "Shorts", "isDefault": false}
+             ],
+             "outfitEntries": [
+               {"id": 1, "weatherSnapshotId": 1, "sport": "RUNNING", "comfortRating": -1, "createdAt": 2000}
+             ]}
+            """.trimIndent()
         )
+
+        assertEquals(
+            listOf(clothingItem, ClothingItem(id = 2, bodyPart = BodyPart.LEGS, name = "Shorts")),
+            clothingItemDao.getAll()
+        )
+        assertEquals(
+            listOf(
+                ClothingItemActivityType(clothingItemId = 1, activityType = ActivityType.CYCLING),
+                ClothingItemActivityType(clothingItemId = 2, activityType = ActivityType.RUNNING)
+            ),
+            clothingItemDao.getAllActivityTypes()
+        )
+        assertEquals(
+            listOf(OutfitEntry(id = 1, weatherSnapshotId = 1, activityType = ActivityType.RUNNING, comfortRating = -1, createdAt = 2000)),
+            outfitEntryDao.getAll()
+        )
+    }
+
+    @Test
+    fun `version 1 item without a sport is rejected and database unchanged`() = runTest {
+        val clothingItemDao = FakeClothingItemDao().apply { insertAll(listOf(clothingItem)) }
+        val manager = managerFor(clothingItemDao, FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao())
+
+        try {
+            manager.importFromJson("""{"version": 1, "clothingItems": [{"id": 2, "bodyPart": "LEGS", "name": "Shorts"}]}""")
+            fail("expected a SerializationException")
+        } catch (e: SerializationException) {
+            // expected
+        }
 
         assertEquals(listOf(clothingItem), clothingItemDao.getAll())
     }

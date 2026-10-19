@@ -3,7 +3,7 @@ package com.example.perfectoutfit.testutil
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -20,7 +20,7 @@ class FakeOutfitEntryDao : OutfitEntryDao {
         entries[entryId] = OutfitEntry(
             id = entryId,
             weatherSnapshotId = 1L,
-            sport = Sport.CYCLING,
+            activityType = ActivityType.CYCLING,
             comfortRating = rating,
             createdAt = 0L
         )
@@ -45,24 +45,26 @@ class FakeOutfitEntryDao : OutfitEntryDao {
     /** What the observable queries emit; [deleteById] removes from it too. */
     val details = MutableStateFlow<List<OutfitEntryWithDetails>>(emptyList())
 
-    override fun getAllWithDetailsBySport(sport: Sport): Flow<List<OutfitEntryWithDetails>> =
-        details.map { list -> list.filter { it.entry.sport == sport } }
+    override fun getAllWithDetailsByActivityType(activityType: ActivityType): Flow<List<OutfitEntryWithDetails>> =
+        details.map { list -> list.filter { it.entry.activityType == activityType } }
 
     override fun getAllWithDetails(): Flow<List<OutfitEntryWithDetails>> = details
 
-    /** Candidates returned by [getRatedEntriesWithDetails] (filtered to rated entries of the sport). */
+    /** Candidates returned by [getRatedEntriesWithDetails] (filtered to rated entries of the activityType). */
     var ratedEntries: List<OutfitEntryWithDetails> = emptyList()
 
     /** Runs at the start of every [getRatedEntriesWithDetails] call, to simulate in-flight changes. */
     var onQuery: () -> Unit = {}
 
-    override suspend fun getRatedEntriesWithDetails(sport: Sport): List<OutfitEntryWithDetails> {
+    override suspend fun getRatedEntriesWithDetails(activityType: ActivityType): List<OutfitEntryWithDetails> {
         onQuery()
-        return ratedEntries.filter { it.entry.sport == sport && it.entry.comfortRating != null }
+        return ratedEntries.filter { it.entry.activityType == activityType && it.entry.comfortRating != null }
     }
 
-    override suspend fun countEntriesWithAnyItem(itemIds: List<Long>): Int =
-        throw UnsupportedOperationException()
+    /** What [countEntriesWithAnyItem] answers, whatever the item ids. */
+    var entriesWithAnyItemCount = 0
+
+    override suspend fun countEntriesWithAnyItem(itemIds: List<Long>): Int = entriesWithAnyItemCount
 
     override suspend fun getAll(): List<OutfitEntry> = entries.values.sortedBy { it.id }
 

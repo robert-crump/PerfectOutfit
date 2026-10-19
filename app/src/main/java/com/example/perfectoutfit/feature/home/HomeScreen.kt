@@ -81,13 +81,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.ui.components.ClothingItemChip
 import com.example.perfectoutfit.ui.components.ratingLabel
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
-private enum class WizardStep { LOCATION_SPORT, RESULT }
+private enum class WizardStep { LOCATION_ACTIVITY_TYPE, RESULT }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,11 +101,11 @@ fun HomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    var wizardStep by remember { mutableStateOf(WizardStep.LOCATION_SPORT) }
+    var wizardStep by remember { mutableStateOf(WizardStep.LOCATION_ACTIVITY_TYPE) }
     var outfitAccepted by remember { mutableStateOf(false) }
 
     BackHandler(enabled = wizardStep == WizardStep.RESULT) {
-        wizardStep = WizardStep.LOCATION_SPORT
+        wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE
     }
 
     LaunchedEffect(wizardStep) {
@@ -147,7 +147,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             when (wizardStep) {
-                WizardStep.LOCATION_SPORT -> TopAppBar(
+                WizardStep.LOCATION_ACTIVITY_TYPE -> TopAppBar(
                     title = { Text("Outfit Recommendation") },
                     actions = {
                         IconButton(onClick = { onNavigateToExplorer(forecastTemp) }) {
@@ -159,7 +159,7 @@ fun HomeScreen(
                 WizardStep.RESULT -> TopAppBar(
                     title = { Text("Recommendation") },
                     navigationIcon = {
-                        IconButton(onClick = { wizardStep = WizardStep.LOCATION_SPORT }) {
+                        IconButton(onClick = { wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE }) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back"
@@ -184,10 +184,10 @@ fun HomeScreen(
                 .padding(innerPadding)
         ) {
             when (wizardStep) {
-                WizardStep.LOCATION_SPORT -> LocationSportStep(
+                WizardStep.LOCATION_ACTIVITY_TYPE -> LocationActivityStep(
                     selectedLocationName = uiState.selectedLocationName,
-                    onSportSelected = { sport, hours ->
-                        viewModel.selectSport(sport, hours)
+                    onActivityTypeSelected = { activityType, hours ->
+                        viewModel.selectActivityType(activityType, hours)
                         wizardStep = WizardStep.RESULT
                     },
                     modifier = Modifier.weight(1f)
@@ -222,9 +222,9 @@ fun HomeScreen(
 }
 
 @Composable
-private fun LocationSportStep(
+private fun LocationActivityStep(
     selectedLocationName: String,
-    onSportSelected: (Sport, Int) -> Unit,
+    onActivityTypeSelected: (ActivityType, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isLongWorkout by remember { mutableStateOf(false) }
@@ -282,24 +282,20 @@ private fun LocationSportStep(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SportTile(
-                iconRes = R.drawable.ic_bike,
-                label = "Cycling",
-                onClick = { onSportSelected(Sport.CYCLING, if (isLongWorkout) workoutHours else 1) },
-                modifier = Modifier.weight(1f)
-            )
-            SportTile(
-                iconRes = R.drawable.ic_sprint,
-                label = "Running",
-                onClick = { onSportSelected(Sport.RUNNING, if (isLongWorkout) workoutHours else 1) },
-                modifier = Modifier.weight(1f)
-            )
+            ActivityType.entries.forEach { activityType ->
+                ActivityTypeTile(
+                    iconRes = activityType.iconRes,
+                    label = activityType.displayName,
+                    onClick = { onActivityTypeSelected(activityType, if (isLongWorkout) workoutHours else 1) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun SportTile(
+private fun ActivityTypeTile(
     @DrawableRes iconRes: Int,
     label: String,
     onClick: () -> Unit,
@@ -359,7 +355,7 @@ private fun ResultStep(
         ) {
             ResultSummaryBar(
                 locationName = uiState.selectedLocationName,
-                sport = uiState.selectedSport
+                activityType = uiState.selectedActivityType
             )
 
             if (uiState.isLoading) {
@@ -459,13 +455,8 @@ private fun ResultStep(
 @Composable
 private fun ResultSummaryBar(
     locationName: String,
-    sport: Sport
+    activityType: ActivityType
 ) {
-    val sportIconRes = when (sport) {
-        Sport.CYCLING -> R.drawable.ic_bike
-        Sport.RUNNING -> R.drawable.ic_sprint
-    }
-    val sportName = sport.name.lowercase().replaceFirstChar { it.uppercase() }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -503,14 +494,14 @@ private fun ResultSummaryBar(
             )
 
             Icon(
-                painterResource(sportIconRes),
+                painterResource(activityType.iconRes),
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = sportName,
+                text = activityType.displayName,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

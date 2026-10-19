@@ -10,7 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.perfectoutfit.MainActivity
 import com.example.perfectoutfit.R
-import com.example.perfectoutfit.core.model.Sport
+import com.example.perfectoutfit.core.model.ActivityType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,7 +31,7 @@ class AndroidRatingReminder @Inject constructor(
 
     override fun show(
         outfitEntryId: Long,
-        sport: Sport,
+        activityType: ActivityType,
         dateMs: Long,
         durationHours: Int
     ) {
@@ -51,12 +51,11 @@ class AndroidRatingReminder @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val sportName = sport.name.lowercase().replaceFirstChar { it.uppercase() }
         val dateStr = SimpleDateFormat("MMMM d", Locale.getDefault()).format(Date(dateMs))
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Rate your outfit ($sportName)")
+            .setContentTitle("Rate your outfit (${activityType.displayName})")
             .setContentText("Tap to rate your outfit for $dateStr. Workout duration: ${durationHours}h.")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
