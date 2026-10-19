@@ -31,8 +31,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +51,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -62,7 +59,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.ui.components.ActivityTypeSelector
 import com.example.perfectoutfit.ui.components.ratingEmoji
 import com.example.perfectoutfit.ui.components.verticalScrollbar
 import java.text.SimpleDateFormat
@@ -120,32 +117,13 @@ fun HistoryScreen(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
         ) {
-            // Activity type filter chips — no "All" button; deselect to show all
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                ActivityType.entries.forEach { activityType ->
-                    FilterChip(
-                        selected = filterActivityType == activityType,
-                        onClick = {
-                            viewModel.setFilter(if (filterActivityType == activityType) null else activityType)
-                        },
-                        label = { Text(activityType.displayName) },
-                        leadingIcon = if (filterActivityType == activityType) {
-                            {
-                                Icon(
-                                    painter = painterResource(activityType.iconRes),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                )
-                            }
-                        } else null
-                    )
-                }
-            }
+            // No "All" chip; deselect to show all
+            ActivityTypeSelector(
+                selectedActivityType = filterActivityType,
+                onActivityTypeSelected = viewModel::setFilter,
+                onDeselect = { viewModel.setFilter(null) },
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
 
             val loadedEntries = entries
             if (loadedEntries == null) {

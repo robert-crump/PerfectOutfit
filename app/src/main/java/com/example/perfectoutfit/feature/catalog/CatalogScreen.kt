@@ -56,7 +56,7 @@ import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.ui.components.BodyPartSection
-import com.example.perfectoutfit.ui.components.ActivityTypeToggle
+import com.example.perfectoutfit.ui.components.ActivityTypeSelector
 import com.example.perfectoutfit.ui.components.verticalScrollbar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -148,7 +148,7 @@ fun CatalogScreen(
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            ActivityTypeToggle(
+            ActivityTypeSelector(
                 selectedActivityType = selectedActivityType,
                 onActivityTypeSelected = viewModel::selectActivityType,
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)

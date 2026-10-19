@@ -1,5 +1,21 @@
 PerfectOutfit — Progress Log
 
+2026-10-19 (2)
+- Implemented issue #19 (Shared ActivityTypeSelector and Home activity grid).
+  Changes:
+    * `ActivityTypeSelector` (ui/components, replaces ActivityTypeToggle, the segmented
+      buttons): horizontally scrolling row of single-select FilterChips with icon + label,
+      built from `ActivityType.entries`. Optional `onDeselect` is the History flag: tapping the
+      selected chip then shows all entries; without it (Wardrobe, Explorer) a chip stays
+      selected. History's hand-built chip row is gone.
+    * Home: activity tiles in a 2-column grid (`entries.chunked(2)`, a lone last tile keeps
+      half width); tile size and Long-workout behaviour unchanged.
+    * `@Preview(widthDp = 320)` of the selector with entries repeated to stand in for four
+      chips (first Compose preview in the project; check it scrolls in Android Studio).
+  Verification: ./gradlew testDebugUnitTest passes; androidTest compiles; ./gradlew
+  readmeScreenshots passes and all six screenshots were regenerated (settings.png is now
+  current too). Emulator: Home activity step shows the two tiles in one grid row.
+
 2026-10-19
 - Implemented issue #18 (Rename Sport to ActivityType; clothing items belong to a set of
   activity types).
@@ -95,24 +111,3 @@ PerfectOutfit — Progress Log
       cases) with FakeDriveClient and FakeBackupStateStore under app/src/test.
   Not done: "newer snapshot rejected" lives in #14; real client/auth/worker/UI in #16.
   Verification: ./gradlew testDebugUnitTest passes.
-
-2026-09-19 (3)
-- Implemented issue #11 (Forecast module: one owner for known hours, display window,
-  per-date fetch, location).
-  Changes:
-    * New `feature/forecast/Forecast` (@Singleton, OpenMeteoApi + injected java.time.Clock,
-      provided in AppModule): `location` (nullable ForecastLocation; no 0.0 sentinel),
-      `locationFlow`, `hours` (reactive, sorted), `refresh(lat, lon, name)`, `displayWindow()`,
-      `hoursFor(date)` (fetch + merge only when the date is missing, stale-location safe),
-      `today()`, and companion `hourNearest` (exact hour, else last before, else first).
-    * WeatherRepository and WeatherMapper.extractDisplayedHours deleted. HomeViewModel uses
-      refresh/displayWindow, takes its location name from forecast.locationFlow, and the
-      duplicated getCurrentLocation fallback is one `requestFreshLocation`.
-    * RateOutfitViewModel holds `hoursForSelectedDate` + a per-day selectedHourIndex (the
-      global-index indirection and selectHour are gone); selectDate/init use hoursFor; live
-      wizard now starts on the date of the handed-off hour. logLat/logLon dropped from state.
-    * LiveOutfitPayload shrunk to selectedHourTime, workoutDurationHours, prefillItemIds.
-    * Tests: FakeOpenMeteoApi (testutil) + ForecastTest (14 cases, plain JVM). CONTEXT.md:
-      "Forecast" and "Display window" entries, wizard-up-to-today rule.
-  Not done: typed error replacing the "permission" substring match (left as the issue allows).
-  Verification: ./gradlew testDebugUnitTest passes. Manual device check not done (no emulator).

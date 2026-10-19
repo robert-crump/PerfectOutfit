@@ -34,7 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.ui.components.ClothingItemChip
-import com.example.perfectoutfit.ui.components.ActivityTypeToggle
+import com.example.perfectoutfit.ui.components.ActivityTypeSelector
 import com.example.perfectoutfit.ui.components.TemperatureModeToggle
 import com.example.perfectoutfit.ui.components.ratingLabel
 import kotlin.math.roundToInt
@@ -70,7 +70,7 @@ fun ExplorerScreen(
                 .padding(horizontal = 16.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            ActivityTypeToggle(
+            ActivityTypeSelector(
                 selectedActivityType = uiState.activityType,
                 onActivityTypeSelected = viewModel::selectActivityType
             )

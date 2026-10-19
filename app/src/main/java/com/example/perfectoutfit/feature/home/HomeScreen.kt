@@ -278,17 +278,23 @@ private fun LocationActivityStep(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            ActivityType.entries.forEach { activityType ->
-                ActivityTypeTile(
-                    iconRes = activityType.iconRes,
-                    label = activityType.displayName,
-                    onClick = { onActivityTypeSelected(activityType, if (isLongWorkout) workoutHours else 1) },
-                    modifier = Modifier.weight(1f)
-                )
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            ActivityType.entries.chunked(2).forEach { rowActivityTypes ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    rowActivityTypes.forEach { activityType ->
+                        ActivityTypeTile(
+                            iconRes = activityType.iconRes,
+                            label = activityType.displayName,
+                            onClick = { onActivityTypeSelected(activityType, if (isLongWorkout) workoutHours else 1) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    // A lone tile in the last row keeps half the width.
+                    if (rowActivityTypes.size == 1) Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
     }
