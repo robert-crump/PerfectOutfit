@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -267,7 +268,19 @@ private fun HistoryCard(
                 text = date,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Where it was logged, filling the space up to the temperature; long names are cut
+            Text(
+                text = item.details.weatherSnapshot.locationName,
+                style = MaterialTheme.typography.bodyLarge,
+                color = secondaryText,
+                textAlign = TextAlign.End,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
 

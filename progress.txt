@@ -1,5 +1,12 @@
 PerfectOutfit — Progress Log
 
+2026-10-19 (5)
+- Closed parent issue #17 (all slices #18-#21 done).
+- History card shows the city the entry was logged for (WeatherSnapshot.locationName), left
+  of the temperature: the date is now natural width, the city takes the remaining space,
+  end-aligned, one line with ellipsis; blank names (old imports) show nothing.
+  Verification: ./gradlew testDebugUnitTest and readmeScreenshots pass; history.png regenerated.
+
 2026-10-19 (4)
 - Implemented issue #21 (Add Bike commute and Walking activity types).
   Changes:
@@ -86,37 +93,4 @@ PerfectOutfit — Progress Log
   in place: Running still selected, entry intact; Edit dialog moved "Shirt" to Cycling only and
   the Running entry still shows Shirt selected. README screenshots not regenerated: settings.png still shows
   the old "Add, rename and organise items" subtitle (now "Add, edit and organise items").
-
-2026-10-07
-- History temperature, multiselect delete, and Settings in the Plantry / Hue and You style
-  (decided in a /grill-me session).
-  Changes:
-    * History rows: date | reference temperature (feels-like or actual per the setting,
-      rounded; fixed 52dp column) | emoji | items. Pencil icon removed; the card opens the
-      entry. HistoryViewModel emits `HistoryItem(details, temperatureCelsius)` and reads
-      PreferencesManager.useApparentTemperature reactively.
-    * Multiselect: long press (haptic) starts selection; taps toggle; a circle / ticked circle
-      replaces the date; selected cards use primaryContainer. App bar "N selected" + delete +
-      close. Ends on close, Back, filter change, or deselecting the last entry. FAB hidden while
-      selecting. Delete confirms "Delete N entries?" (no undo) and runs in one transaction via
-      `OutfitLogging.delete(ids)`. Swipe to delete, the undo snackbar, lastDeletedEntry and
-      `OutfitLogging.restore` are gone.
-    * Settings: TopAppBar kept; body is headlineSmall section headers over rounded
-      surfaceContainer groups of icon ListItem rows (new SettingsComponents.kt). Sections
-      Catalog / Recommendations (+ hint) / Backup / Google Drive. Drive rows stay visible but
-      disabled while disconnected; the busy row shows a small spinner. Import now asks
-      "Replace all data?" first.
-    * Tests: HistoryViewModelTest (6 cases: temperature setting, selection, filter clears,
-      batch delete); OutfitLoggingTest restore case replaced by batch delete. New
-      FakePreferencesDataStore; FakeOutfitEntryDao emits details flows.
-    * README: Settings screenshot added (six images); all screenshots regenerated, and
-      ReadmeScreenshots captures Settings through the OPEN_SETTINGS action.
-  Verification: ./gradlew testDebugUnitTest passes. ./gradlew readmeScreenshots passes on the
-  emulator. Manual emulator check: selection, "2 selected" bar, delete dialog, batch delete,
-  Back exits selection.
-- Follow-up: History date on one line ("23 Juni"), so cards no longer shrink in selection
-  mode. The date column is as wide as the widest "28 <month>" of the device locale at the
-  current font scale (measured once with a TextMeasurer), with a 24dp minimum height matching
-  the selection circle, plus an 8dp gap before the temperature. Checked on the emulator in
-  German ("29 Sept.") in both modes; README history.png regenerated.
 
