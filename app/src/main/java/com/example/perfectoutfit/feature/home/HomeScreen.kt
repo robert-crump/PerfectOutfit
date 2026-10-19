@@ -94,6 +94,8 @@ private enum class WizardStep { LOCATION_ACTIVITY_TYPE, RESULT }
 fun HomeScreen(
     onNavigateToNewOutfit: () -> Unit,
     onNavigateToExplorer: (Int?) -> Unit,
+    /** Bumped each time the Home tab is tapped while Home is showing. */
+    tabReselections: Int = 0,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -105,6 +107,10 @@ fun HomeScreen(
     var outfitAccepted by remember { mutableStateOf(false) }
 
     BackHandler(enabled = wizardStep == WizardStep.RESULT) {
+        wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE
+    }
+
+    LaunchedEffect(tabReselections) {
         wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE
     }
 

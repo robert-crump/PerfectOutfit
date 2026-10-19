@@ -40,6 +40,9 @@ enum class LogOutfitStep { DATE_TIME_LOCATION, OUTFIT_CATEGORIES, SUMMARY, RATIN
 /** Alias to the single source of truth defined in BodyPart.kt. */
 val LOG_OUTFIT_CATEGORY_ORDER = com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 
+/** The user-editable parts of an existing entry. */
+data class OutfitEdits(val itemIds: Set<Long>, val comfortRating: Int?, val notes: String)
+
 sealed class OutfitScreenMode {
     data class RateExisting(val entryId: Long) : OutfitScreenMode()
     data object NewLive : OutfitScreenMode()
@@ -69,10 +72,15 @@ data class RateOutfitUiState(
     val logLocationName: String = "",
     val likelyItemIds: Set<Long> = emptySet(),
     val notes: String = "",
-    val workoutDurationHours: Int = 1
+    val workoutDurationHours: Int = 1,
+    /** The entry as loaded (rate-existing mode only), to detect unsaved edits. */
+    val savedEdits: OutfitEdits? = null
 ) {
     val selectedHour: HourlyWeather?
         get() = hoursForSelectedDate.getOrNull(selectedHourIndex)
+
+    val hasUnsavedEdits: Boolean
+        get() = savedEdits != null && savedEdits != OutfitEdits(selectedItemIds, comfortRating, notes)
 }
 
 /**
@@ -152,13 +160,19 @@ class RateOutfitViewModel @Inject constructor(
                     if (details != null) {
                         _activityType.value = details.entry.activityType
                         _entryItems.value = details.clothingItems
+                        val edits = OutfitEdits(
+                            itemIds = details.clothingItems.map { it.id }.toSet(),
+                            comfortRating = details.entry.comfortRating,
+                            notes = details.entry.notes
+                        )
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             weatherSnapshot = details.weatherSnapshot,
                             activityType = details.entry.activityType,
-                            selectedItemIds = details.clothingItems.map { it.id }.toSet(),
-                            comfortRating = details.entry.comfortRating,
-                            notes = details.entry.notes
+                            selectedItemIds = edits.itemIds,
+                            comfortRating = edits.comfortRating,
+                            notes = edits.notes,
+                            savedEdits = edits
                         )
                     } else {
                         _uiState.value = _uiState.value.copy(isLoading = false)

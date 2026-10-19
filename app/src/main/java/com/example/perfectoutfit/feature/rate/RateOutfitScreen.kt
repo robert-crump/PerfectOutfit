@@ -94,6 +94,10 @@ fun RateOutfitScreen(
     val availableItems by viewModel.availableItems.collectAsStateWithLifecycle()
 
     if (uiState.isLoading) {
+        // Nothing entered yet, so a tab switch needs no confirmation.
+        LaunchedEffect(externalCancelRequested) {
+            if (externalCancelRequested) onExternalCancelConfirmed()
+        }
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -137,7 +141,10 @@ fun RateOutfitScreen(
             availableItems = availableItems,
             viewModel = viewModel,
             onNavigateBack = onNavigateBack,
-            highlightRating = highlightRating
+            highlightRating = highlightRating,
+            externalCancelRequested = externalCancelRequested,
+            onExternalCancelConfirmed = onExternalCancelConfirmed,
+            onExternalCancelDismissed = onExternalCancelDismissed
         )
     }
 }
@@ -151,10 +158,48 @@ private fun RateExistingOutfitContent(
     availableItems: List<ClothingItem>,
     viewModel: RateOutfitViewModel,
     onNavigateBack: () -> Unit,
-    highlightRating: Boolean = false
+    highlightRating: Boolean = false,
+    externalCancelRequested: Boolean = false,
+    onExternalCancelConfirmed: () -> Unit = {},
+    onExternalCancelDismissed: () -> Unit = {}
 ) {
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) onNavigateBack()
+    }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(externalCancelRequested) {
+        if (externalCancelRequested) {
+            if (uiState.hasUnsavedEdits) viewModel.showDismissDialog() else onExternalCancelConfirmed()
+        }
+    }
+
+    if (uiState.showDismissDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                viewModel.hideDismissDialog()
+                onExternalCancelDismissed()
+            },
+            title = { Text("Discard changes?") },
+            text = { Text("Your changes to this outfit will be lost. Are you sure?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    // Same as the log wizard: let the dialog's exit animation finish first.
+                    viewModel.hideDismissDialog()
+                    coroutineScope.launch {
+                        delay(300)
+                        onExternalCancelConfirmed()
+                    }
+                }) { Text("Discard") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.hideDismissDialog()
+                    onExternalCancelDismissed()
+                }) { Text("Keep editing") }
+            }
+        )
     }
 
     val scrollState = rememberScrollState()

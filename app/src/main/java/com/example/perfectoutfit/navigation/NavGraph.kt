@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,7 +39,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -75,6 +75,19 @@ private fun NavHostController.navigateOnce(from: NavBackStackEntry, route: Strin
 
 private fun NavHostController.popBackStackOnce(from: NavBackStackEntry) =
     ifOnTop(from) { popBackStack() }
+
+// Shows the tab's root screen: pops back to it when it's in the back stack (the
+// current tab, or Home, which is always at the bottom), otherwise opens it on top
+// of Home. Either way every sub-screen is dropped. popUpTo + launchSingleTop make
+// repeated taps idempotent, so this is not gated on ifOnTop.
+private fun NavHostController.navigateToTab(route: String) {
+    if (!popBackStack(route, inclusive = false)) {
+        navigate(route) {
+            popUpTo(graph.findStartDestination().id)
+            launchSingleTop = true
+        }
+    }
+}
 
 data class BottomNavItem(
     val screen: Screen,
@@ -122,36 +135,30 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Bool
         }
     }
 
+    var homeReselections by remember { mutableIntStateOf(0) }
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val isOnNewOutfit = currentDestination?.route?.startsWith("new_outfit") == true
-    val isOnRateOutfit = currentDestination?.route?.startsWith("rate_outfit") == true
-    val isOnCatalog = currentDestination?.route == Screen.Catalog.route
-
-    fun isSelected(item: BottomNavItem) = when {
-        isOnNewOutfit -> item.screen == Screen.History
-        isOnCatalog -> item.screen == Screen.Settings
-        else -> currentDestination?.hierarchy?.any { it.route == item.screen.route } == true
+    val currentRoute = currentDestination?.route
+    // Sub-screens sit directly on their tab's root, so the entry below one is its tab
+    // (e.g. a live outfit log belongs to Home, a past one to History).
+    val tabRoutes = bottomNavItems.map { it.screen.route }
+    val currentTabRoute = if (currentRoute in tabRoutes) {
+        currentRoute
+    } else {
+        navController.previousBackStackEntry?.destination?.route
     }
+    // These screens hold edits; they confirm (or ask first) before a tab switch.
+    val isOnEditScreen = currentRoute == Screen.NewOutfit.route || currentRoute == Screen.RateOutfit.route
+
+    fun isSelected(item: BottomNavItem) = currentTabRoute == item.screen.route
 
     fun onNavItemClick(item: BottomNavItem) {
-        if (isOnNewOutfit) {
-            pendingTabRoute = item.screen.route
-        } else {
-            val alreadyAtRoot = currentDestination?.route == item.screen.route
-            if (!alreadyAtRoot) {
-                // Not gated on ifOnTop: popUpTo + launchSingleTop already make
-                // repeated tab taps idempotent.
-                with(navController) {
-                    // If RateOutfit is open, pop it first so its state is not
-                    // saved and later restored on top of the destination tab.
-                    if (isOnRateOutfit) popBackStack()
-                    navigate(item.screen.route) {
-                        popUpTo(graph.findStartDestination().id)
-                        launchSingleTop = true
-                    }
-                }
-            }
+        val route = item.screen.route
+        when {
+            isOnEditScreen -> pendingTabRoute = route
+            currentRoute == route -> if (item.screen == Screen.Home) homeReselections++
+            else -> navController.navigateToTab(route)
         }
     }
 
@@ -183,7 +190,8 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Bool
                     innerPadding = innerPadding,
                     maxContentWidth = maxContentWidth,
                     pendingTabRoute = pendingTabRoute,
-                    onPendingTabRouteChange = { pendingTabRoute = it }
+                    onPendingTabRouteChange = { pendingTabRoute = it },
+                    homeReselections = homeReselections
                 )
             }
         }
@@ -208,7 +216,8 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Bool
                 innerPadding = innerPadding,
                 maxContentWidth = maxContentWidth,
                 pendingTabRoute = pendingTabRoute,
-                onPendingTabRouteChange = { pendingTabRoute = it }
+                onPendingTabRouteChange = { pendingTabRoute = it },
+                homeReselections = homeReselections
             )
         }
     }
@@ -220,7 +229,8 @@ private fun NavGraphContent(
     innerPadding: PaddingValues,
     maxContentWidth: Dp,
     pendingTabRoute: String?,
-    onPendingTabRouteChange: (String?) -> Unit
+    onPendingTabRouteChange: (String?) -> Unit,
+    homeReselections: Int
 ) {
     // Constrain reading/content width on expanded (840dp+) windows so lines of
     // text and layouts don't stretch edge-to-edge on large screens.
@@ -229,6 +239,15 @@ private fun NavGraphContent(
     } else {
         Modifier
     }
+
+    // An edit screen accepted (or confirmed) the tab tap stored in pendingTabRoute.
+    val onTabSwitchConfirmed: () -> Unit = {
+        pendingTabRoute?.let { route ->
+            onPendingTabRouteChange(null)
+            navController.navigateToTab(route)
+        }
+    }
+    val onTabSwitchDismissed: () -> Unit = { onPendingTabRouteChange(null) }
 
     Box(
         modifier = Modifier
@@ -250,7 +269,8 @@ private fun NavGraphContent(
                     onNavigateToNewOutfit = { navController.navigateOnce(entry, Screen.NewOutfit.createRoute(isLive = true)) },
                     onNavigateToExplorer = { forecastTemp ->
                         navController.navigateOnce(entry, Screen.Explorer.createRoute(forecastTemp))
-                    }
+                    },
+                    tabReselections = homeReselections
                 )
             }
             composable(
@@ -277,7 +297,10 @@ private fun NavGraphContent(
                 val highlight = entry.arguments?.getBoolean("highlight") ?: false
                 RateOutfitScreen(
                     onNavigateBack = { navController.popBackStackOnce(entry) },
-                    highlightRating = highlight
+                    highlightRating = highlight,
+                    externalCancelRequested = pendingTabRoute != null,
+                    onExternalCancelConfirmed = onTabSwitchConfirmed,
+                    onExternalCancelDismissed = onTabSwitchDismissed
                 )
             }
             composable(
@@ -287,26 +310,8 @@ private fun NavGraphContent(
                 RateOutfitScreen(
                     onNavigateBack = { navController.popBackStackOnce(entry) },
                     externalCancelRequested = pendingTabRoute != null,
-                    onExternalCancelConfirmed = {
-                        val route = pendingTabRoute
-                        if (route != null) {
-                            onPendingTabRouteChange(null)
-                            with(navController) {
-                                val startId = graph.findStartDestination().id
-                                if (route == Screen.Home.route) {
-                                    // Home is the start destination and already in the back stack;
-                                    // popBackStack is more reliable than navigate + launchSingleTop here.
-                                    popBackStack(startId, inclusive = false)
-                                } else {
-                                    navigate(route) {
-                                        popUpTo(startId)
-                                        launchSingleTop = true
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    onExternalCancelDismissed = { onPendingTabRouteChange(null) }
+                    onExternalCancelConfirmed = onTabSwitchConfirmed,
+                    onExternalCancelDismissed = onTabSwitchDismissed
                 )
             }
             composable(Screen.History.route) { entry ->
