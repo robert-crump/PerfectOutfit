@@ -133,22 +133,45 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun `a fresh install seeds every default item with one activity type`() = runBlocking {
-        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
-            .addCallback(AppDatabase.prepopulateCallback)
-            .allowMainThreadQueries()
-            .build()
-            .also { database = it }
+    fun `a fresh install seeds every default item with at least one activity type`() = runBlocking {
+        val db = freshInstall()
 
         val items = db.clothingItemDao().getAll()
         val rows = db.clothingItemDao().getAllActivityTypes()
 
         assertTrue(items.isNotEmpty())
-        assertEquals(items.map { it.id }.sorted(), rows.map { it.clothingItemId })
+        assertEquals(items.map { it.id }.sorted(), rows.map { it.clothingItemId }.distinct().sorted())
         assertEquals(
             listOf("Bib Shorts", "Boxers", "Thermal Bib Tights"),
             db.clothingItemDao().getByActivityType(ActivityType.CYCLING).first()
                 .filter { it.bodyPart == BodyPart.LEGS }.map { it.name }
         )
     }
+
+    @Test
+    fun `a fresh install shares gloves and Ski Mask with Bike commute and Walking`() = runBlocking {
+        val db = freshInstall()
+        val dao = db.clothingItemDao()
+        val everyday = listOf(
+            "Fleece Jacket", "Rain Jacket", "Ski Mask", "Teddy Jacket", "Thick Gloves", "Thin Gloves", "Winter Jacket"
+        )
+
+        val commute = dao.getByActivityType(ActivityType.BIKE_COMMUTE).first()
+        val walking = dao.getByActivityType(ActivityType.WALKING).first()
+
+        assertEquals(everyday, commute.map { it.name }.sorted())
+        assertEquals(commute.map { it.id }.sorted(), walking.map { it.id }.sorted())
+        val cyclingGloves = dao.getByActivityType(ActivityType.CYCLING).first().filter { it.name.endsWith("Gloves") }
+        val runningSkiMask = dao.getByActivityType(ActivityType.RUNNING).first().single { it.name == "Ski Mask" }
+        assertTrue(commute.containsAll(cyclingGloves + runningSkiMask))
+        // The commute Rain Jacket is its own item, not Cycling's or Running's.
+        assertEquals(3, dao.getAll().count { it.name == "Rain Jacket" })
+    }
+
+    private fun freshInstall(): AppDatabase =
+        Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+            .addCallback(AppDatabase.prepopulateCallback)
+            .allowMainThreadQueries()
+            .build()
+            .also { database = it }
 }

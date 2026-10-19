@@ -1,6 +1,6 @@
 # Perfect Outfit
 
-What to wear for your ride or run — from the forecast and the outfits you've rated.
+What to wear for your ride, run, commute or walk — from the forecast and the outfits you've rated.
 
 <table>
   <tr>
@@ -18,7 +18,7 @@ What to wear for your ride or run — from the forecast and the outfits you've r
 - **Rates** each outfit too cold, perfect or too hot, with a reminder after your workout
 - **Learns** from your ratings: matches the closest temperatures you've rated
 - **Explores** your history temperature by temperature
-- **Cycling and running**, each with its own editable clothing catalog
+- **Cycling, running, bike commutes and walks**, each with its own editable clothing catalog (an item can belong to several)
 - **Backs up** daily to Google Drive, or export and import a JSON file
 
 <sub>Screenshots use generated demo outfits and a synthetic forecast for Aachen at noon;

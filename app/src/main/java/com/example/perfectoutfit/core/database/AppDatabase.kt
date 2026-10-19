@@ -123,19 +123,28 @@ abstract class AppDatabase : RoomDatabase() {
                         "INSERT INTO clothing_items (bodyPart, name, isDefault) VALUES (?, ?, 1)",
                         arrayOf(item.bodyPart.name, item.name)
                     )
-                    db.execSQL(
-                        "INSERT INTO clothing_item_activity_types (clothingItemId, activityType) " +
-                            "VALUES (last_insert_rowid(), ?)",
-                        arrayOf(item.activityType.name)
-                    )
+                    // Not last_insert_rowid(): after the first tag row it is that row's, not the item's.
+                    item.activityTypes.forEach { activityType ->
+                        db.execSQL(
+                            "INSERT INTO clothing_item_activity_types (clothingItemId, activityType) " +
+                                "SELECT MAX(id), ? FROM clothing_items",
+                            arrayOf(activityType.name)
+                        )
+                    }
                 }
             }
         }
 
-        private class DefaultItem(val activityType: ActivityType, val bodyPart: BodyPart, val name: String)
+        private class DefaultItem(val activityTypes: Set<ActivityType>, val bodyPart: BodyPart, val name: String) {
+            constructor(activityType: ActivityType, bodyPart: BodyPart, name: String) :
+                this(setOf(activityType), bodyPart, name)
+        }
 
         private fun buildDefaultCatalog(): List<DefaultItem> {
             val items = mutableListOf<DefaultItem>()
+
+            // Shared with Bike commute and Walking: one row each, not copies.
+            val everyday = setOf(ActivityType.BIKE_COMMUTE, ActivityType.WALKING)
 
             // Cycling items
             val c = ActivityType.CYCLING
@@ -155,8 +164,8 @@ abstract class AppDatabase : RoomDatabase() {
                 DefaultItem(c, BodyPart.FEET, "Thermal Socks"),
                 DefaultItem(c, BodyPart.FEET, "Overshoes"),
                 DefaultItem(c, BodyPart.FEET, "Thermal Overshoes"),
-                DefaultItem(c, BodyPart.HANDS, "Thin Gloves"),
-                DefaultItem(c, BodyPart.HANDS, "Thick Gloves"),
+                DefaultItem(everyday + c, BodyPart.HANDS, "Thin Gloves"),
+                DefaultItem(everyday + c, BodyPart.HANDS, "Thick Gloves"),
             )
 
             // Running items
@@ -165,7 +174,7 @@ abstract class AppDatabase : RoomDatabase() {
                 DefaultItem(r, BodyPart.HEAD_THROAT, "Tuque"),
                 DefaultItem(r, BodyPart.HEAD_THROAT, "Headband"),
                 DefaultItem(r, BodyPart.HEAD_THROAT, "Buff"),
-                DefaultItem(r, BodyPart.HEAD_THROAT, "Ski Mask"),
+                DefaultItem(everyday + r, BodyPart.HEAD_THROAT, "Ski Mask"),
                 DefaultItem(r, BodyPart.UPPER_BODY, "Shirt"),
                 DefaultItem(r, BodyPart.UPPER_BODY, "Longsleeve Shirt"),
                 DefaultItem(r, BodyPart.UPPER_BODY, "Pullover"),
@@ -174,6 +183,14 @@ abstract class AppDatabase : RoomDatabase() {
                 DefaultItem(r, BodyPart.LEGS, "Shorts"),
                 DefaultItem(r, BodyPart.LEGS, "Jogging Pants"),
                 DefaultItem(r, BodyPart.HANDS, "Thin Winter Gloves"),
+            )
+
+            // Bike commute and Walking items
+            items += listOf(
+                DefaultItem(everyday, BodyPart.UPPER_BODY, "Rain Jacket"),
+                DefaultItem(everyday, BodyPart.UPPER_BODY, "Fleece Jacket"),
+                DefaultItem(everyday, BodyPart.UPPER_BODY, "Winter Jacket"),
+                DefaultItem(everyday, BodyPart.UPPER_BODY, "Teddy Jacket"),
             )
 
             return items

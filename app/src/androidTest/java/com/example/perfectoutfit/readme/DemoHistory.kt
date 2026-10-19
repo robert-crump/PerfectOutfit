@@ -8,7 +8,7 @@ import kotlin.random.Random
 
 /**
  * Generated outfit history for the README screenshots: a few rides and runs a week going back
- * [WEEKS] weeks from today, at feels-like temperatures from −2 °C to 24 °C so Explorer has many
+ * [WEEKS] weeks from today, plus some bike commutes and walks, at feels-like temperatures from −2 °C to 24 °C so Explorer has many
  * stops. Each outfit follows a layering rule; most are rated perfect, the rest were dressed one
  * layer too light (too cold) or too heavy (too hot). Fixed seed, so every run is the same.
  */
@@ -18,6 +18,8 @@ object DemoHistory {
     private const val CYCLING_COUNT = 35
     private const val RUNNING_COUNT = 15
     private val RUN_SLOTS = setOf(2, 5, 8)
+    private const val EVERYDAY_SEED = 2027
+    private const val EVERYDAY_COUNT = 16
 
     data class Outfit(
         val activityType: ActivityType,
@@ -68,7 +70,24 @@ object DemoHistory {
         // Yesterday evening's ride in a shower, waiting to be rated.
         val pending = outfit(ActivityType.CYCLING, today.minusDays(1).atTime(17, 0), 9.0, 9.0, null, random, rain = 70)
 
-        return (outfits + anchors + pending).sortedBy { it.time }
+        return (outfits + everyday(today) + anchors + pending).sortedBy { it.time }
+    }
+
+    /**
+     * Commutes and walks, two in three of them commutes, all rated. From their own seed, so
+     * adding them left the rides and runs as they were.
+     */
+    private fun everyday(today: LocalDate): List<Outfit> {
+        val random = Random(EVERYDAY_SEED)
+        val days = WEEKS * 7
+        return List(EVERYDAY_COUNT) { i ->
+            val activityType = if (i % 3 == 2) ActivityType.WALKING else ActivityType.BIKE_COMMUTE
+            val daysAgo = 7 + (days - 7) * (EVERYDAY_COUNT - i) / EVERYDAY_COUNT
+            val hour = if (activityType == ActivityType.BIKE_COMMUTE) random.nextInt(7, 9) else random.nextInt(12, 19)
+            val feelsLike = random.nextInt(-2, 20) + random.nextInt(-4, 5) / 10.0
+            val rating = if (random.nextInt(100) < 20) random.nextInt(2) * 2 - 1 else 0
+            outfit(activityType, today.minusDays(daysAgo.toLong()).atTime(hour, 0), feelsLike, feelsLike - 4 * rating, rating, random)
+        }
     }
 
     private fun outfit(
@@ -86,6 +105,7 @@ object DemoHistory {
         val items = when (activityType) {
             ActivityType.CYCLING -> cyclingOutfit(dressedFor, rain, uv)
             ActivityType.RUNNING -> runningOutfit(dressedFor, rain)
+            ActivityType.BIKE_COMMUTE, ActivityType.WALKING -> everydayOutfit(dressedFor, rain)
         }
         return Outfit(activityType, time, feelsLike, wind, uv, random.nextInt(0, 101), rain, items, rating)
     }
@@ -112,5 +132,18 @@ object DemoHistory {
         if (t < 0) add("Buff")
         if (t < 3) add("Tuque") else if (t < 8) add("Headband")
         if (t < 6) add("Thin Winter Gloves")
+    }
+
+    fun everydayOutfit(t: Double, rain: Int): List<String> = buildList {
+        add(
+            when {
+                rain >= 60 -> "Rain Jacket"
+                t < 5 -> "Winter Jacket"
+                t < 10 -> "Teddy Jacket"
+                else -> "Fleece Jacket"
+            }
+        )
+        if (t < 0) add("Ski Mask")
+        if (t < 3) add("Thick Gloves") else if (t < 8) add("Thin Gloves")
     }
 }

@@ -1,5 +1,27 @@
 PerfectOutfit — Progress Log
 
+2026-10-19 (4)
+- Implemented issue #21 (Add Bike commute and Walking activity types).
+  Changes:
+    * ActivityType order CYCLING, RUNNING, BIKE_COMMUTE ("Bike commute", ic_work briefcase),
+      WALKING ("Walking", ic_walk); both icons are Material Symbols paths in the same
+      960-viewport format. Every screen already builds from ActivityType.entries / displayName.
+    * Fresh-install seed: DefaultItem takes a set of activity types. Thin/Thick Gloves and
+      Ski Mask are additionally tagged Bike commute + Walking (same rows); new Upper Body
+      "Rain Jacket", "Fleece Jacket", "Winter Jacket", "Teddy Jacket" for both. Tag rows take
+      the item id from MAX(id), not last_insert_rowid() (that is the first tag row's after it).
+      No migration: existing installs get no new items.
+    * Tests: seeding test now allows several tags per item; new test checks the commute/walk
+      catalog shares the Cycling gloves' and Running Ski Mask's rows. Export round trip uses
+      all four types on the item and a Walking entry.
+    * README demo data: 16 commutes/walks from their own seed (rides and runs unchanged);
+      README text and CONTEXT.md list the four activity types and the default catalog.
+  Verification: ./gradlew testDebugUnitTest passes; ./gradlew readmeScreenshots passes;
+  explorer.png and history.png changed (selector now shows Bike commute and Walking), the
+  others came out identical.
+  Manual follow-up (owner's phone): create Regenjacke, Fleecejacke, Winterjacke, Teddyjacke
+  and tag Handschuhe (dünn/dick) and Skimütze with Bike commute + Walking.
+
 2026-10-19 (3)
 - Implemented issue #20 (History card: activity icon, date, temperature, rating).
   Changes:
@@ -98,14 +120,3 @@ PerfectOutfit — Progress Log
   the selection circle, plus an 8dp gap before the temperature. Checked on the emulator in
   German ("29 Sept.") in both modes; README history.png regenerated.
 
-2026-09-19 (5)
-- Implemented issue #14 (Import rejects snapshots newer than the current export version).
-  Changes:
-    * `ExportImportManager.importFromJson` peeks the top-level `version` before decoding
-      (a newer shape may not decode) and throws typed `UnsupportedExportVersionException`
-      (`fileVersion`, "Update the app to restore this backup") when it exceeds
-      CURRENT_EXPORT_VERSION; no DB access happens first. Missing/older versions unchanged.
-    * SettingsViewModel already shows "Import failed: ${e.message}", so the message surfaces.
-    * Tests: newer version rejected + DB unchanged, newer with undecodable shape, explicit v1.
-  Not done: Drive snapshot picker marking incompatible snapshots (belongs to #16).
-  Verification: ./gradlew testDebugUnitTest passes.

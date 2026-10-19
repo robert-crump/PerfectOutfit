@@ -6,7 +6,8 @@ and refactors should use these terms.
 ## Glossary
 
 ### Activity type
-Anything the user dresses for — a sport or not (`ActivityType`, `core/model/ActivityType.kt`).
+Anything the user dresses for — a sport or not (`ActivityType`, `core/model/ActivityType.kt`):
+Cycling, Running, Bike commute and Walking, in that order (Home's 2-column grid follows it).
 Each value carries its own `displayName` and icon, so no screen maps activity types to labels
 or drawables itself. Outfit entries, recommendations, History's filter and the selected
 activity type on Home (DataStore `selected_activity_type`, falling back to the pre-rename
@@ -19,6 +20,11 @@ the activity type being viewed, Edit changes name and set. Deleting an item remo
 everywhere — from every activity type and every outfit entry. The Rate/Edit outfit screen
 offers the entry's activity type's items plus any item already on the entry, so an item
 later untagged from that activity type is never hidden or silently dropped.
+
+**Default catalog:** a fresh install seeds each default item with its set of activity
+types. The Cycling gloves and Running's Ski Mask are also tagged Bike commute and Walking
+(the same rows), which share four jackets of their own. Upgrades seed nothing — new
+activity types start empty on existing installs until the user tags items.
 
 ### Reference temperature
 The single temperature the app reasons about for a given hour, chosen by the user's

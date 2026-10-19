@@ -44,10 +44,9 @@ class ExportImportManagerTest {
     private val clothingItem = ClothingItem(
         id = 1, bodyPart = BodyPart.HEAD_THROAT, name = "Mütze", isDefault = true
     )
-    private val itemActivityTypes = listOf(
-        ClothingItemActivityType(clothingItemId = 1, activityType = ActivityType.CYCLING),
-        ClothingItemActivityType(clothingItemId = 1, activityType = ActivityType.RUNNING)
-    )
+    private val itemActivityTypes = ActivityType.entries.map {
+        ClothingItemActivityType(clothingItemId = 1, activityType = it)
+    }
     private val snapshot = WeatherSnapshot(
         id = 1, timestamp = 1_000L, latitude = 52.5, longitude = 13.4, locationName = "Berlin",
         temperatureCelsius = 10.0, apparentTemperatureCelsius = 8.0, windSpeedKmh = 15.0,
@@ -57,22 +56,23 @@ class ExportImportManagerTest {
         id = 1, weatherSnapshotId = 1, activityType = ActivityType.CYCLING, comfortRating = 0,
         createdAt = 2_000L, ratedAt = 2_500L, notes = "Good ride"
     )
+    private val walkingEntry = OutfitEntry(id = 2, weatherSnapshotId = 1, activityType = ActivityType.WALKING, createdAt = 3_000L)
     private val outfitItem = OutfitItem(outfitEntryId = 1, clothingItemId = 1)
 
-    private suspend fun seededSource(): ExportImportManager {
+    private suspend fun seededSource(entries: List<OutfitEntry> = listOf(entry)): ExportImportManager {
         val clothingItemDao = FakeClothingItemDao().apply {
             insertAll(listOf(clothingItem))
             insertActivityTypes(itemActivityTypes)
         }
         val weatherSnapshotDao = FakeWeatherSnapshotDao().apply { insert(snapshot) }
-        val outfitEntryDao = FakeOutfitEntryDao().apply { insert(entry) }
+        val outfitEntryDao = FakeOutfitEntryDao().apply { entries.forEach { insert(it) } }
         val outfitItemDao = FakeOutfitItemDao().apply { insertAll(listOf(outfitItem)) }
         return managerFor(clothingItemDao, weatherSnapshotDao, outfitEntryDao, outfitItemDao)
     }
 
     @Test
     fun `round trip preserves all tables, including item activity types`() = runTest {
-        val exported = seededSource().exportToJson()
+        val exported = seededSource(listOf(entry, walkingEntry)).exportToJson()
 
         val targetClothingItemDao = FakeClothingItemDao()
         val targetWeatherSnapshotDao = FakeWeatherSnapshotDao()
@@ -85,9 +85,9 @@ class ExportImportManagerTest {
         target.importFromJson(exported)
 
         assertEquals(listOf(clothingItem), targetClothingItemDao.getAll())
-        assertEquals(itemActivityTypes, targetClothingItemDao.getAllActivityTypes())
+        assertEquals(itemActivityTypes.toSet(), targetClothingItemDao.getAllActivityTypes().toSet())
         assertEquals(listOf(snapshot), targetWeatherSnapshotDao.getAll())
-        assertEquals(listOf(entry), targetOutfitEntryDao.getAll())
+        assertEquals(listOf(entry, walkingEntry), targetOutfitEntryDao.getAll())
         assertEquals(listOf(outfitItem), targetOutfitItemDao.getAll())
     }
 

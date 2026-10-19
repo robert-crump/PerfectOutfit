@@ -8,5 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class ActivityType(val displayName: String, @get:DrawableRes val iconRes: Int) {
     CYCLING("Cycling", R.drawable.ic_bike),
-    RUNNING("Running", R.drawable.ic_sprint)
+    RUNNING("Running", R.drawable.ic_sprint),
+    BIKE_COMMUTE("Bike commute", R.drawable.ic_work),
+    WALKING("Walking", R.drawable.ic_walk)
 }
