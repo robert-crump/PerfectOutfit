@@ -4,6 +4,7 @@ import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
+import com.example.perfectoutfit.core.model.ThemeMode
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.feature.forecast.ForecastLocation
 import com.example.perfectoutfit.feature.home.HourlyWeather
@@ -141,6 +142,15 @@ class OutfitWidgetTest {
 
         assertEquals("10°", binding.valueText)
         assertEquals("Real temp.", binding.basisText)
+    }
+
+    @Test
+    fun `follows the theme chosen in Settings`() = runTest {
+        assertEquals(ThemeMode.SYSTEM, content.load().themeMode)
+
+        preferences.setThemeMode(ThemeMode.DARK)
+
+        assertEquals(ThemeMode.DARK, content.load().themeMode)
     }
 
     @Test

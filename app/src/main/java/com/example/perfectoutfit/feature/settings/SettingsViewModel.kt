@@ -54,7 +54,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setThemeMode(mode: ThemeMode) {
-        viewModelScope.launch { preferencesManager.setThemeMode(mode) }
+        viewModelScope.launch {
+            preferencesManager.setThemeMode(mode)
+            widgetUpdater.redraw()
+        }
     }
 
     fun exportData(uri: Uri) {

@@ -2,6 +2,7 @@ package com.example.perfectoutfit.feature.widget
 
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.ThemeMode
 import com.example.perfectoutfit.core.model.WeatherReading
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.recommendation.Recommendations
@@ -27,7 +28,9 @@ data class OutfitWidgetBinding(
     val placeText: String,
     val icons: List<WidgetActivityIcon>,
     /** False when no place is saved: every tap then opens Home's first step. */
-    val iconsOpenActivityType: Boolean
+    val iconsOpenActivityType: Boolean,
+    /** Light or dark colours, as chosen in Settings. */
+    val themeMode: ThemeMode = ThemeMode.SYSTEM
 ) {
     /** Basis and place on one line, for widgets too short to stack them. */
     val combinedLine: String get() = basisText?.let { "$it · $placeText" } ?: placeText
@@ -79,5 +82,6 @@ class OutfitWidgetContent @Inject constructor(
             }.toSet()
         }
         return bindOutfitWidget(forecast?.location?.name, hour, useApparent, recommended)
+            .copy(themeMode = preferences.themeMode.first())
     }
 }

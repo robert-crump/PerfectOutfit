@@ -165,7 +165,7 @@ fetch time), a disposable cache outside Room and outside the
 [export/import schema](#exportimport-schema). A 30-minute worker refetches for that saved
 place, so the widget follows the *last place the app was opened*, not the device. Redraws
 that need no fetch (Home refresh, any [outfit logging](#outfit-logging) write, the
-apparent-vs-real toggle) go through the `WidgetUpdater` interface, the same
+apparent-vs-real toggle, the theme) go through the `WidgetUpdater` interface, the same
 interface-plus-adapter seam as [Rating reminder](#rating-reminder). With no saved place the
 widget asks you to open the app; when the saved hours don't cover now it shows "–°" and
 dims both icons.

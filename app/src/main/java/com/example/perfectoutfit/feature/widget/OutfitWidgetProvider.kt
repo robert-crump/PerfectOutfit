@@ -11,9 +11,12 @@ import android.util.Log
 import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
+import androidx.annotation.ColorRes
+import androidx.annotation.DrawableRes
 import com.example.perfectoutfit.MainActivity
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.ThemeMode
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -128,7 +131,43 @@ private fun views(context: Context, binding: OutfitWidgetBinding, tall: Boolean)
         views.setOnClickPendingIntent(ICON_AREA_IDS[index], openHomeIntent(context, target, requestCode = index + 1))
     }
     views.setOnClickPendingIntent(R.id.widget_temperature_area, openHomeIntent(context, null, requestCode = 0))
+    when (binding.themeMode) {
+        ThemeMode.SYSTEM -> Unit
+        ThemeMode.LIGHT -> forcePalette(context, views, WidgetPalette.LIGHT, tall)
+        ThemeMode.DARK -> forcePalette(context, views, WidgetPalette.DARK, tall)
+    }
     return views
+}
+
+/** One of the widget's two colour sets, as resources. */
+private enum class WidgetPalette(
+    @param:DrawableRes val background: Int,
+    @param:ColorRes val onSurface: Int,
+    @param:ColorRes val onSurfaceVariant: Int,
+    @param:ColorRes val accent: Int
+) {
+    LIGHT(
+        R.drawable.outfit_widget_background_light, R.color.widget_on_surface_light,
+        R.color.widget_on_surface_variant_light, R.color.widget_accent_light
+    ),
+    DARK(
+        R.drawable.outfit_widget_background_dark, R.color.widget_on_surface_dark,
+        R.color.widget_on_surface_variant_dark, R.color.widget_accent_dark
+    )
+}
+
+/**
+ * Overrides the layout's colours, which the launcher resolves for the device's mode, with
+ * [palette]. Colours are resolved here and passed as values; only the background goes as a resource.
+ */
+private fun forcePalette(context: Context, views: RemoteViews, palette: WidgetPalette, tall: Boolean) {
+    views.setInt(android.R.id.background, "setBackgroundResource", palette.background)
+    views.setTextColor(R.id.widget_temperature, context.getColor(palette.onSurface))
+    val variant = context.getColor(palette.onSurfaceVariant)
+    views.setTextColor(R.id.widget_place, variant)
+    if (tall) views.setTextColor(R.id.widget_basis, variant)
+    // A colour filter wins over the layout's android:tint.
+    for (id in ICON_IDS) views.setInt(id, "setColorFilter", context.getColor(palette.accent))
 }
 
 /** Opens Home: on [activityType]'s result step, or on its first step when null. */
