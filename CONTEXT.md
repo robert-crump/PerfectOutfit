@@ -149,3 +149,23 @@ date); live logs start on the date of the hour Home handed off.
 ### Display window
 The 24 hours from the current clock hour that Home shows (`Forecast.displayWindow()`),
 shorter if the known hours end sooner, empty if all known hours are in the past.
+
+### Widget
+The 2×1 home-screen widget (issue #22): a launcher into a [recommendation](#recommendation),
+never a display of one. It shows the current hour's [reference temperature](#reference-temperature)
+with its basis ("Feels like" / "Real temp.") and place name, plus fixed Bike commute and
+Walking icons. An icon is lit when `Recommendations.find` has an entry for that activity
+type at the current hour's reference temperature, dimmed otherwise. Tapping an icon opens
+Home's result step for that activity type (1 h), through the same unsaved-edits
+confirmation as a tab tap.
+
+**Widget forecast:** the widget never uses `Forecast` or location services. Home saves
+the last resolved place and its hours to DataStore (`WidgetForecast`: location, hours,
+fetch time), a disposable cache outside Room and outside the
+[export/import schema](#exportimport-schema). A 30-minute worker refetches for that saved
+place, so the widget follows the *last place the app was opened*, not the device. Redraws
+that need no fetch (Home refresh, any [outfit logging](#outfit-logging) write, the
+apparent-vs-real toggle) go through the `WidgetUpdater` interface, the same
+interface-plus-adapter seam as [Rating reminder](#rating-reminder). With no saved place the
+widget asks you to open the app; when the saved hours don't cover now it shows "–°" and
+dims both icons.
