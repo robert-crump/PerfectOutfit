@@ -169,3 +169,9 @@ apparent-vs-real toggle) go through the `WidgetUpdater` interface, the same
 interface-plus-adapter seam as [Rating reminder](#rating-reminder). With no saved place the
 widget asks you to open the app; when the saved hours don't cover now it shows "–°" and
 dims both icons.
+
+**Launches:** every intent from outside the app (rating reminder, backup notification,
+widget) becomes one `LaunchTarget` (`MainActivity.launchTargetOf`). `MainActivity` is
+`singleTop`, so a launch also arrives while the app is open (`onNewIntent`); one that lands
+on an edit screen waits for the same confirmation as a tab tap. A launch onto the tab
+already showing doesn't navigate.

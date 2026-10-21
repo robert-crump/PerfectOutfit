@@ -50,6 +50,8 @@ import androidx.navigation.navArgument
 import com.example.perfectoutfit.feature.catalog.CatalogScreen
 import com.example.perfectoutfit.feature.explorer.ExplorerScreen
 import com.example.perfectoutfit.feature.history.HistoryScreen
+import com.example.perfectoutfit.feature.home.HomeLaunch
+import com.example.perfectoutfit.feature.home.HomeLaunchState
 import com.example.perfectoutfit.feature.home.HomeScreen
 import com.example.perfectoutfit.feature.rate.RateOutfitScreen
 import com.example.perfectoutfit.feature.settings.SettingsScreen
@@ -115,23 +117,42 @@ private val DestinationEnter = fadeIn(animationSpec = tween(durationMillis = 400
 private val DestinationExit = fadeOut(animationSpec = tween(durationMillis = 200, easing = EmphasizedAccelerate))
 
 @Composable
-fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Boolean = false) {
+fun PerfectOutfitNavHost(launchRequest: LaunchRequest? = null) {
     val navController = rememberNavController()
-    var pendingTabRoute by remember { mutableStateOf<String?>(null) }
+    // A tab tap or launch held back while an edit screen confirms (or asks first).
+    var pendingNavigation by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val homeLaunch = remember { HomeLaunchState() }
 
-    // NavHost sits in Scaffold's subcomposed content, so its graph may not be set yet when these
-    // effects start; the first back stack entry means it is.
-    LaunchedEffect(deepLinkOutfitEntryId) {
-        if (deepLinkOutfitEntryId != null) {
-            navController.currentBackStackEntryFlow.first()
-            navController.navigate(Screen.RateOutfit.createRoute(deepLinkOutfitEntryId, highlight = true))
+    // Like a tab tap, a launch onto the screen already showing doesn't navigate: navigateToTab
+    // would re-navigate singleTop and leave that screen's composition on a lifecycle that never
+    // resumes, so it stops collecting its state.
+    fun showTab(route: String) {
+        if (navController.currentDestination?.route != route) navController.navigateToTab(route)
+    }
+
+    fun open(target: LaunchTarget) {
+        when (target) {
+            is LaunchTarget.RateEntry ->
+                navController.navigate(Screen.RateOutfit.createRoute(target.outfitEntryId, highlight = true))
+            LaunchTarget.Settings -> showTab(Screen.Settings.route)
+            is LaunchTarget.Home -> {
+                showTab(Screen.Home.route)
+                homeLaunch.pending = HomeLaunch(target.activityType)
+            }
         }
     }
 
-    LaunchedEffect(openSettings) {
-        if (openSettings) {
-            navController.currentBackStackEntryFlow.first()
-            navController.navigate(Screen.Settings.route)
+    // NavHost sits in Scaffold's subcomposed content, so its graph may not be set yet when this
+    // effect starts; the first back stack entry means it is. A launch arriving on an edit screen
+    // waits for the same confirmation as a tab tap.
+    LaunchedEffect(launchRequest) {
+        val request = launchRequest ?: return@LaunchedEffect
+        navController.currentBackStackEntryFlow.first()
+        val route = navController.currentDestination?.route
+        if (route == Screen.NewOutfit.route || route == Screen.RateOutfit.route) {
+            pendingNavigation = { open(request.target) }
+        } else {
+            open(request.target)
         }
     }
 
@@ -156,7 +177,7 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Bool
     fun onNavItemClick(item: BottomNavItem) {
         val route = item.screen.route
         when {
-            isOnEditScreen -> pendingTabRoute = route
+            isOnEditScreen -> pendingNavigation = { navController.navigateToTab(route) }
             currentRoute == route -> if (item.screen == Screen.Home) homeReselections++
             else -> navController.navigateToTab(route)
         }
@@ -189,9 +210,10 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Bool
                     navController = navController,
                     innerPadding = innerPadding,
                     maxContentWidth = maxContentWidth,
-                    pendingTabRoute = pendingTabRoute,
-                    onPendingTabRouteChange = { pendingTabRoute = it },
-                    homeReselections = homeReselections
+                    pendingNavigation = pendingNavigation,
+                    onPendingNavigationChange = { pendingNavigation = it },
+                    homeReselections = homeReselections,
+                    homeLaunch = homeLaunch,
                 )
             }
         }
@@ -215,9 +237,10 @@ fun PerfectOutfitNavHost(deepLinkOutfitEntryId: Long? = null, openSettings: Bool
                 navController = navController,
                 innerPadding = innerPadding,
                 maxContentWidth = maxContentWidth,
-                pendingTabRoute = pendingTabRoute,
-                onPendingTabRouteChange = { pendingTabRoute = it },
-                homeReselections = homeReselections
+                pendingNavigation = pendingNavigation,
+                onPendingNavigationChange = { pendingNavigation = it },
+                homeReselections = homeReselections,
+                homeLaunch = homeLaunch,
             )
         }
     }
@@ -228,9 +251,10 @@ private fun NavGraphContent(
     navController: NavHostController,
     innerPadding: PaddingValues,
     maxContentWidth: Dp,
-    pendingTabRoute: String?,
-    onPendingTabRouteChange: (String?) -> Unit,
-    homeReselections: Int
+    pendingNavigation: (() -> Unit)?,
+    onPendingNavigationChange: ((() -> Unit)?) -> Unit,
+    homeReselections: Int,
+    homeLaunch: HomeLaunchState
 ) {
     // Constrain reading/content width on expanded (840dp+) windows so lines of
     // text and layouts don't stretch edge-to-edge on large screens.
@@ -240,14 +264,14 @@ private fun NavGraphContent(
         Modifier
     }
 
-    // An edit screen accepted (or confirmed) the tab tap stored in pendingTabRoute.
+    // An edit screen accepted (or confirmed) the tab tap or launch stored in pendingNavigation.
     val onTabSwitchConfirmed: () -> Unit = {
-        pendingTabRoute?.let { route ->
-            onPendingTabRouteChange(null)
-            navController.navigateToTab(route)
+        pendingNavigation?.let { navigate ->
+            onPendingNavigationChange(null)
+            navigate()
         }
     }
-    val onTabSwitchDismissed: () -> Unit = { onPendingTabRouteChange(null) }
+    val onTabSwitchDismissed: () -> Unit = { onPendingNavigationChange(null) }
 
     Box(
         modifier = Modifier
@@ -270,7 +294,8 @@ private fun NavGraphContent(
                     onNavigateToExplorer = { forecastTemp ->
                         navController.navigateOnce(entry, Screen.Explorer.createRoute(forecastTemp))
                     },
-                    tabReselections = homeReselections
+                    tabReselections = homeReselections,
+                    launchState = homeLaunch
                 )
             }
             composable(
@@ -298,7 +323,7 @@ private fun NavGraphContent(
                 RateOutfitScreen(
                     onNavigateBack = { navController.popBackStackOnce(entry) },
                     highlightRating = highlight,
-                    externalCancelRequested = pendingTabRoute != null,
+                    externalCancelRequested = pendingNavigation != null,
                     onExternalCancelConfirmed = onTabSwitchConfirmed,
                     onExternalCancelDismissed = onTabSwitchDismissed
                 )
@@ -309,7 +334,7 @@ private fun NavGraphContent(
             ) { entry ->
                 RateOutfitScreen(
                     onNavigateBack = { navController.popBackStackOnce(entry) },
-                    externalCancelRequested = pendingTabRoute != null,
+                    externalCancelRequested = pendingNavigation != null,
                     onExternalCancelConfirmed = onTabSwitchConfirmed,
                     onExternalCancelDismissed = onTabSwitchDismissed
                 )

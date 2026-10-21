@@ -24,6 +24,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HistoryViewModelTest {
@@ -41,7 +42,8 @@ class HistoryViewModelTest {
             details(3L, ActivityType.RUNNING, temp = 20.0, feelsLike = 21.0)
         )
         val logging = OutfitLogging(
-            entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeDatabaseTransactionRunner(), FakeRatingReminder()
+            entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeDatabaseTransactionRunner(), FakeRatingReminder(),
+            FakeWidgetUpdater()
         )
         viewModel = HistoryViewModel(logging, preferences)
     }

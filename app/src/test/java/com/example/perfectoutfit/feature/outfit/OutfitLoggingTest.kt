@@ -15,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneId
+import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
 
 class OutfitLoggingTest {
 
@@ -22,7 +23,8 @@ class OutfitLoggingTest {
     private val itemDao = FakeOutfitItemDao()
     private val snapshotDao = FakeWeatherSnapshotDao()
     private val reminder = FakeRatingReminder()
-    private val logging = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder)
+    private val widget = FakeWidgetUpdater()
+    private val logging = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget)
 
     private val hour = HourlyWeather(
         time = LocalDateTime.of(2026, 9, 1, 14, 0),
@@ -159,5 +161,20 @@ class OutfitLoggingTest {
         logging.delete(listOf(first, second))
 
         assertEquals(listOf(kept), entryDao.getAll().map { it.id })
+    }
+
+    @Test
+    fun `every write redraws the widget once`() = runTest {
+        val id = log(mode = LogMode.PAST)
+        assertEquals(1, widget.redraws)
+
+        logging.rate(id, 0)
+        assertEquals(2, widget.redraws)
+
+        logging.update(id, clothingItemIds = listOf(3L), notes = "x", rating = 1)
+        assertEquals(3, widget.redraws)
+
+        logging.delete(listOf(id))
+        assertEquals(4, widget.redraws)
     }
 }

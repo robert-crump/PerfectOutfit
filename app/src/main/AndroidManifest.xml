@@ -21,6 +21,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.PerfectOutfit"
             android:windowSoftInputMode="adjustNothing">
             <intent-filter>
@@ -51,6 +52,17 @@
         <receiver
             android:name=".core.notification.RateOutfitActionReceiver"
             android:exported="false" />
+
+        <receiver
+            android:name=".feature.widget.OutfitWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/outfit_widget_info" />
+        </receiver>
     </application>
 
 </manifest>

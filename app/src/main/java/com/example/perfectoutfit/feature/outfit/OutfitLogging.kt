@@ -11,6 +11,7 @@ import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.notification.RatingReminder
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.toWeatherSnapshot
+import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import kotlinx.coroutines.flow.Flow
 import java.time.ZoneId
 import javax.inject.Inject
@@ -32,7 +33,8 @@ data class LogLocation(val name: String, val lat: Double, val lon: Double) {
  * Outfit logging: the one path that writes outfit entries. It owns the snapshot -> entry ->
  * reminder sequence, the `createdAt` rule (an entry is stamped with the workout hour, so
  * History sorts by when the workout happened), and the reminder rule (a reminder is
- * scheduled only for live logs or entries that are still unrated).
+ * scheduled only for live logs or entries that are still unrated). Every write redraws the
+ * widget, whose icons depend on rated history.
  */
 @Singleton
 class OutfitLogging @Inject constructor(
@@ -40,7 +42,8 @@ class OutfitLogging @Inject constructor(
     private val outfitItemDao: OutfitItemDao,
     private val weatherSnapshotDao: WeatherSnapshotDao,
     private val transactionRunner: DatabaseTransactionRunner,
-    private val ratingReminder: RatingReminder
+    private val ratingReminder: RatingReminder,
+    private val widgetUpdater: WidgetUpdater
 ) {
     /** Logs an outfit worn during [hour]; returns the new entry id. */
     suspend fun log(
@@ -74,14 +77,14 @@ class OutfitLogging @Inject constructor(
         if (mode == LogMode.LIVE || rating == null) {
             ratingReminder.show(entryId, activityType, workoutMs, workoutDurationHours)
         }
+        widgetUpdater.redraw()
         return entryId
     }
 
     /** Sets the rating and stamps `ratedAt`; the pending reminder (if any) is cancelled. */
     suspend fun rate(entryId: Long, rating: Int) {
-        ratingReminder.cancel(entryId)
-        val entry = outfitEntryDao.getById(entryId) ?: return
-        outfitEntryDao.update(entry.copy(comfortRating = rating, ratedAt = System.currentTimeMillis()))
+        applyRating(entryId, rating)
+        widgetUpdater.redraw()
     }
 
     /** Replaces items and notes of an existing entry, and rates it if [rating] is given, atomically. */
@@ -90,8 +93,9 @@ class OutfitLogging @Inject constructor(
             outfitItemDao.deleteByEntryId(entryId)
             insertItems(entryId, clothingItemIds)
             outfitEntryDao.updateNotes(entryId, notes)
-            if (rating != null) rate(entryId, rating)
+            if (rating != null) applyRating(entryId, rating)
         }
+        widgetUpdater.redraw()
     }
 
     /** Deletes all [entryIds] in one transaction, so History never shows half a batch gone. */
@@ -99,6 +103,7 @@ class OutfitLogging @Inject constructor(
         transactionRunner.runInTransaction {
             entryIds.forEach { outfitEntryDao.deleteById(it) }
         }
+        widgetUpdater.redraw()
     }
 
     suspend fun getEntryWithDetails(entryId: Long): OutfitEntryWithDetails? =
@@ -108,6 +113,12 @@ class OutfitLogging @Inject constructor(
 
     fun entriesByActivityType(activityType: ActivityType): Flow<List<OutfitEntryWithDetails>> =
         outfitEntryDao.getAllWithDetailsByActivityType(activityType)
+
+    private suspend fun applyRating(entryId: Long, rating: Int) {
+        ratingReminder.cancel(entryId)
+        val entry = outfitEntryDao.getById(entryId) ?: return
+        outfitEntryDao.update(entry.copy(comfortRating = rating, ratedAt = System.currentTimeMillis()))
+    }
 
     private suspend fun insertItems(entryId: Long, clothingItemIds: Collection<Long>) {
         outfitItemDao.insertAll(clothingItemIds.map { OutfitItem(outfitEntryId = entryId, clothingItemId = it) })

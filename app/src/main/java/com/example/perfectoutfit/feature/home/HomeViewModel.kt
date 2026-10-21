@@ -13,13 +13,17 @@ import com.example.perfectoutfit.feature.recommendation.Recommendations
 import com.example.perfectoutfit.feature.outfit.LogLocation
 import com.example.perfectoutfit.feature.outfit.LogMode
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
+import com.example.perfectoutfit.feature.widget.WidgetForecastStore
+import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import java.io.IOException
 import javax.inject.Inject
 
 enum class WorkoutTab { COLDEST, WARMEST }
@@ -68,7 +72,9 @@ class HomeViewModel @Inject constructor(
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
     private val outfitLogging: OutfitLogging,
     private val recommendations: Recommendations,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val widgetForecastStore: WidgetForecastStore,
+    private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -188,6 +194,7 @@ class HomeViewModel @Inject constructor(
 
         try {
             forecast.refresh(lat, lon, locationName)
+            saveForWidget()
             val displayHours = forecast.displayWindow()
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
@@ -203,6 +210,17 @@ class HomeViewModel @Inject constructor(
                 isRefreshing = false,
                 error = "Failed to load weather: ${e.message}"
             )
+        }
+    }
+
+    /** The widget follows the last place Home resolved; a failed save only leaves it on the previous one. */
+    private suspend fun saveForWidget() {
+        val location = forecast.location ?: return
+        try {
+            widgetForecastStore.save(location, forecast.hours.first())
+            widgetUpdater.redraw()
+        } catch (e: IOException) {
+            // Keep showing the weather; the widget catches up on the next refresh.
         }
     }
 

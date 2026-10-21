@@ -54,6 +54,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.runtime.getValue
@@ -89,6 +90,18 @@ import kotlinx.coroutines.launch
 
 private enum class WizardStep { LOCATION_ACTIVITY_TYPE, RESULT }
 
+/**
+ * A request from outside Home (the widget) to show it: [activityType]'s result step for a
+ * one-hour workout, or the first step when null. Not a data class, so two taps are two requests.
+ */
+class HomeLaunch(val activityType: ActivityType?)
+
+/** The pending [HomeLaunch]; Home reads it as state and clears it once shown. */
+@Stable
+class HomeLaunchState {
+    var pending: HomeLaunch? by mutableStateOf(null)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -96,6 +109,8 @@ fun HomeScreen(
     onNavigateToExplorer: (Int?) -> Unit,
     /** Bumped each time the Home tab is tapped while Home is showing. */
     tabReselections: Int = 0,
+    /** Its pending launch is shown once, then cleared. */
+    launchState: HomeLaunchState? = null,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -112,6 +127,21 @@ fun HomeScreen(
 
     LaunchedEffect(tabReselections) {
         wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE
+    }
+
+    // Declared after the reselection effect, so on a fresh Home the launch's step wins.
+    val launch = launchState?.pending
+    LaunchedEffect(launch) {
+        if (launch == null) return@LaunchedEffect
+        val activityType = launch.activityType
+        if (activityType != null) {
+            viewModel.selectActivityType(activityType, workoutDurationHours = 1)
+            outfitAccepted = false
+            wizardStep = WizardStep.RESULT
+        } else {
+            wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE
+        }
+        launchState.pending = null
     }
 
     LaunchedEffect(wizardStep) {

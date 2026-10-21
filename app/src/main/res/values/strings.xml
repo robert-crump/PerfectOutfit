@@ -12,4 +12,9 @@
     <string name="rating_saved_toast">Rated: %1$s</string>
     <string name="backup_failed_title">Backup failed</string>
     <string name="backup_failed_text">Your Google Drive backup could not be completed. Tap to check Settings.</string>
+    <string name="widget_description">Temperature, with a one-tap outfit recommendation for bike commute and walking</string>
+    <string name="widget_no_temperature">–°</string>
+    <string name="widget_preview_temperature">14°</string>
+    <string name="widget_preview_basis">Feels like</string>
+    <string name="widget_preview_place">Hamburg</string>
 </resources>

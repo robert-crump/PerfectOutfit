@@ -14,6 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -39,7 +40,7 @@ class RateOutfitActionReceiverTest {
             ratingActionHandler = RatingActionHandler(
                 OutfitLogging(
                     FakeOutfitEntryDao(), FakeOutfitItemDao(), FakeWeatherSnapshotDao(),
-                    FakeDatabaseTransactionRunner(), FakeRatingReminder()
+                    FakeDatabaseTransactionRunner(), FakeRatingReminder(), FakeWidgetUpdater()
                 )
             )
         }

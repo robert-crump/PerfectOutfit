@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
+import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,8 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val exportImportManager: ExportImportManager,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -40,6 +42,7 @@ class SettingsViewModel @Inject constructor(
     fun setUseApparentTemperature(value: Boolean) {
         viewModelScope.launch {
             preferencesManager.setUseApparentTemperature(value)
+            widgetUpdater.redraw()
         }
     }
 
@@ -66,6 +69,8 @@ class SettingsViewModel @Inject constructor(
                     stream.bufferedReader().readText()
                 } ?: throw IllegalStateException("Could not read file")
                 exportImportManager.importFromJson(json)
+                // Imported history changes which widget icons are lit.
+                widgetUpdater.redraw()
                 _uiState.value = _uiState.value.copy(isProcessing = false, message = "Data imported successfully")
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isProcessing = false, message = "Import failed: ${e.message}")
