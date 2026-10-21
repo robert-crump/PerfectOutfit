@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
+import com.example.perfectoutfit.core.model.ThemeMode
 import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,7 +18,8 @@ import javax.inject.Inject
 data class SettingsUiState(
     val message: String? = null,
     val isProcessing: Boolean = false,
-    val useApparentTemperature: Boolean = true
+    val useApparentTemperature: Boolean = true,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM
 )
 
 @HiltViewModel
@@ -37,6 +39,11 @@ class SettingsViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(useApparentTemperature = useApparent)
             }
         }
+        viewModelScope.launch {
+            preferencesManager.themeMode.collect { mode ->
+                _uiState.value = _uiState.value.copy(themeMode = mode)
+            }
+        }
     }
 
     fun setUseApparentTemperature(value: Boolean) {
@@ -44,6 +51,10 @@ class SettingsViewModel @Inject constructor(
             preferencesManager.setUseApparentTemperature(value)
             widgetUpdater.redraw()
         }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { preferencesManager.setThemeMode(mode) }
     }
 
     fun exportData(uri: Uri) {

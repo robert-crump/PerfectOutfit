@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
+import com.example.perfectoutfit.core.model.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +56,7 @@ fun SettingsScreen(
     var exporting by rememberSaveable { mutableStateOf(false) }
     // A picked file waiting for the user to confirm that it replaces all data.
     var pendingImport by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var choosingTheme by rememberSaveable { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -95,6 +98,18 @@ fun SettingsScreen(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            SectionHeader("Appearance")
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Palette,
+                        title = "Theme",
+                        summary = uiState.themeMode.displayName,
+                        onClick = { choosingTheme = true }
+                    )
+                }
+            )
+
             SectionHeader("Catalog")
             SettingsGroup(
                 {
@@ -155,6 +170,20 @@ fun SettingsScreen(
             SectionHeader("Google Drive")
             DriveBackupSection(snackbarHostState)
         }
+    }
+
+    if (choosingTheme) {
+        ChoiceDialog(
+            title = "Theme",
+            options = ThemeMode.entries,
+            selected = uiState.themeMode,
+            label = { it.displayName },
+            onSelect = {
+                viewModel.setThemeMode(it)
+                choosingTheme = false
+            },
+            onDismiss = { choosingTheme = false }
+        )
     }
 
     pendingImport?.let { uri ->

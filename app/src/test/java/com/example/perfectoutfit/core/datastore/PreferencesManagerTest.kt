@@ -3,6 +3,7 @@ package com.example.perfectoutfit.core.datastore
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.ThemeMode
 import com.example.perfectoutfit.testutil.FakePreferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -43,5 +44,21 @@ class PreferencesManagerTest {
         dataStore.edit { it[stringPreferencesKey("selected_activity_type")] = "SWIMMING" }
 
         assertEquals(ActivityType.CYCLING, preferences.selectedActivityType.first())
+    }
+
+    @Test
+    fun `theme defaults to system and is stored`() = runTest {
+        assertEquals(ThemeMode.SYSTEM, preferences.themeMode.first())
+
+        preferences.setThemeMode(ThemeMode.DARK)
+
+        assertEquals(ThemeMode.DARK, PreferencesManager(dataStore).themeMode.first())
+    }
+
+    @Test
+    fun `an unknown stored theme falls back to system`() = runTest {
+        dataStore.edit { it[stringPreferencesKey("theme_mode")] = "SEPIA" }
+
+        assertEquals(ThemeMode.SYSTEM, preferences.themeMode.first())
     }
 }
