@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * The 2×1 widget (see "Widget" in CONTEXT.md). Thin shell: [OutfitWidgetContent] decides what
+ * The 3×1 widget (see "Widget" in CONTEXT.md). Thin shell: [OutfitWidgetContent] decides what
  * it shows, [outfitWidgetViews] turns that into RemoteViews.
  */
 @AndroidEntryPoint
@@ -102,6 +102,9 @@ fun outfitWidgetViews(context: Context, binding: OutfitWidgetBinding, options: B
 
 private val ICON_IDS = intArrayOf(R.id.widget_icon_0, R.id.widget_icon_1)
 
+/** Each icon's third of the widget; the whole third is the tap target. */
+private val ICON_AREA_IDS = intArrayOf(R.id.widget_icon_area_0, R.id.widget_icon_area_1)
+
 /** Lit icons are fully opaque, unlit ones at about 40 %. */
 private const val UNLIT_ICON_ALPHA = 102
 
@@ -120,9 +123,9 @@ private fun views(context: Context, binding: OutfitWidgetBinding, tall: Boolean)
         val id = ICON_IDS[index]
         views.setImageViewResource(id, icon.activityType.iconRes)
         views.setInt(id, "setImageAlpha", if (icon.lit) 255 else UNLIT_ICON_ALPHA)
-        views.setContentDescription(id, icon.activityType.displayName)
+        views.setContentDescription(ICON_AREA_IDS[index], icon.activityType.displayName)
         val target = if (binding.iconsOpenActivityType) icon.activityType else null
-        views.setOnClickPendingIntent(id, openHomeIntent(context, target, requestCode = index + 1))
+        views.setOnClickPendingIntent(ICON_AREA_IDS[index], openHomeIntent(context, target, requestCode = index + 1))
     }
     views.setOnClickPendingIntent(R.id.widget_temperature_area, openHomeIntent(context, null, requestCode = 0))
     return views

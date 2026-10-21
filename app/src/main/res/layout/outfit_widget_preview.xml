@@ -44,18 +44,32 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <ImageView
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:padding="6dp"
-        android:src="@drawable/ic_work"
-        android:tint="@color/widget_accent" />
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center">
 
-    <ImageView
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:alpha="0.4"
-        android:padding="6dp"
-        android:src="@drawable/ic_walk"
-        android:tint="@color/widget_accent" />
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="4dp"
+            android:src="@drawable/ic_work"
+            android:tint="@color/widget_accent" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:alpha="0.4"
+            android:padding="4dp"
+            android:src="@drawable/ic_walk"
+            android:tint="@color/widget_accent" />
+    </LinearLayout>
 </LinearLayout>
