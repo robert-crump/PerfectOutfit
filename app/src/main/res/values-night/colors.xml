@@ -3,5 +3,6 @@
     <color name="widget_surface">@color/widget_surface_dark</color>
     <color name="widget_on_surface">@color/widget_on_surface_dark</color>
     <color name="widget_on_surface_variant">@color/widget_on_surface_variant_dark</color>
-    <color name="widget_accent">@color/widget_accent_dark</color>
+    <color name="widget_chip">@color/widget_chip_dark</color>
+    <color name="widget_on_chip">@color/widget_on_chip_dark</color>
 </resources>

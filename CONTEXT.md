@@ -155,8 +155,9 @@ The 3×1 home-screen widget (issue #22): a launcher into a [recommendation](#rec
 never a display of one. Its left 40 % shows the current hour's [reference temperature](#reference-temperature)
 with its basis ("Feels like" / "Real temp.") and place name, then fixed Bike commute and
 Walking icons, 30 % each. An icon is lit when `Recommendations.find` has an entry for that activity
-type at the current hour's reference temperature, dimmed otherwise. Tapping an icon opens
-Home's result step for that activity type (1 h), through the same unsaved-edits
+type at the current hour's reference temperature: it then sits on a filled chip; otherwise
+it is faint, with no chip (a shape difference, so a greyish wallpaper colour can't hide it).
+Tapping an icon opens Home's result step for that activity type (1 h), through the same unsaved-edits
 confirmation as a tab tap.
 
 **Widget forecast:** the widget never uses `Forecast` or location services. Home saves

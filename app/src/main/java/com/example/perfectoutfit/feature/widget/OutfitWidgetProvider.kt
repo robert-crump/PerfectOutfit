@@ -103,13 +103,12 @@ fun outfitWidgetViews(context: Context, binding: OutfitWidgetBinding, options: B
     return if (height >= TALL_MIN_HEIGHT_DP) tall else short
 }
 
-private val ICON_IDS = intArrayOf(R.id.widget_icon_0, R.id.widget_icon_1)
+/** Each icon twice: on its chip (lit) and faint without one (unlit); only one is visible. */
+private val LIT_ICON_IDS = intArrayOf(R.id.widget_icon_lit_0, R.id.widget_icon_lit_1)
+private val UNLIT_ICON_IDS = intArrayOf(R.id.widget_icon_unlit_0, R.id.widget_icon_unlit_1)
 
 /** Each icon's 30 % of the widget; the whole area is the tap target. */
 private val ICON_AREA_IDS = intArrayOf(R.id.widget_icon_area_0, R.id.widget_icon_area_1)
-
-/** Lit icons are fully opaque, unlit ones at about 40 %. */
-private const val UNLIT_ICON_ALPHA = 102
 
 private fun views(context: Context, binding: OutfitWidgetBinding, tall: Boolean): RemoteViews {
     val layout = if (tall) R.layout.outfit_widget else R.layout.outfit_widget_short
@@ -123,9 +122,12 @@ private fun views(context: Context, binding: OutfitWidgetBinding, tall: Boolean)
         views.setTextViewText(R.id.widget_place, binding.combinedLine)
     }
     binding.icons.forEachIndexed { index, icon ->
-        val id = ICON_IDS[index]
-        views.setImageViewResource(id, icon.activityType.iconRes)
-        views.setInt(id, "setImageAlpha", if (icon.lit) 255 else UNLIT_ICON_ALPHA)
+        val lit = LIT_ICON_IDS[index]
+        val unlit = UNLIT_ICON_IDS[index]
+        views.setImageViewResource(lit, icon.activityType.iconRes)
+        views.setImageViewResource(unlit, icon.activityType.iconRes)
+        views.setViewVisibility(lit, if (icon.lit) View.VISIBLE else View.GONE)
+        views.setViewVisibility(unlit, if (icon.lit) View.GONE else View.VISIBLE)
         views.setContentDescription(ICON_AREA_IDS[index], icon.activityType.displayName)
         val target = if (binding.iconsOpenActivityType) icon.activityType else null
         views.setOnClickPendingIntent(ICON_AREA_IDS[index], openHomeIntent(context, target, requestCode = index + 1))
@@ -144,21 +146,22 @@ private enum class WidgetPalette(
     @param:DrawableRes val background: Int,
     @param:ColorRes val onSurface: Int,
     @param:ColorRes val onSurfaceVariant: Int,
-    @param:ColorRes val accent: Int
+    @param:DrawableRes val chip: Int,
+    @param:ColorRes val onChip: Int
 ) {
     LIGHT(
         R.drawable.outfit_widget_background_light, R.color.widget_on_surface_light,
-        R.color.widget_on_surface_variant_light, R.color.widget_accent_light
+        R.color.widget_on_surface_variant_light, R.drawable.outfit_widget_chip_light, R.color.widget_on_chip_light
     ),
     DARK(
         R.drawable.outfit_widget_background_dark, R.color.widget_on_surface_dark,
-        R.color.widget_on_surface_variant_dark, R.color.widget_accent_dark
+        R.color.widget_on_surface_variant_dark, R.drawable.outfit_widget_chip_dark, R.color.widget_on_chip_dark
     )
 }
 
 /**
  * Overrides the layout's colours, which the launcher resolves for the device's mode, with
- * [palette]. Colours are resolved here and passed as values; only the background goes as a resource.
+ * [palette]. Colours are resolved here and passed as values; only the drawables go as resources.
  */
 private fun forcePalette(context: Context, views: RemoteViews, palette: WidgetPalette, tall: Boolean) {
     views.setInt(android.R.id.background, "setBackgroundResource", palette.background)
@@ -167,7 +170,11 @@ private fun forcePalette(context: Context, views: RemoteViews, palette: WidgetPa
     views.setTextColor(R.id.widget_place, variant)
     if (tall) views.setTextColor(R.id.widget_basis, variant)
     // A colour filter wins over the layout's android:tint.
-    for (id in ICON_IDS) views.setInt(id, "setColorFilter", context.getColor(palette.accent))
+    for (id in LIT_ICON_IDS) {
+        views.setInt(id, "setBackgroundResource", palette.chip)
+        views.setInt(id, "setColorFilter", context.getColor(palette.onChip))
+    }
+    for (id in UNLIT_ICON_IDS) views.setInt(id, "setColorFilter", variant)
 }
 
 /** Opens Home: on [activityType]'s result step, or on its first step when null. */

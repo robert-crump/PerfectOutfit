@@ -51,11 +51,14 @@
         android:gravity="center">
 
         <ImageView
-            android:layout_width="40dp"
+            android:layout_width="56dp"
             android:layout_height="40dp"
-            android:padding="4dp"
+            android:background="@drawable/outfit_widget_chip"
+            android:importantForAccessibility="no"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
             android:src="@drawable/ic_work"
-            android:tint="@color/widget_accent" />
+            android:tint="@color/widget_on_chip" />
     </LinearLayout>
 
     <LinearLayout
@@ -65,11 +68,13 @@
         android:gravity="center">
 
         <ImageView
-            android:layout_width="40dp"
+            android:layout_width="56dp"
             android:layout_height="40dp"
             android:alpha="0.4"
-            android:padding="4dp"
+            android:importantForAccessibility="no"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
             android:src="@drawable/ic_walk"
-            android:tint="@color/widget_accent" />
+            android:tint="@color/widget_on_surface_variant" />
     </LinearLayout>
 </LinearLayout>

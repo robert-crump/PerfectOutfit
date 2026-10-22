@@ -5,16 +5,20 @@
     <color name="widget_surface_light">#FFEDF1E6</color>
     <color name="widget_on_surface_light">#FF1A1C18</color>
     <color name="widget_on_surface_variant_light">#FF424940</color>
-    <color name="widget_accent_light">#FF2E6B30</color>
+    <!-- Lit icons sit on a chip; unlit ones are on_surface_variant at 40 % with no chip. -->
+    <color name="widget_chip_light">#FFB1F1A9</color>
+    <color name="widget_on_chip_light">#FF002204</color>
 
     <color name="widget_surface_dark">#FF242722</color>
     <color name="widget_on_surface_dark">#FFE2E3DC</color>
     <color name="widget_on_surface_variant_dark">#FFC2C9BD</color>
-    <color name="widget_accent_dark">#FF95D58F</color>
+    <color name="widget_chip_dark">#FF15521B</color>
+    <color name="widget_on_chip_dark">#FFB1F1A9</color>
 
     <!-- What the layouts use: the palette of the device's mode. -->
     <color name="widget_surface">@color/widget_surface_light</color>
     <color name="widget_on_surface">@color/widget_on_surface_light</color>
     <color name="widget_on_surface_variant">@color/widget_on_surface_variant_light</color>
-    <color name="widget_accent">@color/widget_accent_light</color>
+    <color name="widget_chip">@color/widget_chip_light</color>
+    <color name="widget_on_chip">@color/widget_on_chip_light</color>
 </resources>

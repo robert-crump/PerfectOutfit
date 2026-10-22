@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tall widget, temperature 40 %, each icon 30 %: temperature with basis and place stacked; bike commute; walking. -->
+<!-- Tall widget, temperature 40 %, each icon 30 % (lit: on a chip; unlit: faint, no chip): temperature with basis and place stacked; bike commute; walking. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
@@ -57,13 +57,27 @@
         android:gravity="center">
 
         <ImageView
-            android:id="@+id/widget_icon_0"
-            android:layout_width="40dp"
+            android:id="@+id/widget_icon_lit_0"
+            android:layout_width="56dp"
             android:layout_height="40dp"
+            android:background="@drawable/outfit_widget_chip"
             android:importantForAccessibility="no"
-            android:padding="4dp"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
             android:src="@drawable/ic_work"
-            android:tint="@color/widget_accent" />
+            android:tint="@color/widget_on_chip" />
+
+        <ImageView
+            android:id="@+id/widget_icon_unlit_0"
+            android:layout_width="56dp"
+            android:layout_height="40dp"
+            android:alpha="0.4"
+            android:importantForAccessibility="no"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
+            android:src="@drawable/ic_work"
+            android:tint="@color/widget_on_surface_variant"
+            android:visibility="gone" />
     </LinearLayout>
 
     <LinearLayout
@@ -74,12 +88,26 @@
         android:gravity="center">
 
         <ImageView
-            android:id="@+id/widget_icon_1"
-            android:layout_width="40dp"
+            android:id="@+id/widget_icon_lit_1"
+            android:layout_width="56dp"
             android:layout_height="40dp"
+            android:background="@drawable/outfit_widget_chip"
             android:importantForAccessibility="no"
-            android:padding="4dp"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
             android:src="@drawable/ic_walk"
-            android:tint="@color/widget_accent" />
+            android:tint="@color/widget_on_chip" />
+
+        <ImageView
+            android:id="@+id/widget_icon_unlit_1"
+            android:layout_width="56dp"
+            android:layout_height="40dp"
+            android:alpha="0.4"
+            android:importantForAccessibility="no"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
+            android:src="@drawable/ic_walk"
+            android:tint="@color/widget_on_surface_variant"
+            android:visibility="gone" />
     </LinearLayout>
 </LinearLayout>
