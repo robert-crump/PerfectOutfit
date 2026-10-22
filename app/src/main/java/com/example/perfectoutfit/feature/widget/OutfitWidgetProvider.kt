@@ -105,7 +105,7 @@ fun outfitWidgetViews(context: Context, binding: OutfitWidgetBinding, options: B
 
 private val ICON_IDS = intArrayOf(R.id.widget_icon_0, R.id.widget_icon_1)
 
-/** Each icon's third of the widget; the whole third is the tap target. */
+/** Each icon's 30 % of the widget; the whole area is the tap target. */
 private val ICON_AREA_IDS = intArrayOf(R.id.widget_icon_area_0, R.id.widget_icon_area_1)
 
 /** Lit icons are fully opaque, unlit ones at about 40 %. */

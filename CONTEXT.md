@@ -152,9 +152,9 @@ shorter if the known hours end sooner, empty if all known hours are in the past.
 
 ### Widget
 The 3×1 home-screen widget (issue #22): a launcher into a [recommendation](#recommendation),
-never a display of one. Its three equal thirds show the current hour's [reference temperature](#reference-temperature)
+never a display of one. Its left 40 % shows the current hour's [reference temperature](#reference-temperature)
 with its basis ("Feels like" / "Real temp.") and place name, then fixed Bike commute and
-Walking icons. An icon is lit when `Recommendations.find` has an entry for that activity
+Walking icons, 30 % each. An icon is lit when `Recommendations.find` has an entry for that activity
 type at the current hour's reference temperature, dimmed otherwise. Tapping an icon opens
 Home's result step for that activity type (1 h), through the same unsaved-edits
 confirmation as a tab tap.
