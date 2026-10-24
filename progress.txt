@@ -1,5 +1,13 @@
 PerfectOutfit — Progress Log
 
+2026-10-24
+- Implemented issue #25 (History: neutral cards).
+  Cards sit on surfaceContainerHigh like Home's; selected cards keep secondaryContainer plus
+  the check circle. Unrated entries show a bold "Rate" label in primary instead of a tint
+  and the old hyphen.
+  Verification: ./gradlew testDebugUnitTest and readmeScreenshots pass; history.png
+  regenerated (explorer.png only re-rendered, left as is).
+
 2026-10-19 (5)
 - Closed parent issue #17 (all slices #18-#21 done).
 - History card shows the city the entry was logged for (WeatherSnapshot.locationName), left

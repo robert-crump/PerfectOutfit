@@ -211,11 +211,10 @@ private fun HistoryCard(
     val entry = item.details.entry
     val date = SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(Date(entry.createdAt))
 
-    val isUnrated = entry.comfortRating == null
     val emoji = ratingEmoji(entry.comfortRating)
 
     val secondaryText = if (selected)
-        MaterialTheme.colorScheme.onPrimaryContainer
+        MaterialTheme.colorScheme.onSecondaryContainer
     else
         MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -225,11 +224,11 @@ private fun HistoryCard(
             .clip(CardDefaults.shape)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(
-            containerColor = when {
-                selected -> MaterialTheme.colorScheme.primaryContainer
-                isUnrated -> MaterialTheme.colorScheme.secondaryContainer
-                else -> MaterialTheme.colorScheme.surfaceVariant
-            }
+            // Neutral like Home's cards; only selection, a real mode change, gets a tint
+            containerColor = if (selected)
+                MaterialTheme.colorScheme.secondaryContainer
+            else
+                MaterialTheme.colorScheme.surfaceContainerHigh
         )
     ) {
         Row(
@@ -298,14 +297,25 @@ private fun HistoryCard(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Rating emoji (or bold hyphen if unrated)
-            Text(
-                text = emoji ?: "–",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (emoji == null) FontWeight.Bold else null,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(32.dp)
-            )
+            // Rating emoji, or a "Rate" label in primary if unrated
+            if (emoji == null) {
+                Text(
+                    text = "Rate",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier.width(32.dp)
+                )
+            } else {
+                Text(
+                    text = emoji,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(32.dp)
+                )
+            }
         }
     }
 }
