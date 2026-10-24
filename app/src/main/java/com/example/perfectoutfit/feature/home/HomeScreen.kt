@@ -14,8 +14,6 @@ import androidx.core.app.ActivityCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -29,28 +27,28 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,16 +64,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import com.example.perfectoutfit.ui.components.rainStatusColor
-import com.example.perfectoutfit.ui.components.uvStatusColor
-import com.example.perfectoutfit.ui.components.windStatusColor
-import com.example.perfectoutfit.ui.theme.LocalStatusColors
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -83,7 +80,6 @@ import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
-import com.example.perfectoutfit.ui.components.ClothingItemChip
 import com.example.perfectoutfit.ui.components.ratingLabel
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -119,7 +115,6 @@ fun HomeScreen(
     val context = LocalContext.current
 
     var wizardStep by remember { mutableStateOf(WizardStep.LOCATION_ACTIVITY_TYPE) }
-    var outfitAccepted by remember { mutableStateOf(false) }
 
     BackHandler(enabled = wizardStep == WizardStep.RESULT) {
         wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE
@@ -136,7 +131,6 @@ fun HomeScreen(
         val activityType = launch.activityType
         if (activityType != null) {
             viewModel.selectActivityType(activityType, workoutDurationHours = 1)
-            outfitAccepted = false
             wizardStep = WizardStep.RESULT
         } else {
             wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE
@@ -144,10 +138,19 @@ fun HomeScreen(
         launchState.pending = null
     }
 
-    LaunchedEffect(wizardStep) {
-        if (wizardStep == WizardStep.RESULT) {
-            outfitAccepted = false
+    // A saved outfit ends the flow on the activity grid; a failed save stays on the result.
+    LaunchedEffect(uiState.acceptState) {
+        val message = when (uiState.acceptState) {
+            AcceptState.SAVED -> {
+                wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE
+                "Outfit saved ✓"
+            }
+            AcceptState.FAILED -> "Couldn't save the outfit — try again"
+            else -> return@LaunchedEffect
         }
+        viewModel.onAcceptHandled()
+        // Outside this effect, which restarts as soon as the state goes back to IDLE.
+        coroutineScope.launch { snackbarHostState.showSnackbar(message) }
     }
 
     // Tracks whether we've already prompted for the location permission at least once, so a
@@ -193,7 +196,7 @@ fun HomeScreen(
                     windowInsets = WindowInsets(0)
                 )
                 WizardStep.RESULT -> TopAppBar(
-                    title = { Text("Recommendation") },
+                    title = { Text(resultTitle(uiState.selectedActivityType, uiState.workoutDurationHours)) },
                     navigationIcon = {
                         IconButton(onClick = { wizardStep = WizardStep.LOCATION_ACTIVITY_TYPE }) {
                             Icon(
@@ -202,12 +205,24 @@ fun HomeScreen(
                             )
                         }
                     },
-                    actions = {
-                        IconButton(onClick = { onNavigateToExplorer(forecastTemp) }) {
-                            Icon(Icons.Default.Info, contentDescription = "Outfit Explorer")
-                        }
-                    },
                     windowInsets = WindowInsets(0)
+                )
+            }
+        },
+        bottomBar = {
+            if (wizardStep == WizardStep.RESULT && !uiState.isLoading && uiState.error == null) {
+                val recommendation = uiState.activeRecommendation
+                ResultActionBar(
+                    label = if (recommendation != null) "Use outfit" else "Choose outfit",
+                    enabled = uiState.acceptState != AcceptState.SAVING,
+                    onClick = {
+                        if (recommendation != null) {
+                            viewModel.acceptRecommendation(recommendation)
+                        } else {
+                            viewModel.prepareCustomOutfit()
+                            onNavigateToNewOutfit()
+                        }
+                    }
                 )
             }
         },
@@ -230,20 +245,8 @@ fun HomeScreen(
                 )
                 WizardStep.RESULT -> ResultStep(
                     uiState = uiState,
-                    outfitAccepted = outfitAccepted,
-                    onAcceptRecommendation = { rec ->
-                        viewModel.acceptRecommendation(rec)
-                        outfitAccepted = true
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Outfit saved! \u2713")
-                        }
-                    },
                     onEditOutfit = {
                         viewModel.prepareEditOutfit()
-                        onNavigateToNewOutfit()
-                    },
-                    onCustomOutfit = {
-                        viewModel.prepareCustomOutfit()
                         onNavigateToNewOutfit()
                     },
                     onRefresh = viewModel::refreshWeather,
@@ -256,6 +259,11 @@ fun HomeScreen(
         }
     }
 }
+
+/** The result step's title: the activity type, plus the duration of a long workout. */
+private fun resultTitle(activityType: ActivityType, workoutDurationHours: Int): String =
+    if (workoutDurationHours >= 2) "${activityType.displayName} · $workoutDurationHours h"
+    else activityType.displayName
 
 @Composable
 private fun LocationActivityStep(
@@ -343,12 +351,10 @@ private fun ActivityTypeTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    ElevatedCard(
+    Card(
         onClick = onClick,
         modifier = modifier.height(140.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
+        colors = neutralCardColors()
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -367,14 +373,16 @@ private fun ActivityTypeTile(
     }
 }
 
+/** Every card on Home: one neutral container, so colour is left to the actions. */
+@Composable
+private fun neutralCardColors() =
+    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ResultStep(
     uiState: HomeUiState,
-    outfitAccepted: Boolean,
-    onAcceptRecommendation: (OutfitEntryWithDetails) -> Unit,
     onEditOutfit: () -> Unit,
-    onCustomOutfit: () -> Unit,
     onRefresh: () -> Unit,
     onWorkoutTabSelected: (WorkoutTab) -> Unit,
     showOpenSettings: Boolean,
@@ -392,14 +400,9 @@ private fun ResultStep(
                 .padding(horizontal = 16.dp)
                 // Inside the scroll, so the bottom space scrolls with the cards instead of clipping them.
                 .verticalScroll(rememberScrollState())
-                .padding(top = 8.dp, bottom = 80.dp),
+                .padding(top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            ResultSummaryBar(
-                locationName = uiState.selectedLocationName,
-                activityType = uiState.selectedActivityType
-            )
-
             if (uiState.isLoading) {
                 Box(
                     modifier = Modifier
@@ -425,7 +428,7 @@ private fun ResultStep(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = uiState.error!!,
+                            text = uiState.error,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -438,113 +441,260 @@ private fun ResultStep(
                 }
             } else {
                 if (uiState.workoutDurationHours >= 2) {
-                    val selectedTabIndex = if (uiState.activeWorkoutTab == WorkoutTab.COLDEST) 0 else 1
-                    val hourFmt = DateTimeFormatter.ofPattern("HH:mm")
-                    val coldestTime = uiState.hourlyWeather.getOrNull(uiState.coldestHourIndex)?.time?.format(hourFmt)
-                    val warmestTime = uiState.hourlyWeather.getOrNull(uiState.warmestHourIndex)?.time?.format(hourFmt)
-                    TabRow(selectedTabIndex = selectedTabIndex) {
-                        Tab(
-                            selected = selectedTabIndex == 0,
-                            onClick = { onWorkoutTabSelected(WorkoutTab.COLDEST) },
-                            text = { Text(if (coldestTime != null) "Coldest ($coldestTime)" else "Coldest hour") }
-                        )
-                        Tab(
-                            selected = selectedTabIndex == 1,
-                            onClick = { onWorkoutTabSelected(WorkoutTab.WARMEST) },
-                            text = { Text(if (warmestTime != null) "Warmest ($warmestTime)" else "Warmest hour") }
-                        )
-                    }
+                    WorkoutHourSelector(uiState = uiState, onWorkoutTabSelected = onWorkoutTabSelected)
                 }
 
                 val currentWeather = uiState.activeHour
                 if (currentWeather != null) {
-                    CompactWeatherRow(
+                    WeatherCard(
                         displayTemp = uiState.activeDisplayTemp,
                         weather = currentWeather,
-                        useApparentTemperature = uiState.useApparentTemperature
+                        useApparentTemperature = uiState.useApparentTemperature,
+                        locationName = uiState.selectedLocationName
                     )
                 }
 
                 val recommendation = uiState.activeRecommendation
-                val showRecommendation = recommendation != null && !outfitAccepted
-
-                if (showRecommendation && recommendation != null) {
-                    WizardRecommendationCard(
-                        recommendation = recommendation,
-                        onAccept = { onAcceptRecommendation(recommendation) },
-                        onEditOutfit = onEditOutfit
-                    )
-                } else if (!outfitAccepted) {
-                    NoRecommendationCard(onCustomOutfit = onCustomOutfit)
+                if (recommendation != null) {
+                    RecommendationCard(recommendation = recommendation, onEditOutfit = onEditOutfit)
+                } else {
+                    NoRecommendationCard(displayTemp = uiState.activeDisplayTemp)
                 }
 
-                if (currentWeather != null) {
-                    if (WeatherThresholds.uvSeverity(currentWeather.uvIndex) == WeatherSeverity.HIGH) {
-                        UvInfoCard(uvIndex = currentWeather.uvIndex)
-                    }
-                    if (WeatherThresholds.windSeverity(currentWeather.windSpeedKmh) == WeatherSeverity.HIGH) {
-                        WindInfoCard(
-                            windSpeedKmh = currentWeather.windSpeedKmh.toInt(),
-                            windDirection = currentWeather.windDirectionLabel
-                        )
-                    }
+                if (currentWeather != null && WeatherThresholds.isUvHigh(currentWeather.uvIndex)) {
+                    UvInfoCard(uvIndex = currentWeather.uvIndex)
                 }
             }
         }
     }
 }
 
+/** The pinned, full-width action of the result step. */
 @Composable
-private fun ResultSummaryBar(
-    locationName: String,
-    activityType: ActivityType
-) {
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+private fun ResultActionBar(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Text(label, style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+/** Coldest or warmest hour of a long workout, each with its time and reference temperature. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WorkoutHourSelector(
+    uiState: HomeUiState,
+    onWorkoutTabSelected: (WorkoutTab) -> Unit
+) {
+    val hourFmt = DateTimeFormatter.ofPattern("HH:mm")
+    val options = listOf(
+        Triple(WorkoutTab.COLDEST, "Coldest", uiState.coldestHourIndex),
+        Triple(WorkoutTab.WARMEST, "Warmest", uiState.warmestHourIndex)
+    )
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, (tab, name, hourIndex) ->
+            val time = uiState.hourlyWeather.getOrNull(hourIndex)?.time?.format(hourFmt)
+            val temp = uiState.displayTempAt(hourIndex)
+            val label = if (time != null && temp != null) "$name · $time · $temp°" else name
+            SegmentedButton(
+                selected = uiState.activeWorkoutTab == tab,
+                onClick = { onWorkoutTabSelected(tab) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
+            ) {
+                Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeatherCard(
+    displayTemp: Int,
+    weather: HourlyWeather,
+    useApparentTemperature: Boolean,
+    locationName: String
+) {
+    val tempLabel = stringResource(
+        if (useApparentTemperature) R.string.temperature_apparent else R.string.temperature_real
+    )
+
+    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.LocationOn,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(4.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${displayTemp}°C",
+                    style = MaterialTheme.typography.displaySmall
+                )
+                Text(
+                    text = tempLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = locationName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Row(modifier = Modifier.weight(1.4f)) {
+                WeatherMetric(label = "UV", value = "${weather.uvIndex}", unit = "", modifier = Modifier.weight(1f))
+                WeatherMetric(
+                    label = "Wind",
+                    value = "${weather.windSpeedKmh.toInt()}",
+                    unit = " km/h",
+                    modifier = Modifier.weight(1f)
+                )
+                WeatherMetric(
+                    label = "Rain",
+                    value = "${weather.precipitationProbabilityPercent}",
+                    unit = " %",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+/** One centred column: the label above, the value (with a smaller unit) below. */
+@Composable
+private fun WeatherMetric(label: String, value: String, unit: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = buildAnnotatedString {
+                append(value)
+                withStyle(SpanStyle(fontSize = MaterialTheme.typography.labelSmall.fontSize)) { append(unit) }
+            },
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun RecommendationCard(
+    recommendation: OutfitEntryWithDetails,
+    onEditOutfit: () -> Unit
+) {
+    val itemsByBodyPart = recommendation.clothingItems.groupBy { it.bodyPart }
+    val ratingText = ratingLabel(recommendation.entry.comfortRating)
+
+    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = locationName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                text = "Recommended outfit",
+                style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = onEditOutfit) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edit outfit",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (ratingText.isNotEmpty()) {
+                Text(
+                    text = "Last time: $ratingText",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
 
-            VerticalDivider(
-                modifier = Modifier
-                    .height(20.dp)
-                    .padding(horizontal = 8.dp),
-                color = MaterialTheme.colorScheme.outline
-            )
+            BODY_PART_DISPLAY_ORDER.forEach { part ->
+                val items = itemsByBodyPart[part]
+                if (!items.isNullOrEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = part.displayName,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            // Lines its first line up with the items' larger text.
+                            modifier = Modifier
+                                .width(BODY_PART_LABEL_WIDTH)
+                                .padding(top = 2.dp)
+                        )
+                        Text(
+                            text = items.joinToString(", ") { it.name },
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
 
-            Icon(
-                painterResource(activityType.iconRes),
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(4.dp))
+            val notes = recommendation.entry.notes
+            if (notes.isNotEmpty()) {
+                Text(
+                    text = notes,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+/** Fits "Head and Throat", the longest body part name, on one line. */
+private val BODY_PART_LABEL_WIDTH = 112.dp
+
+@Composable
+private fun NoRecommendationCard(displayTemp: Int) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = activityType.displayName,
-                style = MaterialTheme.typography.bodySmall,
+                text = "No outfit for $displayTemp° yet",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Pick one yourself — once you rate it, it'll be recommended here next time.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -552,204 +702,29 @@ private fun ResultSummaryBar(
 }
 
 @Composable
-private fun CompactWeatherRow(
-    displayTemp: Int,
-    weather: HourlyWeather,
-    useApparentTemperature: Boolean
-) {
-    val tempLabel = stringResource(
-        if (useApparentTemperature) R.string.temperature_apparent else R.string.temperature_real
-    )
-    val statusColors = LocalStatusColors.current
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            WeatherMetric(
-                value = "${displayTemp}°C",
-                label = tempLabel,
-                valueColor = MaterialTheme.colorScheme.primary
-            )
-            WeatherMetric(
-                value = "${weather.uvIndex}",
-                label = "UV",
-                valueColor = uvStatusColor(weather.uvIndex, statusColors)
-            )
-            WeatherMetric(
-                value = "${weather.windSpeedKmh.toInt()} km/h",
-                label = "Wind",
-                valueColor = windStatusColor(weather.windSpeedKmh, statusColors)
-            )
-            WeatherMetric(
-                value = "${weather.precipitationProbabilityPercent}%",
-                label = "Rain",
-                valueColor = rainStatusColor(weather.precipitationProbabilityPercent, statusColors)
-            )
-        }
-    }
-}
-
-@Composable
-private fun WeatherMetric(value: String, label: String, valueColor: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            color = valueColor
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun WizardRecommendationCard(
-    recommendation: OutfitEntryWithDetails,
-    onAccept: () -> Unit,
-    onEditOutfit: () -> Unit
-) {
-    val itemsByBodyPart = recommendation.clothingItems.groupBy { it.bodyPart }
-    val ratingText = ratingLabel(recommendation.entry.comfortRating)
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Recommended outfit",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-
-            if (ratingText.isNotEmpty()) {
-                Text(
-                    text = "Last time: $ratingText",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            val notes = recommendation.entry.notes
-            if (notes.isNotEmpty()) {
-                Text(
-                    text = "Outfit notes: $notes",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            BODY_PART_DISPLAY_ORDER.forEach { part ->
-                val items = itemsByBodyPart[part]
-                if (!items.isNullOrEmpty()) {
-                    Text(
-                        text = part.displayName,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items.forEach { item ->
-                            ClothingItemChip(name = item.name)
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(onClick = onAccept, modifier = Modifier.weight(1f)) {
-                    Text("Use outfit")
-                }
-                OutlinedButton(onClick = onEditOutfit, modifier = Modifier.weight(1f)) {
-                    Text("Edit outfit")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun NoRecommendationCard(
-    onCustomOutfit: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "No outfit recommendation found",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "No rated outfits for this temperature yet. Go out and rate your outfit when you return!",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(onClick = onCustomOutfit, modifier = Modifier.fillMaxWidth()) {
-                Text("Custom outfit")
-            }
-        }
-    }
-}
-
-@Composable
 private fun UvInfoCard(uvIndex: Int) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = "UV-Index",
-                style = MaterialTheme.typography.titleMedium
+    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "The UV-Index is $uvIndex. Consider using sun glasses as well as UV sleeves and/or sun lotion.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-    }
-}
-
-@Composable
-private fun WindInfoCard(windSpeedKmh: Int, windDirection: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = "Wind speed",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "The wind speed is $windSpeedKmh km/h. The wind direction is $windDirection.",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Column {
+                Text(
+                    text = "UV-Index $uvIndex",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Consider using sun glasses as well as UV sleeves and/or sun lotion.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

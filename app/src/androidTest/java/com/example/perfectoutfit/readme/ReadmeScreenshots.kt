@@ -125,13 +125,15 @@ class ReadmeScreenshots {
         captureSettings()
     }
 
-    /** Home's cycling recommendation for noon, then Explorer from it, slid to a cold stop. */
+    /** Home's cycling recommendation for noon, then Explorer from the grid, slid to a cold stop. */
     private fun captureHomeAndExplorer() {
         ActivityScenario.launch(MainActivity::class.java).use {
             click("Cycling")
             waitForText("Use outfit")
             screenshots.capture(compose, "home")
 
+            // Explorer opens from the activity grid's app bar, not the result step's.
+            compose.onAllNodesWithContentDescription("Back").onFirst().performClick()
             compose.onAllNodesWithContentDescription("Outfit Explorer").onFirst().performClick()
             waitForText("What you wore")
             val stops = outfits

@@ -46,17 +46,12 @@ Settings re-resolves the [reference temperature](#reference-temperature) (and, i
 the stops and recommendation) while they are open. The Rate screen also collects it, so
 its likely-items follow the preference.
 
-### Weather severity
-The three-band answer (`NONE` / `NOTABLE` / `HIGH`) to "how concerning is this hour's UV
-index, wind speed, or rain probability?", owned by `WeatherThresholds`
-(`feature/home/WeatherSeverity.kt`). Both the Home screen's warning cards (shown at
-`HIGH`) and `WeatherStatusColors` (colours `NONE`/`NOTABLE`/`HIGH` as good/moderate/severe)
-consult it, so a measurement's severity and its colour can never disagree.
-
-Bands: UV `HIGH` is `>= 5` — this was already the threshold the Home screen's UV card
-used (issue #1), so it was kept as the one true threshold rather than the mapper's unused
-`>= 4`. Wind `HIGH` is `>= 20 km/h`. Rain `HIGH` is `>= 50 %` probability (rain currently
-has no Home screen warning card, only a colour).
+### UV warning threshold
+When Home's result step shows its UV warning card: `WeatherThresholds.isUvHigh`
+(`feature/home/WeatherThresholds.kt`), UV `>= 5`. That was already the threshold the
+Home screen's UV card used (issue #1), so it was kept rather than the WHO "high" band of
+`>= 6`. Wind and rain have no warning and no colour bands (issue #23 removed the wind card
+and the good/moderate/severe status colours); the weather card shows their values plainly.
 
 ### Rating reminder
 The notification that asks the user to rate an outfit entry after a workout (activity

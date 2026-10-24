@@ -16,6 +16,7 @@ import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import com.example.perfectoutfit.feature.widget.WidgetForecastStore
 import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,9 @@ import java.io.IOException
 import javax.inject.Inject
 
 enum class WorkoutTab { COLDEST, WARMEST }
+
+/** Where accepting a recommendation stands; Home leaves the result step on [SAVED]. */
+enum class AcceptState { IDLE, SAVING, SAVED, FAILED }
 
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -47,6 +51,7 @@ data class HomeUiState(
     val warmestHourIndex: Int = 0,
     val coldestRecommendation: OutfitEntryWithDetails? = null,
     val warmestRecommendation: OutfitEntryWithDetails? = null,
+    val acceptState: AcceptState = AcceptState.IDLE,
 ) {
     val selectedHour: HourlyWeather? get() = hourlyWeather.getOrNull(selectedHourIndex)
 
@@ -63,6 +68,10 @@ data class HomeUiState(
     }
     val activeDisplayTemp: Int get() =
         activeHour?.referenceTemp(useApparentTemperature)?.roundToInt() ?: 0
+
+    /** The rounded reference temperature of the hour at [index], or null if there is none. */
+    fun displayTempAt(index: Int): Int? =
+        hourlyWeather.getOrNull(index)?.referenceTemp(useApparentTemperature)?.roundToInt()
 }
 
 @HiltViewModel
@@ -128,20 +137,45 @@ class HomeViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(activeWorkoutTab = tab)
     }
 
-    /** Accept recommendation: saves a new outfit entry and schedules a rating notification. */
+    /**
+     * Accept recommendation: saves a new outfit entry and schedules a rating notification.
+     * [HomeUiState.acceptState] reports the outcome; a second accept while one is saving is ignored.
+     */
     fun acceptRecommendation(recommendation: OutfitEntryWithDetails) {
+        val state = _uiState.value
+        if (state.acceptState == AcceptState.SAVING) return
+        val weather = state.activeHour
+        val location = forecast.location
+        if (weather == null || location == null) {
+            _uiState.value = state.copy(acceptState = AcceptState.FAILED)
+            return
+        }
+        _uiState.value = state.copy(acceptState = AcceptState.SAVING)
         viewModelScope.launch {
-            val weather = _uiState.value.activeHour ?: return@launch
-            val location = forecast.location ?: return@launch
-            outfitLogging.log(
-                hour = weather,
-                location = LogLocation(location.name, location.lat, location.lon),
-                activityType = _uiState.value.selectedActivityType,
-                clothingItemIds = recommendation.clothingItems.map { it.id },
-                workoutDurationHours = _uiState.value.workoutDurationHours,
-                mode = LogMode.LIVE
+            val saved = try {
+                outfitLogging.log(
+                    hour = weather,
+                    location = LogLocation(location.name, location.lat, location.lon),
+                    activityType = state.selectedActivityType,
+                    clothingItemIds = recommendation.clothingItems.map { it.id },
+                    workoutDurationHours = state.workoutDurationHours,
+                    mode = LogMode.LIVE
+                )
+                true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false
+            }
+            _uiState.value = _uiState.value.copy(
+                acceptState = if (saved) AcceptState.SAVED else AcceptState.FAILED
             )
         }
+    }
+
+    /** Called once Home has shown a [AcceptState.SAVED] or [AcceptState.FAILED] outcome. */
+    fun onAcceptHandled() {
+        _uiState.value = _uiState.value.copy(acceptState = AcceptState.IDLE)
     }
 
     fun prepareCustomOutfit() {
