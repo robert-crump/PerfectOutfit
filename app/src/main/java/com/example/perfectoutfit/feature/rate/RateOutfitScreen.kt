@@ -2,8 +2,6 @@ package com.example.perfectoutfit.feature.rate
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.os.Build
-import androidx.core.content.ContextCompat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -593,10 +591,9 @@ private fun WeatherInfoRow(label: String, value: String) {
     }
 }
 
-// ─── Chip colors (wallpaper-derived, single color set) ───────────────────────
+// ─── Chip colors ──────────────────────────────────────────────────────────────
 //   • Inactive (deselected): transparent bg → onSurface label (matches header)
-//   • Active   (selected):   accent1 tone 100 (light) → tone 900 label (dark)
-// Falls back to static indigo tones on pre-Android 12 devices.
+//   • Active   (selected):   primaryContainer → onPrimaryContainer label
 
 private data class ChipColorSet(
     val inactiveBg: Color,
@@ -606,25 +603,12 @@ private data class ChipColorSet(
 )
 
 @Composable
-private fun outfitChipColorSet(): ChipColorSet {
-    val inactiveLabel = MaterialTheme.colorScheme.onSurface
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val context = LocalContext.current
-        return ChipColorSet(
-            inactiveBg    = Color.Transparent,
-            inactiveLabel = inactiveLabel,
-            activeBg      = Color(ContextCompat.getColor(context, android.R.color.system_accent1_100)),
-            activeLabel   = Color(ContextCompat.getColor(context, android.R.color.system_accent1_900))
-        )
-    }
-    // Fallback for pre-Android 12
-    return ChipColorSet(
-        inactiveBg    = Color.Transparent,
-        inactiveLabel = inactiveLabel,
-        activeBg      = Color(0xFFE8EAF6), // light indigo
-        activeLabel   = Color(0xFF1A237E)
-    )
-}
+private fun outfitChipColorSet(): ChipColorSet = ChipColorSet(
+    inactiveBg    = Color.Transparent,
+    inactiveLabel = MaterialTheme.colorScheme.onSurface,
+    activeBg      = MaterialTheme.colorScheme.primaryContainer,
+    activeLabel   = MaterialTheme.colorScheme.onPrimaryContainer
+)
 
 // ─── Step 2: All outfit categories on one scrollable screen ──────────────────
 

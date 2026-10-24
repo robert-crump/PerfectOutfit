@@ -26,7 +26,6 @@ import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
 import com.example.perfectoutfit.core.di.ClockModule
 import com.example.perfectoutfit.core.di.LocationModule
-import com.example.perfectoutfit.core.di.ThemeModule
 import com.example.perfectoutfit.core.di.WeatherApiModule
 import com.example.perfectoutfit.core.location.LocationResult
 import com.example.perfectoutfit.core.location.LocationSource
@@ -35,7 +34,6 @@ import com.example.perfectoutfit.core.model.OutfitItem
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.network.OpenMeteoApi
-import com.example.perfectoutfit.ui.theme.ThemeOptions
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -62,7 +60,7 @@ import org.junit.runner.RunWith
  * real devices.
  */
 @HiltAndroidTest
-@UninstallModules(WeatherApiModule::class, LocationModule::class, ClockModule::class, ThemeModule::class)
+@UninstallModules(WeatherApiModule::class, LocationModule::class, ClockModule::class)
 @RunWith(AndroidJUnit4::class)
 class ReadmeScreenshots {
     private val zone = ZoneId.systemDefault()
@@ -86,9 +84,6 @@ class ReadmeScreenshots {
     val location: LocationSource = object : LocationSource {
         override suspend fun current() = LocationResult.Found(DemoForecast.LAT, DemoForecast.LON, DemoForecast.PLACE)
     }
-
-    @BindValue @JvmField
-    val themeOptions = ThemeOptions(dynamicColor = false)
 
     @Inject lateinit var clothingItemDao: ClothingItemDao
     @Inject lateinit var weatherSnapshotDao: WeatherSnapshotDao

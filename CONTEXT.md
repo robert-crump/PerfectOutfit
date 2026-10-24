@@ -75,8 +75,8 @@ there are none (permission denied, location unavailable). Defined by the `Locati
 interface (`core/location/LocationSource.kt`); `AndroidLocationSource` asks the fused
 location provider (last known location first, then a fresh fix) and reverse-geocodes the
 name. `HomeViewModel` cancels the in-flight request when it starts a new one, so a slow
-stale result never overwrites a newer one. Like `OpenMeteoApi` (`WeatherApiModule`), the
-`Clock` (`ClockModule`) and `ThemeOptions` (`ThemeModule`), it sits in its own Hilt module
+stale result never overwrites a newer one. Like `OpenMeteoApi` (`WeatherApiModule`) and the
+`Clock` (`ClockModule`), it sits in its own Hilt module
 so the README screenshot test can replace it with `@TestInstallIn`.
 
 ### Export/import schema

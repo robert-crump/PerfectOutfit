@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Widget, Android 8–11: the app's static palette (values-v31 uses dynamic colours).
+    <!-- Widget: the app's palette (Theme.kt), surfaceContainer with primaryContainer chips.
          Both palettes are named so the widget can force one when the theme isn't System. -->
-    <color name="widget_surface_light">#FFEDF1E6</color>
-    <color name="widget_on_surface_light">#FF1A1C18</color>
-    <color name="widget_on_surface_variant_light">#FF424940</color>
+    <color name="widget_surface_light">#FFEDEDF4</color>
+    <color name="widget_on_surface_light">#FF191C20</color>
+    <color name="widget_on_surface_variant_light">#FF43474E</color>
     <!-- Lit icons sit on a chip; unlit ones are on_surface_variant at 40 % with no chip. -->
-    <color name="widget_chip_light">#FFB1F1A9</color>
-    <color name="widget_on_chip_light">#FF002204</color>
+    <color name="widget_chip_light">#FFD4E3FF</color>
+    <color name="widget_on_chip_light">#FF204876</color>
 
-    <color name="widget_surface_dark">#FF242722</color>
-    <color name="widget_on_surface_dark">#FFE2E3DC</color>
-    <color name="widget_on_surface_variant_dark">#FFC2C9BD</color>
-    <color name="widget_chip_dark">#FF15521B</color>
-    <color name="widget_on_chip_dark">#FFB1F1A9</color>
+    <color name="widget_surface_dark">#FF1D2024</color>
+    <color name="widget_on_surface_dark">#FFE1E2E9</color>
+    <color name="widget_on_surface_variant_dark">#FFC3C6CF</color>
+    <color name="widget_chip_dark">#FF204876</color>
+    <color name="widget_on_chip_dark">#FFD4E3FF</color>
 
     <!-- What the layouts use: the palette of the device's mode. -->
     <color name="widget_surface">@color/widget_surface_light</color>

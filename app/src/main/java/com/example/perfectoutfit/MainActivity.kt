@@ -23,13 +23,11 @@ import com.example.perfectoutfit.navigation.LaunchRequest
 import com.example.perfectoutfit.navigation.LaunchTarget
 import com.example.perfectoutfit.navigation.PerfectOutfitNavHost
 import com.example.perfectoutfit.ui.theme.PerfectOutfitTheme
-import com.example.perfectoutfit.ui.theme.ThemeOptions
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    @Inject lateinit var themeOptions: ThemeOptions
     @Inject lateinit var preferencesManager: PreferencesManager
 
     /** The latest intent's destination; singleTop delivers later ones to [onNewIntent]. */
@@ -68,7 +66,7 @@ class MainActivity : ComponentActivity() {
                     navigationBarStyle = SystemBarStyle.auto(LightScrim, DarkScrim) { darkTheme }
                 )
             }
-            PerfectOutfitTheme(darkTheme = darkTheme, dynamicColor = themeOptions.dynamicColor) {
+            PerfectOutfitTheme(darkTheme = darkTheme) {
                 PerfectOutfitNavHost(launchRequest = launchRequest)
             }
         }
