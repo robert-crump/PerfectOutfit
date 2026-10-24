@@ -27,7 +27,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Warning
@@ -69,7 +68,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -77,10 +75,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
-import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
-import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
-import com.example.perfectoutfit.ui.components.ratingLabel
+import com.example.perfectoutfit.ui.components.OutfitCard
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
@@ -456,7 +452,11 @@ private fun ResultStep(
 
                 val recommendation = uiState.activeRecommendation
                 if (recommendation != null) {
-                    RecommendationCard(recommendation = recommendation, onEditOutfit = onEditOutfit)
+                    OutfitCard(
+                        title = "Recommended outfit",
+                        outfit = recommendation,
+                        onEditOutfit = onEditOutfit
+                    )
                 } else {
                     NoRecommendationCard(displayTemp = uiState.activeDisplayTemp)
                 }
@@ -604,84 +604,6 @@ private fun WeatherMetric(label: String, value: String, unit: String, modifier: 
         )
     }
 }
-
-@Composable
-private fun RecommendationCard(
-    recommendation: OutfitEntryWithDetails,
-    onEditOutfit: () -> Unit
-) {
-    val itemsByBodyPart = recommendation.clothingItems.groupBy { it.bodyPart }
-    val ratingText = ratingLabel(recommendation.entry.comfortRating)
-
-    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
-        Row(
-            modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Recommended outfit",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = onEditOutfit) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit outfit",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        Column(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (ratingText.isNotEmpty()) {
-                Text(
-                    text = "Last time: $ratingText",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-            }
-
-            BODY_PART_DISPLAY_ORDER.forEach { part ->
-                val items = itemsByBodyPart[part]
-                if (!items.isNullOrEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = part.displayName,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            // Lines its first line up with the items' larger text.
-                            modifier = Modifier
-                                .width(BODY_PART_LABEL_WIDTH)
-                                .padding(top = 2.dp)
-                        )
-                        Text(
-                            text = items.joinToString(", ") { it.name },
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-
-            val notes = recommendation.entry.notes
-            if (notes.isNotEmpty()) {
-                Text(
-                    text = notes,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontStyle = FontStyle.Italic,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-        }
-    }
-}
-
-/** Fits "Head and Throat", the longest body part name, on one line. */
-private val BODY_PART_LABEL_WIDTH = 112.dp
 
 @Composable
 private fun NoRecommendationCard(displayTemp: Int) {

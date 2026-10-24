@@ -2,8 +2,6 @@ package com.example.perfectoutfit.feature.explorer
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,8 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -31,12 +27,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
-import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
-import com.example.perfectoutfit.ui.components.ClothingItemChip
 import com.example.perfectoutfit.ui.components.ActivityTypeSelector
+import com.example.perfectoutfit.ui.components.OutfitCard
 import com.example.perfectoutfit.ui.components.TemperatureModeToggle
-import com.example.perfectoutfit.ui.components.ratingLabel
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,67 +117,7 @@ fun ExplorerScreen(
                     }
 
                     uiState.recommendation?.let { recommendation ->
-                        ExplorerRecommendationCard(recommendation)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ExplorerRecommendationCard(recommendation: OutfitEntryWithDetails) {
-    val itemsByBodyPart = recommendation.clothingItems.groupBy { it.bodyPart }
-    val ratingText = ratingLabel(recommendation.entry.comfortRating)
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "What you wore",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-
-            if (ratingText.isNotEmpty()) {
-                Text(
-                    text = "Last time: $ratingText",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            val notes = recommendation.entry.notes
-            if (notes.isNotEmpty()) {
-                Text(
-                    text = "Outfit notes: $notes",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            BODY_PART_DISPLAY_ORDER.forEach { part ->
-                val items = itemsByBodyPart[part]
-                if (!items.isNullOrEmpty()) {
-                    Text(
-                        text = part.displayName,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items.forEach { item ->
-                            ClothingItemChip(name = item.name)
-                        }
+                        OutfitCard(title = "What you wore", outfit = recommendation)
                     }
                 }
             }
