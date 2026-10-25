@@ -3,12 +3,10 @@ package com.example.perfectoutfit.feature.widget
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-import android.os.Bundle
 import android.util.Log
-import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.ColorRes
@@ -25,11 +23,11 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * The 3×1 widget (see "Widget" in CONTEXT.md). Thin shell: [OutfitWidgetContent] decides what
- * it shows, [outfitWidgetViews] turns that into RemoteViews.
+ * One activity type's 1×1 tile (see "Widget" in CONTEXT.md). Thin shell: [OutfitWidgetContent]
+ * decides what it shows, [outfitWidgetViews] turns that into RemoteViews. Each activity type has
+ * its own subclass, so the picker offers one tile per activity type.
  */
-@AndroidEntryPoint
-class OutfitWidgetProvider : AppWidgetProvider() {
+abstract class OutfitWidgetProvider(private val activityType: ActivityType) : AppWidgetProvider() {
 
     @Inject lateinit var content: OutfitWidgetContent
     @Inject lateinit var scheduler: WidgetForecastScheduler
@@ -38,36 +36,21 @@ class OutfitWidgetProvider : AppWidgetProvider() {
         scheduler.schedule()
     }
 
+    /** This activity type's last tile is gone; the refresh stops only when no tile is left at all. */
     override fun onDisabled(context: Context) {
-        scheduler.cancel()
+        if (ActivityType.entries.all { placedWidgetIds(context, it).isEmpty() }) scheduler.cancel()
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        redraw(context, appWidgetManager, appWidgetIds)
-    }
-
-    override fun onAppWidgetOptionsChanged(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetId: Int,
-        newOptions: Bundle
-    ) {
-        redraw(context, appWidgetManager, intArrayOf(appWidgetId))
-    }
-
-    /** Loads the content once and applies it to [ids]; keeps the broadcast alive while it loads. */
-    private fun redraw(context: Context, manager: AppWidgetManager, ids: IntArray) {
         val pending = goAsync()
         val appContext = context.applicationContext
         scope.launch {
             try {
-                val binding = content.load()
-                for (id in ids) {
-                    manager.updateAppWidget(id, outfitWidgetViews(appContext, binding, manager.getAppWidgetOptions(id)))
-                }
+                val views = outfitWidgetViews(appContext, content.load(activityType))
+                appWidgetManager.updateAppWidget(appWidgetIds, views)
             } catch (e: Exception) {
-                // The widget keeps showing its last content; the next redraw tries again.
-                Log.e(TAG, "Redrawing the widget failed", e)
+                // The tile keeps showing its last content; the next redraw tries again.
+                Log.e(TAG, "Redrawing the ${activityType.displayName} widget failed", e)
             } finally {
                 pending.finish()
             }
@@ -80,63 +63,46 @@ class OutfitWidgetProvider : AppWidgetProvider() {
     }
 }
 
-/** Below this height (dp) basis and place share one line. */
-private const val TALL_MIN_HEIGHT_DP = 80
+@AndroidEntryPoint
+class CyclingWidgetProvider : OutfitWidgetProvider(ActivityType.CYCLING)
 
-/**
- * The widget's RemoteViews: the stacked layout on tall widgets, the one-line layout on short
- * ones. Android 12+ picks by size itself; older launchers report the size in [options].
- */
-fun outfitWidgetViews(context: Context, binding: OutfitWidgetBinding, options: Bundle): RemoteViews {
-    val tall = views(context, binding, tall = true)
-    val short = views(context, binding, tall = false)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        return RemoteViews(
-            mapOf(
-                SizeF(0f, 0f) to short,
-                SizeF(0f, TALL_MIN_HEIGHT_DP.toFloat()) to tall
-            )
-        )
-    }
-    // Portrait height is the max height option; most launchers are used in portrait.
-    val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
-    return if (height >= TALL_MIN_HEIGHT_DP) tall else short
+@AndroidEntryPoint
+class RunningWidgetProvider : OutfitWidgetProvider(ActivityType.RUNNING)
+
+@AndroidEntryPoint
+class BikeCommuteWidgetProvider : OutfitWidgetProvider(ActivityType.BIKE_COMMUTE)
+
+@AndroidEntryPoint
+class WalkingWidgetProvider : OutfitWidgetProvider(ActivityType.WALKING)
+
+/** The provider that draws [activityType]'s tiles. */
+fun widgetProviderOf(activityType: ActivityType): Class<out OutfitWidgetProvider> = when (activityType) {
+    ActivityType.CYCLING -> CyclingWidgetProvider::class.java
+    ActivityType.RUNNING -> RunningWidgetProvider::class.java
+    ActivityType.BIKE_COMMUTE -> BikeCommuteWidgetProvider::class.java
+    ActivityType.WALKING -> WalkingWidgetProvider::class.java
 }
 
-/** Each icon twice: on its chip (lit) and faint without one (unlit); only one is visible. */
-private val LIT_ICON_IDS = intArrayOf(R.id.widget_icon_lit_0, R.id.widget_icon_lit_1)
-private val UNLIT_ICON_IDS = intArrayOf(R.id.widget_icon_unlit_0, R.id.widget_icon_unlit_1)
+/** The ids of [activityType]'s tiles on the home screen. */
+fun placedWidgetIds(context: Context, activityType: ActivityType): IntArray =
+    AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, widgetProviderOf(activityType)))
 
-/** Each icon's 30 % of the widget; the whole area is the tap target. */
-private val ICON_AREA_IDS = intArrayOf(R.id.widget_icon_area_0, R.id.widget_icon_area_1)
-
-private fun views(context: Context, binding: OutfitWidgetBinding, tall: Boolean): RemoteViews {
-    val layout = if (tall) R.layout.outfit_widget else R.layout.outfit_widget_short
-    val views = RemoteViews(context.packageName, layout)
+/** The tile's RemoteViews: the icon, lit on its chip or faint, over the temperature and its caption. */
+fun outfitWidgetViews(context: Context, binding: OutfitWidgetBinding): RemoteViews {
+    val views = RemoteViews(context.packageName, R.layout.outfit_widget)
+    views.setImageViewResource(R.id.widget_icon_lit, binding.activityType.iconRes)
+    views.setImageViewResource(R.id.widget_icon_unlit, binding.activityType.iconRes)
+    views.setViewVisibility(R.id.widget_icon_lit, if (binding.lit) View.VISIBLE else View.GONE)
+    views.setViewVisibility(R.id.widget_icon_unlit, if (binding.lit) View.GONE else View.VISIBLE)
     views.setTextViewText(R.id.widget_temperature, binding.valueText)
-    if (tall) {
-        views.setTextViewText(R.id.widget_basis, binding.basisText.orEmpty())
-        views.setViewVisibility(R.id.widget_basis, if (binding.basisText == null) View.GONE else View.VISIBLE)
-        views.setTextViewText(R.id.widget_place, binding.placeText)
-    } else {
-        views.setTextViewText(R.id.widget_place, binding.combinedLine)
-    }
-    binding.icons.forEachIndexed { index, icon ->
-        val lit = LIT_ICON_IDS[index]
-        val unlit = UNLIT_ICON_IDS[index]
-        views.setImageViewResource(lit, icon.activityType.iconRes)
-        views.setImageViewResource(unlit, icon.activityType.iconRes)
-        views.setViewVisibility(lit, if (icon.lit) View.VISIBLE else View.GONE)
-        views.setViewVisibility(unlit, if (icon.lit) View.GONE else View.VISIBLE)
-        views.setContentDescription(ICON_AREA_IDS[index], icon.activityType.displayName)
-        val target = if (binding.iconsOpenActivityType) icon.activityType else null
-        views.setOnClickPendingIntent(ICON_AREA_IDS[index], openHomeIntent(context, target, requestCode = index + 1))
-    }
-    views.setOnClickPendingIntent(R.id.widget_temperature_area, openHomeIntent(context, null, requestCode = 0))
+    views.setTextViewText(R.id.widget_caption, binding.captionText)
+    views.setContentDescription(android.R.id.background, binding.contentDescription)
+    val target = if (binding.opensActivityType) binding.activityType else null
+    views.setOnClickPendingIntent(android.R.id.background, openHomeIntent(context, target))
     when (binding.themeMode) {
         ThemeMode.SYSTEM -> Unit
-        ThemeMode.LIGHT -> forcePalette(context, views, WidgetPalette.LIGHT, tall)
-        ThemeMode.DARK -> forcePalette(context, views, WidgetPalette.DARK, tall)
+        ThemeMode.LIGHT -> forcePalette(context, views, WidgetPalette.LIGHT)
+        ThemeMode.DARK -> forcePalette(context, views, WidgetPalette.DARK)
     }
     return views
 }
@@ -163,27 +129,28 @@ private enum class WidgetPalette(
  * Overrides the layout's colours, which the launcher resolves for the device's mode, with
  * [palette]. Colours are resolved here and passed as values; only the drawables go as resources.
  */
-private fun forcePalette(context: Context, views: RemoteViews, palette: WidgetPalette, tall: Boolean) {
+private fun forcePalette(context: Context, views: RemoteViews, palette: WidgetPalette) {
     views.setInt(android.R.id.background, "setBackgroundResource", palette.background)
     views.setTextColor(R.id.widget_temperature, context.getColor(palette.onSurface))
     val variant = context.getColor(palette.onSurfaceVariant)
-    views.setTextColor(R.id.widget_place, variant)
-    if (tall) views.setTextColor(R.id.widget_basis, variant)
+    views.setTextColor(R.id.widget_caption, variant)
     // A colour filter wins over the layout's android:tint.
-    for (id in LIT_ICON_IDS) {
-        views.setInt(id, "setBackgroundResource", palette.chip)
-        views.setInt(id, "setColorFilter", context.getColor(palette.onChip))
-    }
-    for (id in UNLIT_ICON_IDS) views.setInt(id, "setColorFilter", variant)
+    views.setInt(R.id.widget_icon_lit, "setBackgroundResource", palette.chip)
+    views.setInt(R.id.widget_icon_lit, "setColorFilter", context.getColor(palette.onChip))
+    views.setInt(R.id.widget_icon_unlit, "setColorFilter", variant)
 }
 
-/** Opens Home: on [activityType]'s result step, or on its first step when null. */
-private fun openHomeIntent(context: Context, activityType: ActivityType?, requestCode: Int): PendingIntent {
+/**
+ * Opens Home: on [activityType]'s result step, or on its first step when null. Each activity
+ * type gets its own request code, so one tile's intent never replaces another's extras.
+ */
+private fun openHomeIntent(context: Context, activityType: ActivityType?): PendingIntent {
     val intent = Intent(context, MainActivity::class.java)
         .setAction(MainActivity.ACTION_OPEN_HOME)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
     if (activityType != null) intent.putExtra(MainActivity.EXTRA_ACTIVITY_TYPE, activityType.name)
     return PendingIntent.getActivity(
-        context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        context, activityType?.let { it.ordinal + 1 } ?: 0, intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 }

@@ -55,15 +55,50 @@
             android:name=".core.notification.RateOutfitActionReceiver"
             android:exported="false" />
 
+        <!-- One 1×1 widget per activity type (OutfitWidgetProvider). -->
         <receiver
-            android:name=".feature.widget.OutfitWidgetProvider"
-            android:exported="false">
+            android:name=".feature.widget.CyclingWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label_cycling">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/outfit_widget_info" />
+                android:resource="@xml/outfit_widget_info_cycling" />
+        </receiver>
+        <receiver
+            android:name=".feature.widget.RunningWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label_running">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/outfit_widget_info_running" />
+        </receiver>
+        <receiver
+            android:name=".feature.widget.BikeCommuteWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label_bike_commute">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/outfit_widget_info_bike_commute" />
+        </receiver>
+        <receiver
+            android:name=".feature.widget.WalkingWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label_walking">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/outfit_widget_info_walking" />
         </receiver>
     </application>
 

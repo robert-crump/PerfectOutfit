@@ -146,14 +146,16 @@ The 24 hours from the current clock hour that Home shows (`Forecast.displayWindo
 shorter if the known hours end sooner, empty if all known hours are in the past.
 
 ### Widget
-The 3×1 home-screen widget (issue #22): a launcher into a [recommendation](#recommendation),
-never a display of one. Its left 40 % shows the current hour's [reference temperature](#reference-temperature)
-with its basis ("Feels like" / "Real temp.") and place name, then fixed Bike commute and
-Walking icons, 30 % each. An icon is lit when `Recommendations.find` has an entry for that activity
-type at the current hour's reference temperature: it then sits on a filled chip; otherwise
-it is faint, with no chip (a shape difference, so a greyish wallpaper colour can't hide it).
-Tapping an icon opens Home's result step for that activity type (1 h), through the same unsaved-edits
-confirmation as a tab tap.
+A 1×1 home-screen tile per [activity type](#activity-type) (issue #29, replacing issue #22's
+3×1 widget): a launcher into a [recommendation](#recommendation), never a display of one. Each
+activity type has its own provider (`OutfitWidgetProvider` subclasses, `widgetProviderOf`), so
+the picker lists four tiles and nothing is stored per tile. A tile shows its activity type's icon
+over the current hour's [reference temperature](#reference-temperature) and a caption naming its
+basis (`feels` / `actual`); there is no room for the place name. The icon is lit when
+`Recommendations.find` has an entry for that activity type at that temperature: it then sits on
+a filled chip; otherwise it is faint, with no chip (a shape difference, so a greyish wallpaper
+colour can't hide it). Tapping the tile opens Home's result step for its activity type (1 h),
+lit or not, through the same unsaved-edits confirmation as a tab tap.
 
 **Widget forecast:** the widget never uses `Forecast`. Home saves
 the last resolved place and its hours to DataStore (`WidgetForecast`: location, hours,
@@ -165,9 +167,11 @@ the device; without it, or when no location comes back, it refetches the saved p
 widget follows the *last place the app was opened*. Redraws
 that need no fetch (Home refresh, any [outfit logging](#outfit-logging) write, the
 apparent-vs-real toggle, the theme) go through the `WidgetUpdater` interface, the same
-interface-plus-adapter seam as [Rating reminder](#rating-reminder). With no saved place the
-widget asks you to open the app; when the saved hours don't cover now it shows "–°" and
-dims both icons.
+interface-plus-adapter seam as [Rating reminder](#rating-reminder); it redraws every
+provider's tiles. The refresh runs while any tile is placed: a provider losing its last tile
+cancels it only when no other provider has one. With no saved place a tile shows "–°" and the
+caption `open app`, and a tap opens Home's first step; when the saved hours don't cover now it
+shows "–°", keeps its basis caption and dims the icon.
 
 **Launches:** every intent from outside the app (rating reminder, backup notification,
 widget) becomes one `LaunchTarget` (`MainActivity.launchTargetOf`). `MainActivity` is

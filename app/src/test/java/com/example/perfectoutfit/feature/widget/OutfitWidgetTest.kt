@@ -61,76 +61,68 @@ class OutfitWidgetTest {
     // ── Binder ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `binds the rounded reference temperature, its basis and the place`() {
-        val binding = bindOutfitWidget("Hamburg", hour(now, real = 12.4, apparent = 9.6), useApparent = true, emptySet())
+    fun `binds the rounded reference temperature and its caption`() {
+        val binding = bindOutfitWidget(
+            ActivityType.WALKING, "Hamburg", hour(now, real = 12.4, apparent = 9.6), useApparent = true, recommended = true
+        )
 
+        assertEquals(ActivityType.WALKING, binding.activityType)
         assertEquals("10°", binding.valueText)
-        assertEquals("Feels like", binding.basisText)
-        assertEquals("Hamburg", binding.placeText)
-        assertEquals("Feels like · Hamburg", binding.combinedLine)
-        assertTrue(binding.iconsOpenActivityType)
+        assertEquals("feels", binding.captionText)
+        assertEquals("Walking, 10° feels", binding.contentDescription)
+        assertTrue(binding.lit)
+        assertTrue(binding.opensActivityType)
     }
 
     @Test
-    fun `real temperature basis uses the dry-bulb value`() {
-        val binding = bindOutfitWidget("Hamburg", hour(now, real = 12.4, apparent = 9.6), useApparent = false, emptySet())
+    fun `real temperature caption uses the dry-bulb value`() {
+        val binding = bindOutfitWidget(
+            ActivityType.WALKING, "Hamburg", hour(now, real = 12.4, apparent = 9.6), useApparent = false, recommended = false
+        )
 
         assertEquals("12°", binding.valueText)
-        assertEquals("Actual", binding.basisText)
-    }
-
-    @Test
-    fun `icons are bike commute then walking, lit only when recommended`() {
-        val binding = bindOutfitWidget("Hamburg", hour(now, 10.0), true, setOf(ActivityType.WALKING))
-
-        assertEquals(
-            listOf(
-                WidgetActivityIcon(ActivityType.BIKE_COMMUTE, lit = false),
-                WidgetActivityIcon(ActivityType.WALKING, lit = true)
-            ),
-            binding.icons
-        )
+        assertEquals("actual", binding.captionText)
+        assertFalse(binding.lit)
     }
 
     @Test
     fun `no saved place asks to open the app and opens Home's first step`() {
-        val binding = bindOutfitWidget(null, null, true, emptySet())
+        val binding = bindOutfitWidget(ActivityType.CYCLING, null, null, true, recommended = false)
 
         assertEquals(NO_TEMPERATURE_TEXT, binding.valueText)
-        assertNull(binding.basisText)
-        assertEquals(NO_LOCATION_TEXT, binding.placeText)
-        assertEquals(NO_LOCATION_TEXT, binding.combinedLine)
-        assertFalse(binding.iconsOpenActivityType)
-        assertTrue(binding.icons.none { it.lit })
+        assertEquals(NO_LOCATION_TEXT, binding.captionText)
+        assertFalse(binding.lit)
+        assertFalse(binding.opensActivityType)
     }
 
     @Test
-    fun `saved place without the current hour shows a dash and dims both icons`() {
-        val binding = bindOutfitWidget("Hamburg", null, true, setOf(ActivityType.WALKING))
+    fun `saved place without the current hour shows a dash, keeps the caption and dims the icon`() {
+        val binding = bindOutfitWidget(ActivityType.WALKING, "Hamburg", null, true, recommended = true)
 
         assertEquals(NO_TEMPERATURE_TEXT, binding.valueText)
-        assertEquals("Hamburg", binding.placeText)
-        assertTrue(binding.icons.none { it.lit })
-        assertTrue(binding.iconsOpenActivityType)
+        assertEquals("feels", binding.captionText)
+        assertFalse(binding.lit)
+        assertTrue(binding.opensActivityType)
     }
 
     // ── Content ──────────────────────────────────────────────────────────────
 
     @Test
     fun `nothing saved binds the no-location state`() = runTest {
-        assertEquals(NO_LOCATION_TEXT, content.load().placeText)
+        assertEquals(NO_LOCATION_TEXT, content.load(ActivityType.WALKING).captionText)
     }
 
     @Test
-    fun `lights the activity types with a recommendation at the current hour`() = runTest {
+    fun `lights only the activity type with a recommendation at the current hour`() = runTest {
         store.save(hamburg, listOf(hour(day.atTime(14, 0), 10.0), hour(day.atTime(15, 0), 20.0)))
         entryDao.ratedEntries = listOf(rated(1, ActivityType.WALKING, apparent = 11.0))
 
-        val binding = content.load()
+        val walking = content.load(ActivityType.WALKING)
+        val commute = content.load(ActivityType.BIKE_COMMUTE)
 
-        assertEquals("10°", binding.valueText)
-        assertEquals("Hamburg", binding.placeText)
-        assertEquals(listOf(false, true), binding.icons.map { it.lit })
+        assertEquals("10°", walking.valueText)
+        assertTrue(walking.lit)
+        assertFalse(commute.lit)
     }
 
     @Test
@@ -138,19 +130,19 @@ class OutfitWidgetTest {
         store.save(hamburg, listOf(hour(day.atTime(14, 0), real = 10.0, apparent = 4.0)))
         preferences.setUseApparentTemperature(false)
 
-        val binding = content.load()
+        val binding = content.load(ActivityType.WALKING)
 
         assertEquals("10°", binding.valueText)
-        assertEquals("Actual", binding.basisText)
+        assertEquals("actual", binding.captionText)
     }
 
     @Test
     fun `follows the theme chosen in Settings`() = runTest {
-        assertEquals(ThemeMode.SYSTEM, content.load().themeMode)
+        assertEquals(ThemeMode.SYSTEM, content.load(ActivityType.WALKING).themeMode)
 
         preferences.setThemeMode(ThemeMode.DARK)
 
-        assertEquals(ThemeMode.DARK, content.load().themeMode)
+        assertEquals(ThemeMode.DARK, content.load(ActivityType.WALKING).themeMode)
     }
 
     @Test
@@ -159,11 +151,11 @@ class OutfitWidgetTest {
         val later = Clock.fixed(day.atTime(16, 5).toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
         entryDao.ratedEntries = listOf(rated(1, ActivityType.WALKING, apparent = 10.0))
 
-        val binding = OutfitWidgetContent(store, preferences, Recommendations(entryDao), later).load()
+        val binding = OutfitWidgetContent(store, preferences, Recommendations(entryDao), later)
+            .load(ActivityType.WALKING)
 
         assertEquals(NO_TEMPERATURE_TEXT, binding.valueText)
-        assertEquals("Hamburg", binding.placeText)
-        assertTrue(binding.icons.none { it.lit })
+        assertFalse(binding.lit)
     }
 
     // ── Store ────────────────────────────────────────────────────────────────
