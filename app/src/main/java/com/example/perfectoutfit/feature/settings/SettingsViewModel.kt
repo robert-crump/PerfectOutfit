@@ -10,6 +10,8 @@ import com.example.perfectoutfit.core.location.BackgroundLocationStep
 import com.example.perfectoutfit.core.location.LocationPermissions
 import com.example.perfectoutfit.core.location.nextBackgroundLocationStep
 import com.example.perfectoutfit.core.model.ThemeMode
+import com.example.perfectoutfit.feature.recommendation.ModeComparisonLine
+import com.example.perfectoutfit.feature.recommendation.Recommendations
 import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,7 +29,9 @@ data class SettingsUiState(
     val isProcessing: Boolean = false,
     val useApparentTemperature: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val backgroundLocationGranted: Boolean = false
+    val backgroundLocationGranted: Boolean = false,
+    /** The overall feels-like vs actual line; null until worked out. */
+    val modeComparison: ModeComparisonLine? = null
 )
 
 /** A system screen or dialog the Settings screen opens for the background-location switch. */
@@ -43,7 +47,8 @@ class SettingsViewModel @Inject constructor(
     private val exportImportManager: ExportImportManager,
     private val preferencesManager: PreferencesManager,
     private val widgetUpdater: WidgetUpdater,
-    private val locationPermissions: LocationPermissions
+    private val locationPermissions: LocationPermissions,
+    private val recommendations: Recommendations
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -63,6 +68,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesManager.themeMode.collect { mode ->
                 _uiState.value = _uiState.value.copy(themeMode = mode)
+            }
+        }
+        viewModelScope.launch {
+            recommendations.modeComparison().collect { comparison ->
+                _uiState.value = _uiState.value.copy(modeComparison = comparison.overall)
             }
         }
     }

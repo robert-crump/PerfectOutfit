@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Thermostat
@@ -55,6 +56,7 @@ import com.example.perfectoutfit.core.model.ThemeMode
 @Composable
 fun SettingsScreen(
     onNavigateToCatalog: () -> Unit = {},
+    onNavigateToModeComparison: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -166,6 +168,15 @@ fun SettingsScreen(
                         summary = "Wind and humidity included. Turn off to match on the actual temperature.",
                         onClick = { viewModel.setUseApparentTemperature(!uiState.useApparentTemperature) },
                         trailing = { Switch(checked = uiState.useApparentTemperature, onCheckedChange = null) }
+                    )
+                },
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.Insights,
+                        title = "Compare feels-like and actual",
+                        summary = uiState.modeComparison?.verdictText(),
+                        onClick = onNavigateToModeComparison,
+                        trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) }
                     )
                 }
             )

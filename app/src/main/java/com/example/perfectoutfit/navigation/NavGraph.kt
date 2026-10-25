@@ -54,6 +54,7 @@ import com.example.perfectoutfit.feature.home.HomeLaunch
 import com.example.perfectoutfit.feature.home.HomeLaunchState
 import com.example.perfectoutfit.feature.home.HomeScreen
 import com.example.perfectoutfit.feature.rate.RateOutfitScreen
+import com.example.perfectoutfit.feature.settings.ModeComparisonScreen
 import com.example.perfectoutfit.feature.settings.SettingsScreen
 import kotlinx.coroutines.flow.first
 
@@ -312,6 +313,9 @@ private fun NavGraphContent(
             composable(Screen.Catalog.route) { entry ->
                 CatalogScreen(onNavigateBack = { navController.popBackStackOnce(entry) })
             }
+            composable(Screen.ModeComparison.route) { entry ->
+                ModeComparisonScreen(onNavigateBack = { navController.popBackStackOnce(entry) })
+            }
             composable(
                 route = Screen.RateOutfit.route,
                 arguments = listOf(
@@ -349,7 +353,8 @@ private fun NavGraphContent(
             }
             composable(Screen.Settings.route) { entry ->
                 SettingsScreen(
-                    onNavigateToCatalog = { navController.navigateOnce(entry, Screen.Catalog.route) }
+                    onNavigateToCatalog = { navController.navigateOnce(entry, Screen.Catalog.route) },
+                    onNavigateToModeComparison = { navController.navigateOnce(entry, Screen.ModeComparison.route) }
                 )
             }
         }

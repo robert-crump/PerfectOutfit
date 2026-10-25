@@ -108,6 +108,21 @@ the *coldest* and *warmest* hours (by reference temperature, ties going to the l
 each get their own recommendation. A one-hour window has coldest == warmest. A result is
 discarded (`null`) if the caller's activity type or duration changed while the query ran.
 
+### Mode comparison
+Whether feels-like or actual temperature fits the user's ratings better (issue #28), shown
+under Settings → Recommendations and on its own screen; it never flips the
+[apparent-vs-real preference](#apparent-vs-real-temperature) itself. Worked out live from
+rated history (`Recommendations.modeComparison()`, a flow over all entries); nothing about
+the mode is stored. A **pair** is two rated entries of one activity type with exactly the
+same non-empty item set and different ratings; pairs never cross activity types. Per mode,
+with rounded temperatures as in matching, a pair is consistent (warmer entry, warmer rating:
+too cold < perfect < too hot), contradictory, or tied (same degree, counting half). The
+score is (contradictory + ½ tied) ÷ pairs, lower is better; `ModeComparisonLine` keeps it in
+halves so the arithmetic is exact. There is one line per activity type plus an overall line
+pooling their pairs. A verdict needs ≥ 20 pairs and a gap of ≥ 10 points, else "Not enough
+data yet" or "No clear difference". Item sets are read as they are now, so editing an entry
+or deleting an item can change the pairs.
+
 ### Outfit entry
 The persisted record of one outfit worn for one workout (`OutfitEntry`): its
 [activity type](#activity-type), its clothing items, a `WeatherSnapshot` of the workout hour, an optional comfort rating

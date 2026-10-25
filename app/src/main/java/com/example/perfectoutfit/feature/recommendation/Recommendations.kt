@@ -5,6 +5,8 @@ import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherReading
 import com.example.perfectoutfit.core.model.referenceTemp
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToInt
@@ -64,6 +66,10 @@ class Recommendations @Inject constructor(
             referenceTemp.roundToInt(),
             useApparent
         )
+
+    /** Feels-like vs actual over all rated history, re-emitted whenever entries change. */
+    fun modeComparison(): Flow<ModeComparison> =
+        outfitEntryDao.getAllWithDetails().map(ModeComparisonPolicy::compare)
 
     /** Sorted, distinct rounded reference temperatures that have rated history for [activityType]. */
     suspend fun stops(activityType: ActivityType, useApparent: Boolean): List<Int> =
