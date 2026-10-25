@@ -13,6 +13,7 @@ class FakeOpenMeteoApi(
     private val archiveHours: List<LocalDateTime> = emptyList()
 ) : OpenMeteoApi {
     var forecastCalls = 0
+    val forecastCoordinates = mutableListOf<Pair<Double, Double>>()
     val dateRangeCalls = mutableListOf<Pair<String, String>>()
     var failNext = false
 
@@ -21,6 +22,7 @@ class FakeOpenMeteoApi(
         pastDays: Int, forecastDays: Int
     ): ForecastResponse {
         forecastCalls++
+        forecastCoordinates += latitude to longitude
         checkFail()
         return response(forecastHours)
     }

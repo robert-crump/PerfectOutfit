@@ -1,6 +1,9 @@
 package com.example.perfectoutfit.feature.settings
 
+import android.Manifest
+import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -16,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Upload
@@ -37,9 +41,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.ThemeMode
@@ -57,6 +64,33 @@ fun SettingsScreen(
     // A picked file waiting for the user to confirm that it replaces all data.
     var pendingImport by rememberSaveable { mutableStateOf<Uri?>(null) }
     var choosingTheme by rememberSaveable { mutableStateOf(false) }
+    var explainingBackgroundLocation by rememberSaveable { mutableStateOf(false) }
+    var explainingRevoke by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshPermissions() }
+
+    val foregroundLocationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> viewModel.onForegroundLocationResult(granted) }
+
+    val backgroundLocationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { viewModel.onBackgroundLocationResult() }
+
+    LaunchedEffect(viewModel) {
+        viewModel.permissionActions.collect { action ->
+            when (action) {
+                PermissionAction.RequestForegroundLocation ->
+                    foregroundLocationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                PermissionAction.RequestBackgroundLocation ->
+                    backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                PermissionAction.OpenAppSettings -> context.startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                )
+            }
+        }
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -140,6 +174,24 @@ fun SettingsScreen(
             )
             SectionHint("Affects matching on Home and the temperatures shown in History.")
 
+            SectionHeader("Widget")
+            SettingsGroup(
+                {
+                    SettingsRow(
+                        icon = Icons.Filled.MyLocation,
+                        title = "Follow my location",
+                        summary = "Update the widget's place in the background",
+                        // Revoking can't be done in-app, so switching off explains where to do it.
+                        onClick = {
+                            if (uiState.backgroundLocationGranted) explainingRevoke = true
+                            else explainingBackgroundLocation = true
+                        },
+                        trailing = { Switch(checked = uiState.backgroundLocationGranted, onCheckedChange = null) }
+                    )
+                }
+            )
+            SectionHint("Off, the widget shows the place where you last opened the app.")
+
             SectionHeader("Backup")
             SettingsGroup(
                 {
@@ -183,6 +235,51 @@ fun SettingsScreen(
                 choosingTheme = false
             },
             onDismiss = { choosingTheme = false }
+        )
+    }
+
+    if (explainingBackgroundLocation) {
+        AlertDialog(
+            onDismissRequest = { explainingBackgroundLocation = false },
+            title = { Text("Location in the background") },
+            text = {
+                Text(
+                    "So the widget shows the weather where you are after you travel, the app reads your " +
+                        "location every 30 minutes, also while it's closed. Choose \"Allow all the time\" " +
+                        "in the next step. The location is only used to fetch the local forecast."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    explainingBackgroundLocation = false
+                    viewModel.requestBackgroundLocation()
+                }) { Text("Continue") }
+            },
+            dismissButton = {
+                TextButton(onClick = { explainingBackgroundLocation = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (explainingRevoke) {
+        AlertDialog(
+            onDismissRequest = { explainingRevoke = false },
+            title = { Text("Stop following my location?") },
+            text = {
+                Text(
+                    "Location access can only be changed in system settings. Set it to " +
+                        "\"Allow only while using the app\" to stop background updates."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    explainingRevoke = false
+                    viewModel.openAppSettings()
+                }) { Text("Open settings") }
+            },
+            dismissButton = {
+                TextButton(onClick = { explainingRevoke = false }) { Text("Cancel") }
+            }
         )
     }
 

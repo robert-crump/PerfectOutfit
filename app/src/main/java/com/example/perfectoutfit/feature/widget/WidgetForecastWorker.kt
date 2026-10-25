@@ -9,7 +9,11 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.example.perfectoutfit.core.location.LocationPermissions
+import com.example.perfectoutfit.core.location.LocationResult
+import com.example.perfectoutfit.core.location.LocationSource
 import com.example.perfectoutfit.core.network.OpenMeteoApi
+import com.example.perfectoutfit.feature.forecast.ForecastLocation
 import com.example.perfectoutfit.feature.home.WeatherMapper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -21,23 +25,41 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Refetches the saved place's forecast and redraws the widget; nothing to do while no place is saved. */
+/** Runs [WidgetForecastRefresh]; a failed fetch is retried by the next periodic run. */
 @HiltWorker
 class WidgetForecastWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val api: OpenMeteoApi,
-    private val store: WidgetForecastStore,
-    private val widgetUpdater: WidgetUpdater
+    private val refresh: WidgetForecastRefresh
 ) : CoroutineWorker(context, params) {
 
-    // A failed fetch is retried by the next periodic run; the redraw still moves the widget to
-    // the current hour of the hours already saved.
     override suspend fun doWork(): Result {
-        val saved = store.load() ?: return Result.success()
+        refresh.run()
+        return Result.success()
+    }
+}
+
+/**
+ * Refetches the widget's forecast and redraws it. With background location granted it follows
+ * the device; otherwise (or when no location comes back) it stays on the saved place. Nothing to
+ * do while neither is known.
+ */
+class WidgetForecastRefresh @Inject constructor(
+    private val api: OpenMeteoApi,
+    private val store: WidgetForecastStore,
+    private val widgetUpdater: WidgetUpdater,
+    private val locationSource: LocationSource,
+    private val locationPermissions: LocationPermissions
+) {
+    // The redraw also runs after a failed fetch: it moves the widget to the current hour of the
+    // hours already saved.
+    suspend fun run() {
+        val here = deviceLocation()
+        val saved = store.load()?.location
+        val location = here ?: saved ?: return
         try {
-            val hours = WeatherMapper.extractAllHours(api.getForecast(saved.location.lat, saved.location.lon))
-            store.saveIfStillAt(saved.location, hours)
+            val hours = WeatherMapper.extractAllHours(api.getForecast(location.lat, location.lon))
+            if (here != null) store.save(here, hours) else store.saveIfStillAt(location, hours)
         } catch (e: IOException) {
             // Offline: keep the saved hours.
         } catch (e: HttpException) {
@@ -46,7 +68,12 @@ class WidgetForecastWorker @AssistedInject constructor(
             // Malformed response: keep the saved hours.
         }
         widgetUpdater.redraw()
-        return Result.success()
+    }
+
+    private suspend fun deviceLocation(): ForecastLocation? {
+        if (!locationPermissions.hasBackground()) return null
+        val found = locationSource.current() as? LocationResult.Found ?: return null
+        return ForecastLocation(found.lat, found.lon, found.name)
     }
 }
 

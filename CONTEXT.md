@@ -155,11 +155,14 @@ it is faint, with no chip (a shape difference, so a greyish wallpaper colour can
 Tapping an icon opens Home's result step for that activity type (1 h), through the same unsaved-edits
 confirmation as a tab tap.
 
-**Widget forecast:** the widget never uses `Forecast` or location services. Home saves
+**Widget forecast:** the widget never uses `Forecast`. Home saves
 the last resolved place and its hours to DataStore (`WidgetForecast`: location, hours,
 fetch time), a disposable cache outside Room and outside the
-[export/import schema](#exportimport-schema). A 30-minute worker refetches for that saved
-place, so the widget follows the *last place the app was opened*, not the device. Redraws
+[export/import schema](#exportimport-schema). A 30-minute worker (`WidgetForecastRefresh`)
+refetches. With background location granted (opt-in: Settings → Widget → "Follow my location",
+issue #27) it asks `LocationSource` first and saves the device's place, so the widget follows
+the device; without it, or when no location comes back, it refetches the saved place, so the
+widget follows the *last place the app was opened*. Redraws
 that need no fetch (Home refresh, any [outfit logging](#outfit-logging) write, the
 apparent-vs-real toggle, the theme) go through the `WidgetUpdater` interface, the same
 interface-plus-adapter seam as [Rating reminder](#rating-reminder). With no saved place the
