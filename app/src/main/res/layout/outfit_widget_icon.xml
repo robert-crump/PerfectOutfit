@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A tile's activity icon, shared by the 1×1 tile and the 2×2 grid's tiles: lit, on a chip, or unlit, faint with no chip. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+    <ImageView
+        android:id="@+id/widget_icon_lit"
+        android:layout_width="52dp"
+        android:layout_height="32dp"
+        android:background="@drawable/outfit_widget_chip"
+        android:importantForAccessibility="no"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="4dp"
+        android:src="@drawable/ic_work"
+        android:tint="@color/widget_on_chip"
+        android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/widget_icon_unlit"
+        android:layout_width="52dp"
+        android:layout_height="32dp"
+        android:alpha="0.4"
+        android:importantForAccessibility="no"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="4dp"
+        android:src="@drawable/ic_work"
+        android:tint="@color/widget_on_surface_variant" />
+</FrameLayout>

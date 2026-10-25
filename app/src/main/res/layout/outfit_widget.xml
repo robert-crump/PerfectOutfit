@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One activity type's 1×1 tile: its icon (lit: on a chip; unlit: faint, no chip) over the temperature and its caption, with equal gaps above the icon, between icon and temperature, and below the caption. The whole tile is the tap target. -->
+<!-- One activity type's 1×1 tile: its icon (outfit_widget_icon; lit: on a chip; unlit: faint, no chip) over the temperature and its caption, with equal gaps above the icon, between icon and temperature, and below the caption. The whole tile is the tap target. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
@@ -14,28 +14,7 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <ImageView
-        android:id="@+id/widget_icon_lit"
-        android:layout_width="52dp"
-        android:layout_height="32dp"
-        android:background="@drawable/outfit_widget_chip"
-        android:importantForAccessibility="no"
-        android:paddingHorizontal="14dp"
-        android:paddingVertical="4dp"
-        android:src="@drawable/ic_work"
-        android:tint="@color/widget_on_chip"
-        android:visibility="gone" />
-
-    <ImageView
-        android:id="@+id/widget_icon_unlit"
-        android:layout_width="52dp"
-        android:layout_height="32dp"
-        android:alpha="0.4"
-        android:importantForAccessibility="no"
-        android:paddingHorizontal="14dp"
-        android:paddingVertical="4dp"
-        android:src="@drawable/ic_work"
-        android:tint="@color/widget_on_surface_variant" />
+    <include layout="@layout/outfit_widget_icon" />
 
     <FrameLayout
         android:layout_width="match_parent"

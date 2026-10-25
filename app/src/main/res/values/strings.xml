@@ -17,6 +17,8 @@
     <string name="widget_label_running">Running</string>
     <string name="widget_label_bike_commute">Bike commute</string>
     <string name="widget_label_walking">Walking</string>
+    <string name="widget_label_grid">All activities</string>
+    <string name="widget_description_grid">Which activities have an outfit recommended for now</string>
     <string name="widget_no_temperature">–°</string>
     <string name="widget_preview_temperature">14°</string>
     <string name="widget_preview_caption">feels</string>

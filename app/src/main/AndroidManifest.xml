@@ -100,6 +100,18 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/outfit_widget_info_walking" />
         </receiver>
+        <!-- The 2×2 grid of all four activity types (GridWidgetProvider). -->
+        <receiver
+            android:name=".feature.widget.GridWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label_grid">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/outfit_widget_info_grid" />
+        </receiver>
     </application>
 
 </manifest>

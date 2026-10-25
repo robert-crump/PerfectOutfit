@@ -158,6 +158,61 @@ class OutfitWidgetTest {
         assertFalse(binding.lit)
     }
 
+    // ── Grid ─────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `grid binds every activity type in order and lights only those with a recommendation`() = runTest {
+        store.save(hamburg, listOf(hour(day.atTime(14, 0), 10.0)))
+        entryDao.ratedEntries = listOf(
+            rated(1, ActivityType.CYCLING, apparent = 10.0),
+            rated(2, ActivityType.WALKING, apparent = 11.0)
+        )
+
+        val bindings = content.loadAll()
+
+        assertEquals(ActivityType.entries, bindings.map { it.activityType })
+        assertEquals(listOf(true, false, false, true), bindings.map { it.lit })
+        assertTrue(bindings.all { it.opensActivityType })
+    }
+
+    @Test
+    fun `grid with nothing saved is all faint and opens Home's first step`() = runTest {
+        val bindings = content.loadAll()
+
+        assertTrue(bindings.none { it.lit })
+        assertTrue(bindings.none { it.opensActivityType })
+    }
+
+    @Test
+    fun `grid whose saved hours don't cover now is all faint but still opens each result step`() = runTest {
+        store.save(hamburg, listOf(hour(day.atTime(14, 0), 10.0)))
+        val later = Clock.fixed(day.atTime(16, 5).toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
+        entryDao.ratedEntries = listOf(rated(1, ActivityType.WALKING, apparent = 10.0))
+
+        val bindings = OutfitWidgetContent(store, preferences, Recommendations(entryDao), later).loadAll()
+
+        assertTrue(bindings.none { it.lit })
+        assertTrue(bindings.all { it.opensActivityType })
+    }
+
+    @Test
+    fun `grid tiles tell TalkBack whether there's a recommendation now`() {
+        val current = hour(now, 10.0)
+
+        assertEquals(
+            "Cycling, recommendation now",
+            bindOutfitWidget(ActivityType.CYCLING, "Hamburg", current, true, recommended = true).gridContentDescription
+        )
+        assertEquals(
+            "Running, no recommendation now",
+            bindOutfitWidget(ActivityType.RUNNING, "Hamburg", current, true, recommended = false).gridContentDescription
+        )
+        assertEquals(
+            "Walking, open app",
+            bindOutfitWidget(ActivityType.WALKING, null, null, true, recommended = false).gridContentDescription
+        )
+    }
+
     // ── Store ────────────────────────────────────────────────────────────────
 
     @Test

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget picker preview for the 2×2 grid: Cycling and Walking lit, Running and Bike commute faint. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/outfit_widget_background">
+
+            <ImageView
+                android:layout_width="52dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                android:background="@drawable/outfit_widget_chip"
+                android:importantForAccessibility="no"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="4dp"
+                android:src="@drawable/ic_bike"
+                android:tint="@color/widget_on_chip" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/outfit_widget_background">
+
+            <ImageView
+                android:layout_width="52dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                android:alpha="0.4"
+                android:importantForAccessibility="no"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="4dp"
+                android:src="@drawable/ic_sprint"
+                android:tint="@color/widget_on_surface_variant" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="4dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/outfit_widget_background">
+
+            <ImageView
+                android:layout_width="52dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                android:alpha="0.4"
+                android:importantForAccessibility="no"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="4dp"
+                android:src="@drawable/ic_work"
+                android:tint="@color/widget_on_surface_variant" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/outfit_widget_background">
+
+            <ImageView
+                android:layout_width="52dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                android:background="@drawable/outfit_widget_chip"
+                android:importantForAccessibility="no"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="4dp"
+                android:src="@drawable/ic_walk"
+                android:tint="@color/widget_on_chip" />
+        </FrameLayout>
+    </LinearLayout>
+</LinearLayout>

@@ -172,6 +172,15 @@ a filled chip; otherwise it is faint, with no chip (a shape difference, so a gre
 colour can't hide it). Tapping the tile opens Home's result step for its activity type (1 h),
 lit or not, through the same unsaved-edits confirmation as a tab tap.
 
+**Grid widget:** a 2×2 widget (`GridWidgetProvider`, issue #30) of four separate tiles, one per
+activity type in `ActivityType` order (Cycling, Running / Bike commute, Walking), nothing stored
+per widget. Each tile is the 1×1 tile's background and icon without any text (no temperature,
+caption or place), lit or faint by the same rule, and is its own tap target onto its activity
+type's result step. Both widgets share the icon layout (`outfit_widget_icon`) and its binding
+(`bindTile`); the grid adds each tile into its slot as a nested RemoteViews. With no saved place, or
+when the saved hours don't cover now, all four tiles are faint; with no saved place a tap opens
+Home's first step, and TalkBack reads "open app" for it.
+
 **Widget forecast:** the widget never uses `Forecast`. Home saves
 the last resolved place and its hours to DataStore (`WidgetForecast`: location, hours,
 fetch time), a disposable cache outside Room and outside the
