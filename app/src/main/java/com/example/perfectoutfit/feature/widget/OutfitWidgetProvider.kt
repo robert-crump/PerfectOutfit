@@ -91,7 +91,7 @@ class BikeCommuteWidgetProvider : ActivityWidgetProvider(ActivityType.BIKE_COMMU
 @AndroidEntryPoint
 class WalkingWidgetProvider : ActivityWidgetProvider(ActivityType.WALKING)
 
-/** The 2×2 grid: every activity type's tile, without the text (issue #30). */
+/** The 2×1 grid: every activity type's tile, without the text (issue #30). */
 @AndroidEntryPoint
 class GridWidgetProvider : OutfitWidgetProvider() {
     override val logName: String get() = "grid"

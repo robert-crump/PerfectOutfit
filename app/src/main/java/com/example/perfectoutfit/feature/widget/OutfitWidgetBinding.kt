@@ -29,7 +29,7 @@ data class OutfitWidgetBinding(
     /** What TalkBack reads for the whole tile. */
     val contentDescription: String get() = "${activityType.displayName}, $valueText $captionText"
 
-    /** What TalkBack reads for this activity type's tile in the 2×2 grid, which has no text. */
+    /** What TalkBack reads for this activity type's tile in the 2×1 grid, which has no text. */
     val gridContentDescription: String get() = "${activityType.displayName}, " + when {
         !opensActivityType -> NO_LOCATION_TEXT
         lit -> RECOMMENDED_NOW_TEXT

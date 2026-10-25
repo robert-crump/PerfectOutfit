@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget picker preview for the 2×2 grid: Cycling and Walking lit, Running and Bike commute faint. -->
+<!-- Widget picker preview for the 2×1 grid: Cycling and Walking lit, Running and Bike commute faint. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"

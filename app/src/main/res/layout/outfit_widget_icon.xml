@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A tile's activity icon, shared by the 1×1 tile and the 2×2 grid's tiles: lit, on a chip, or unlit, faint with no chip. -->
+<!-- A tile's activity icon, shared by the 1×1 tile and the 2×1 grid's tiles: lit, on a chip, or unlit, faint with no chip. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">

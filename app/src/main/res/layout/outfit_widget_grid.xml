@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The 2×2 grid: one tile per activity type, in ActivityType order, 4dp apart. outfitWidgetViews adds each tile (outfit_widget_grid_tile) into its slot. -->
+<!-- The 2×1 grid: one tile per activity type in two rows of two, in ActivityType order, 4dp apart. gridWidgetViews adds each tile (outfit_widget_grid_tile) into its slot. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"

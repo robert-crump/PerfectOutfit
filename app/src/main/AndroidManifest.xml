@@ -100,7 +100,7 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/outfit_widget_info_walking" />
         </receiver>
-        <!-- The 2×2 grid of all four activity types (GridWidgetProvider). -->
+        <!-- The 2×1 grid of all four activity types (GridWidgetProvider). -->
         <receiver
             android:name=".feature.widget.GridWidgetProvider"
             android:exported="false"
