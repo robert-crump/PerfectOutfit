@@ -76,7 +76,7 @@ class OutfitWidgetTest {
         val binding = bindOutfitWidget("Hamburg", hour(now, real = 12.4, apparent = 9.6), useApparent = false, emptySet())
 
         assertEquals("12°", binding.valueText)
-        assertEquals("Real temp.", binding.basisText)
+        assertEquals("Actual", binding.basisText)
     }
 
     @Test
@@ -141,7 +141,7 @@ class OutfitWidgetTest {
         val binding = content.load()
 
         assertEquals("10°", binding.valueText)
-        assertEquals("Real temp.", binding.basisText)
+        assertEquals("Actual", binding.basisText)
     }
 
     @Test

@@ -79,6 +79,7 @@ import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.ui.components.OutfitCard
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 private enum class WizardStep { LOCATION_ACTIVITY_TYPE, RESULT }
 
@@ -458,7 +459,10 @@ private fun ResultStep(
                         onEditOutfit = onEditOutfit
                     )
                 } else {
-                    NoRecommendationCard(displayTemp = uiState.activeDisplayTemp)
+                    NoRecommendationCard(
+                        displayTemp = uiState.activeDisplayTemp,
+                        useApparentTemperature = uiState.useApparentTemperature
+                    )
                 }
 
                 if (currentWeather != null && WeatherThresholds.isUvHigh(currentWeather.uvIndex)) {
@@ -527,6 +531,13 @@ private fun WeatherCard(
     val tempLabel = stringResource(
         if (useApparentTemperature) R.string.temperature_apparent else R.string.temperature_real
     )
+    // The value not used for matching, shown smaller so a surprising number explains itself
+    val otherLabel = stringResource(
+        if (useApparentTemperature) R.string.temperature_real else R.string.temperature_apparent
+    )
+    val otherTemp = (
+        if (useApparentTemperature) weather.temperatureCelsius else weather.apparentTemperatureCelsius
+    ).roundToInt()
 
     Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
         Row(
@@ -543,6 +554,11 @@ private fun WeatherCard(
                 Text(
                     text = tempLabel,
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "$otherLabel ${otherTemp}°C",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Row(
@@ -606,11 +622,12 @@ private fun WeatherMetric(label: String, value: String, unit: String, modifier: 
 }
 
 @Composable
-private fun NoRecommendationCard(displayTemp: Int) {
+private fun NoRecommendationCard(displayTemp: Int, useApparentTemperature: Boolean) {
+    val mode = if (useApparentTemperature) "feels-like" else "actual"
     Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "No outfit for $displayTemp° yet",
+                text = "No outfit for $mode $displayTemp° yet",
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(4.dp))

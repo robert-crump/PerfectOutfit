@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
-import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,10 +20,15 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.roundToInt
 
-/** A History row: the entry plus its reference temperature, rounded, as Home and Explorer show it. */
+/**
+ * A History row: the entry plus both temperatures, rounded. [useApparent] is the current
+ * setting, so the row can highlight the value matching uses now.
+ */
 data class HistoryItem(
     val details: OutfitEntryWithDetails,
-    val temperatureCelsius: Int
+    val actualCelsius: Int,
+    val feelsLikeCelsius: Int,
+    val useApparent: Boolean
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -45,7 +49,14 @@ class HistoryViewModel @Inject constructor(
             else outfitLogging.allEntries()
         }
         .combine(preferencesManager.useApparentTemperature) { entries, useApparent ->
-            entries.map { HistoryItem(it, it.weatherSnapshot.referenceTemp(useApparent).roundToInt()) }
+            entries.map {
+                HistoryItem(
+                    details = it,
+                    actualCelsius = it.weatherSnapshot.temperatureCelsius.roundToInt(),
+                    feelsLikeCelsius = it.weatherSnapshot.apparentTemperatureCelsius.roundToInt(),
+                    useApparent = useApparent
+                )
+            }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 

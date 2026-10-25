@@ -54,14 +54,20 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun `temperature follows the apparent-temperature setting`() = runTest {
+    fun `rows carry both temperatures and the highlight follows the apparent-temperature setting`() = runTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.entries.collect {} }
 
-        assertEquals(listOf(10, -7), viewModel.entries.value!!.map { it.temperatureCelsius })
+        val items = viewModel.entries.value!!
+        assertEquals(listOf(12, -3), items.map { it.actualCelsius })
+        assertEquals(listOf(10, -7), items.map { it.feelsLikeCelsius })
+        assertTrue(items.all { it.useApparent })
 
         preferences.setUseApparentTemperature(false)
 
-        assertEquals(listOf(12, -3), viewModel.entries.value!!.map { it.temperatureCelsius })
+        val switched = viewModel.entries.value!!
+        assertEquals(listOf(12, -3), switched.map { it.actualCelsius })
+        assertEquals(listOf(10, -7), switched.map { it.feelsLikeCelsius })
+        assertTrue(switched.none { it.useApparent })
     }
 
     @Test

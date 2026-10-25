@@ -260,7 +260,7 @@ private fun RateExistingOutfitContent(
                 }
                 Text(
                     text = "Weather: ${ws.temperatureCelsius.roundToInt()}\u00B0C " +
-                        "(${stringResource(R.string.temperature_apparent).lowercase()}: " +
+                        "(${stringResource(R.string.temperature_apparent).lowercase()} " +
                         "${ws.apparentTemperatureCelsius.roundToInt()}\u00B0C)",
                     style = MaterialTheme.typography.titleMedium
                 )

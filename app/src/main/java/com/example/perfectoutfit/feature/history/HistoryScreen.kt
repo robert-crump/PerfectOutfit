@@ -49,9 +49,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -285,14 +288,26 @@ private fun HistoryCard(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Fixed width so the columns line up whether it is 5°C or −12°C
+            // Actual / feels like, always in that order; the value matching uses now stands out.
+            // Fixed width so the columns line up whether it is 5° / 3° or −12° / −18°
+            val inUseText = if (selected)
+                MaterialTheme.colorScheme.onSecondaryContainer
+            else
+                MaterialTheme.colorScheme.onSurface
             Text(
-                text = "${item.temperatureCelsius}°C",
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(color = if (item.useApparent) secondaryText else inUseText)) {
+                        append("${item.actualCelsius}°")
+                    }
+                    withStyle(SpanStyle(color = secondaryText)) { append(" / ") }
+                    withStyle(SpanStyle(color = if (item.useApparent) inUseText else secondaryText)) {
+                        append("${item.feelsLikeCelsius}°")
+                    }
+                },
                 style = MaterialTheme.typography.bodyLarge,
-                color = secondaryText,
                 textAlign = TextAlign.End,
                 maxLines = 1,
-                modifier = Modifier.width(64.dp)
+                modifier = Modifier.width(88.dp)
             )
 
             Spacer(modifier = Modifier.width(8.dp))

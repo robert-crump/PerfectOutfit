@@ -162,17 +162,14 @@ fun SettingsScreen(
                 {
                     SettingsRow(
                         icon = Icons.Filled.Thermostat,
-                        title = stringResource(
-                            R.string.settings_use_apparent_temperature,
-                            stringResource(R.string.temperature_apparent)
-                        ),
-                        summary = "Feels-like instead of actual temperature",
+                        title = stringResource(R.string.settings_use_apparent_temperature),
+                        summary = "Wind and humidity included. Turn off to match on the actual temperature.",
                         onClick = { viewModel.setUseApparentTemperature(!uiState.useApparentTemperature) },
                         trailing = { Switch(checked = uiState.useApparentTemperature, onCheckedChange = null) }
                     )
                 }
             )
-            SectionHint("Affects matching on Home and the temperatures shown in History.")
+            SectionHint("Home and History show both temperatures and highlight the one used for matching.")
 
             SectionHeader("Widget")
             SettingsGroup(

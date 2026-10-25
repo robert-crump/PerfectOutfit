@@ -22,7 +22,7 @@ data class WidgetActivityIcon(val activityType: ActivityType, val lit: Boolean)
 data class OutfitWidgetBinding(
     /** The rounded reference temperature ("12°"), or "–°" when there is none. */
     val valueText: String,
-    /** "Feels like" / "Real temp."; null when no place is saved. */
+    /** "Feels like" / "Actual"; null when no place is saved. */
     val basisText: String?,
     /** The saved place's name, or the hint to open the app. */
     val placeText: String,
@@ -56,7 +56,7 @@ fun bindOutfitWidget(
     }
     return OutfitWidgetBinding(
         valueText = hour?.let { "${it.referenceTemp(useApparent).roundToInt()}°" } ?: NO_TEMPERATURE_TEXT,
-        basisText = if (useApparent) "Feels like" else "Real temp.",
+        basisText = if (useApparent) "Feels like" else "Actual",
         placeText = placeName,
         icons = icons,
         iconsOpenActivityType = true
