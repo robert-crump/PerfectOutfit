@@ -50,8 +50,16 @@ its likely-items follow the preference.
 When Home's result step shows its UV warning card: `WeatherThresholds.isUvHigh`
 (`feature/home/WeatherThresholds.kt`), UV `>= 5`. That was already the threshold the
 Home screen's UV card used (issue #1), so it was kept rather than the WHO "high" band of
-`>= 6`. Wind and rain have no warning and no colour bands (issue #23 removed the wind card
-and the good/moderate/severe status colours); the weather card shows their values plainly.
+`>= 6`. Wind has no warning and no colour bands (issue #23 removed the wind card and the
+good/moderate/severe status colours); the weather card shows wind and rain values plainly.
+
+### Rain ahead
+When Home's result step shows its umbrella card: `WeatherThresholds.rainAhead`, the first
+hour from now to the end of today whose precipitation probability is `>= 50 %`, with the
+day's remaining peak. It is judged from the current hour, not the hour being dressed for
+(a long workout's coldest/warmest hour), because it answers what to pack, not what to wear;
+rain after midnight doesn't count. When the current hour itself is likely, the card says
+"Rain likely now" instead of a start time.
 
 ### Rating reminder
 The notification that asks the user to rate an outfit entry after a workout (activity

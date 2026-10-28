@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Umbrella
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -465,6 +466,9 @@ private fun ResultStep(
                     )
                 }
 
+                // Judged from now, not the workout's hour: it's about what to pack, not what to wear.
+                WeatherThresholds.rainAhead(uiState.hourlyWeather)?.let { RainAheadCard(it) }
+
                 if (currentWeather != null && WeatherThresholds.isUvHigh(currentWeather.uvIndex)) {
                     UvInfoCard(uvIndex = currentWeather.uvIndex)
                 }
@@ -636,6 +640,36 @@ private fun NoRecommendationCard(displayTemp: Int, useApparentTemperature: Boole
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun RainAheadCard(rain: RainAhead) {
+    val title = if (rain.startsNow) "Rain likely now"
+    else "Rain likely from ${rain.from.format(DateTimeFormatter.ofPattern("HH:mm"))}"
+    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Umbrella,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary
+            )
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Up to ${rain.peakPercent} % later today. Consider packing an umbrella or a rain jacket.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
