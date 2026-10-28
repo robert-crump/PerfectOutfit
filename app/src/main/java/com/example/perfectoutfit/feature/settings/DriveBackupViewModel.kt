@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.perfectoutfit.feature.backup.BackupFailure
 import com.example.perfectoutfit.feature.backup.BackupOutcome
 import com.example.perfectoutfit.feature.backup.BackupSnapshot
 import com.example.perfectoutfit.feature.backup.BackupStateStore
@@ -26,6 +27,8 @@ data class DriveBackupUiState(
     /** The connected Google account, or null while disconnected. */
     val account: String? = null,
     val lastBackupTime: Long? = null,
+    /** Why the last scheduled backup gave up, until the next successful backup. */
+    val lastFailure: BackupFailure? = null,
     /** A connect, backup, or restore is in flight. */
     val isBusy: Boolean = false,
     val message: String? = null,
@@ -45,7 +48,9 @@ class DriveBackupViewModel @Inject constructor(
     private val state: BackupStateStore
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(DriveBackupUiState(lastBackupTime = state.lastBackupTime))
+    private val _uiState = MutableStateFlow(
+        DriveBackupUiState(lastBackupTime = state.lastBackupTime, lastFailure = state.lastFailure)
+    )
     val uiState: StateFlow<DriveBackupUiState> = _uiState.asStateFlow()
 
     private var pendingAccount: String? = null
@@ -53,7 +58,9 @@ class DriveBackupViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             auth.connectedAccount.collect { account ->
-                _uiState.update { it.copy(account = account, lastBackupTime = state.lastBackupTime) }
+                _uiState.update {
+                    it.copy(account = account, lastBackupTime = state.lastBackupTime, lastFailure = state.lastFailure)
+                }
             }
         }
     }
@@ -138,7 +145,9 @@ class DriveBackupViewModel @Inject constructor(
         BackupOutcome.SKIPPED -> "Already backed up, nothing has changed"
     }
 
-    private fun refreshLastBackup() = _uiState.update { it.copy(lastBackupTime = state.lastBackupTime) }
+    private fun refreshLastBackup() = _uiState.update {
+        it.copy(lastBackupTime = state.lastBackupTime, lastFailure = state.lastFailure)
+    }
 
     private fun showMessage(message: String) = _uiState.update { it.copy(message = message) }
 

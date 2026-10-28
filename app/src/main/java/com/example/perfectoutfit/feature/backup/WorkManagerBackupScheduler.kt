@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.backup
 
 import android.content.Context
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -19,6 +20,7 @@ class WorkManagerBackupScheduler @Inject constructor(
     override fun schedule() {
         val request = PeriodicWorkRequestBuilder<BackupWorker>(1, TimeUnit.DAYS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
             .build()
         WorkManager.getInstance(context)
             .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
@@ -30,5 +32,6 @@ class WorkManagerBackupScheduler @Inject constructor(
 
     private companion object {
         const val WORK_NAME = "drive_backup"
+        const val RETRY_BACKOFF_MINUTES = 15L
     }
 }

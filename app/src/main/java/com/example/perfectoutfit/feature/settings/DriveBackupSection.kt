@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.perfectoutfit.feature.backup.BackupFailure
 import com.example.perfectoutfit.feature.backup.BackupSnapshot
 import com.example.perfectoutfit.feature.backup.BackupTimeFormat
 import com.example.perfectoutfit.feature.backup.SnapshotCompatibility
@@ -91,7 +92,7 @@ fun DriveBackupSection(
             SettingsRow(
                 icon = Icons.Filled.CloudUpload,
                 title = "Back up now",
-                summary = "Last backed up: " + (state.lastBackupTime?.let(BackupTimeFormat::format) ?: "never"),
+                summary = backupSummary(state.lastBackupTime, state.lastFailure),
                 enabled = connected && !state.isBusy,
                 onClick = { start(DriveAction.BACKUP, viewModel::backupNow) },
                 trailing = spinnerFor(DriveAction.BACKUP)
@@ -136,6 +137,16 @@ fun DriveBackupSection(
 }
 
 private enum class DriveAction { CONNECTION, BACKUP, RESTORE }
+
+/** The "Back up now" summary: the last success, then why the automatic backup last gave up, if it has since. */
+internal fun backupSummary(
+    lastBackupTime: Long?,
+    lastFailure: BackupFailure?,
+    format: (Long) -> String = { BackupTimeFormat.format(it) }
+): String {
+    val lastBackup = "Last backed up: " + (lastBackupTime?.let(format) ?: "never")
+    return lastFailure?.let { "$lastBackup\nAutomatic backup failed ${format(it.time)}: ${it.reason}" } ?: lastBackup
+}
 
 @Composable
 private fun SnapshotPickerDialog(

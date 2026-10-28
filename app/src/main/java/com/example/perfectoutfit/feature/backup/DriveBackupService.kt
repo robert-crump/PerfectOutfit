@@ -28,14 +28,18 @@ class DriveBackupService(
 ) {
     /**
      * Uploads a snapshot unless the export is unchanged since the last backup *and* the Drive
-     * folder still holds at least one backup (a deleted folder must be repopulated).
+     * folder still holds at least one backup (a deleted folder must be repopulated). Either way, a
+     * success forgets the last scheduled failure.
      */
     suspend fun backup(): BackupOutcome {
         val json = exportImport.exportToJson()
         val hash = sha256(json)
         val folderId = drive.findOrCreateFolder(FOLDER_NAME)
 
-        if (hash == state.lastHash && backupsIn(folderId).isNotEmpty()) return BackupOutcome.SKIPPED
+        if (hash == state.lastHash && backupsIn(folderId).isNotEmpty()) {
+            state.lastFailure = null
+            return BackupOutcome.SKIPPED
+        }
 
         val now = clock.millis()
         drive.uploadFile(
@@ -46,6 +50,7 @@ class DriveBackupService(
 
         state.lastHash = hash
         state.lastBackupTime = now
+        state.lastFailure = null
         return BackupOutcome.UPLOADED
     }
 

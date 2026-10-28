@@ -25,9 +25,26 @@ class SharedPreferencesBackupStateStore @Inject constructor(
             if (value == null) remove(KEY_HASH) else putString(KEY_HASH, value)
         }
 
+    override var lastFailure: BackupFailure?
+        get() {
+            val reason = prefs.getString(KEY_FAILURE_REASON, null) ?: return null
+            return BackupFailure(prefs.getLong(KEY_FAILURE_TIME, 0L), reason)
+        }
+        set(value) = prefs.edit {
+            if (value == null) {
+                remove(KEY_FAILURE_TIME)
+                remove(KEY_FAILURE_REASON)
+            } else {
+                putLong(KEY_FAILURE_TIME, value.time)
+                putString(KEY_FAILURE_REASON, value.reason)
+            }
+        }
+
     private companion object {
         const val PREFS_NAME = "drive_backup_state"
         const val KEY_TIME = "last_backup_time"
         const val KEY_HASH = "last_hash"
+        const val KEY_FAILURE_TIME = "last_failure_time"
+        const val KEY_FAILURE_REASON = "last_failure_reason"
     }
 }
