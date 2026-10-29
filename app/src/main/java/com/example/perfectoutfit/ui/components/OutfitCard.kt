@@ -82,7 +82,7 @@ fun OutfitCard(
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             text = part.displayName,
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             // Lines its first line up with the items' larger text.
                             modifier = Modifier
@@ -91,7 +91,8 @@ fun OutfitCard(
                         )
                         Text(
                             text = items.joinToString(", ") { it.name },
-                            style = MaterialTheme.typography.bodyLarge,
+                            // The weight goes on the items, not the body part labels.
+                            style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.weight(1f)
                         )
                     }
