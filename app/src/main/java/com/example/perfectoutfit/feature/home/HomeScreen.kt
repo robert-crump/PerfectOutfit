@@ -209,7 +209,9 @@ fun HomeScreen(
             }
         },
         bottomBar = {
-            if (wizardStep == WizardStep.RESULT && !uiState.isLoading && uiState.error == null) {
+            if (wizardStep == WizardStep.RESULT && !uiState.isLoading && !uiState.isPreparingOutfit &&
+                uiState.error == null
+            ) {
                 val recommendation = uiState.activeRecommendation
                 ResultActionBar(
                     label = if (recommendation != null) "Use outfit" else "Choose outfit",
@@ -402,7 +404,7 @@ private fun ResultStep(
                 .padding(top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (uiState.isLoading) {
+            if (uiState.isLoading || uiState.isPreparingOutfit) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

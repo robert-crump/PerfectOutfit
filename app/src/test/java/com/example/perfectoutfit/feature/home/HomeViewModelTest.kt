@@ -20,6 +20,7 @@ import com.example.perfectoutfit.testutil.FakeOutfitItemDao
 import com.example.perfectoutfit.testutil.FakePreferencesDataStore
 import com.example.perfectoutfit.testutil.FakeWeatherSnapshotDao
 import com.example.perfectoutfit.testutil.MutableClock
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -28,6 +29,8 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -135,6 +138,46 @@ class HomeViewModelTest {
 
         assertEquals(2, api.forecastCalls)
         assertEquals(day.atTime(13, 0), viewModel.uiState.value.activeHour?.time)
+    }
+
+    @Test
+    fun `a stale forecast keeps the outfit hidden until the new fetch is in`() {
+        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        clock.advance(Forecast.STALE_AFTER)
+        val fetch = CompletableDeferred<Unit>()
+        api.holdForecast = fetch
+
+        viewModel.catchUpWithClock()
+        assertTrue(viewModel.uiState.value.isPreparingOutfit)
+        // A widget tap during the fetch works its outfit out from the older forecast.
+        viewModel.selectActivityType(ActivityType.RUNNING)
+        assertTrue(viewModel.uiState.value.isPreparingOutfit)
+
+        fetch.complete(Unit)
+        assertFalse(viewModel.uiState.value.isPreparingOutfit)
+        assertEquals(day.atTime(13, 0), viewModel.uiState.value.activeHour?.time)
+    }
+
+    @Test
+    fun `a failed fetch on resume falls back to the known forecast`() {
+        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        clock.advance(Forecast.STALE_AFTER)
+        api.failNext = true
+
+        viewModel.catchUpWithClock()
+
+        assertNull(viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isPreparingOutfit)
+        assertEquals(day.atTime(13, 0), viewModel.uiState.value.activeHour?.time)
+    }
+
+    @Test
+    fun `picking an activity shows the outfit once it is worked out`() {
+        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+
+        viewModel.selectActivityType(ActivityType.RUNNING)
+
+        assertFalse(viewModel.uiState.value.isPreparingOutfit)
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.example.perfectoutfit.testutil
 import com.example.perfectoutfit.core.network.ForecastResponse
 import com.example.perfectoutfit.core.network.HourlyData
 import com.example.perfectoutfit.core.network.OpenMeteoApi
+import kotlinx.coroutines.CompletableDeferred
 import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -17,12 +18,16 @@ class FakeOpenMeteoApi(
     val dateRangeCalls = mutableListOf<Pair<String, String>>()
     var failNext = false
 
+    /** When set, forecast fetches suspend until it completes. */
+    var holdForecast: CompletableDeferred<Unit>? = null
+
     override suspend fun getForecast(
         latitude: Double, longitude: Double, hourly: String, timezone: String,
         pastDays: Int, forecastDays: Int
     ): ForecastResponse {
         forecastCalls++
         forecastCoordinates += latitude to longitude
+        holdForecast?.await()
         checkFail()
         return response(forecastHours)
     }
