@@ -172,6 +172,7 @@ fun HomeScreen(
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.onLocationPermissionMaybeGranted()
+        viewModel.catchUpWithClock()
     }
 
     val isPermissionError = uiState.error?.contains("permission", ignoreCase = true) == true

@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -28,7 +30,8 @@ class Forecast @Inject constructor(
 ) {
     private data class State(
         val location: ForecastLocation? = null,
-        val hours: List<HourlyWeather> = emptyList()
+        val hours: List<HourlyWeather> = emptyList(),
+        val fetchedAt: Instant? = null
     )
 
     private val state = MutableStateFlow(State())
@@ -46,7 +49,13 @@ class Forecast @Inject constructor(
     /** Replaces the forecast with a fresh fetch (past 2 days + today + tomorrow). Throws on failure. */
     suspend fun refresh(lat: Double, lon: Double, name: String) {
         val fetched = WeatherMapper.extractAllHours(api.getForecast(lat, lon))
-        state.value = State(ForecastLocation(lat, lon, name), fetched)
+        state.value = State(ForecastLocation(lat, lon, name), fetched, clock.instant())
+    }
+
+    /** True when nothing was fetched yet or the last [refresh] is older than [STALE_AFTER]. */
+    fun isStale(): Boolean {
+        val fetchedAt = state.value.fetchedAt ?: return true
+        return Duration.between(fetchedAt, clock.instant()) >= STALE_AFTER
     }
 
     /** 24 hours starting at the current clock hour; empty if the known hours end before it. */
@@ -84,6 +93,9 @@ class Forecast @Inject constructor(
 
     companion object {
         const val WINDOW_HOURS = 24
+
+        /** How old a forecast may get before Home fetches a new one on its way back to the front. */
+        val STALE_AFTER: Duration = Duration.ofMinutes(30)
 
         /** Exact clock hour, else the last hour before it, else the first hour. Null if empty. */
         fun hourNearest(hours: List<HourlyWeather>, clockHour: Int): HourlyWeather? =

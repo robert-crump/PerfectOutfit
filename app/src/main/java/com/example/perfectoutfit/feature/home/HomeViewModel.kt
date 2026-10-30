@@ -117,7 +117,10 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectActivityType(activityType: ActivityType, workoutDurationHours: Int = 1) {
+        // A widget tap can land on a Home kept alive since an earlier hour.
+        val hours = currentDisplayWindow()
         _uiState.value = _uiState.value.copy(
+            hourlyWeather = hours,
             selectedActivityType = activityType,
             workoutDurationHours = workoutDurationHours,
             activeWorkoutTab = WorkoutTab.COLDEST,
@@ -262,15 +265,18 @@ class HomeViewModel @Inject constructor(
         val activityType = _uiState.value.selectedActivityType
         val useApparent = _uiState.value.useApparentTemperature
         val duration = _uiState.value.workoutDurationHours
+        val hours = _uiState.value.hourlyWeather
 
-        // Module discards the result if activityType or duration changed while it queried.
+        // Module discards the result if activityType, duration or the hours changed while it queried.
         val window = recommendations.findForWorkoutWindow(
             activityType = activityType,
-            hours = _uiState.value.hourlyWeather,
+            hours = hours,
             durationHours = duration,
             useApparent = useApparent,
             isCurrent = {
-                _uiState.value.selectedActivityType == activityType && _uiState.value.workoutDurationHours == duration
+                _uiState.value.selectedActivityType == activityType &&
+                    _uiState.value.workoutDurationHours == duration &&
+                    _uiState.value.hourlyWeather === hours
             }
         ) ?: return
 
@@ -292,6 +298,31 @@ class HomeViewModel @Inject constructor(
             refreshWeather()
         }
     }
+
+    /**
+     * Called when the screen resumes: moves the shown hours up to the current clock hour, and
+     * fetches a new forecast if the known one is [Forecast.STALE_AFTER] old.
+     */
+    fun catchUpWithClock() {
+        val state = _uiState.value
+        // Nothing shown yet, or a fetch is already on its way.
+        if (forecast.location == null || state.isLoading || state.isRefreshing) return
+        val hours = currentDisplayWindow()
+        if (hours.firstOrNull()?.time != state.hourlyWeather.firstOrNull()?.time) {
+            _uiState.value = state.copy(
+                hourlyWeather = hours,
+                selectedHourIndex = 0,
+                coldestHourIndex = -1,
+                warmestHourIndex = -1
+            )
+            viewModelScope.launch { refreshRecommendation() }
+        }
+        if (forecast.isStale()) refreshWeather()
+    }
+
+    /** The forecast's window from the current clock hour, or the shown hours while none is known. */
+    private fun currentDisplayWindow(): List<HourlyWeather> =
+        if (forecast.location == null) _uiState.value.hourlyWeather else forecast.displayWindow()
 
     fun refreshWeather() {
         viewModelScope.launch {

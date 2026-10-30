@@ -2,15 +2,18 @@ package com.example.perfectoutfit.feature.forecast
 
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.testutil.FakeOpenMeteoApi
+import com.example.perfectoutfit.testutil.MutableClock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import java.io.IOException
 import java.time.Clock
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -140,6 +143,21 @@ class ForecastTest {
         } catch (e: IOException) {
         }
         assertEquals("Old", f.location?.name)
+    }
+
+    @Test
+    fun `forecast is stale until refreshed and again once STALE_AFTER has passed`() = runTest {
+        val clock = MutableClock(day.atTime(14, 35).toInstant(ZoneOffset.UTC))
+        val f = Forecast(FakeOpenMeteoApi(window), clock)
+        assertTrue(f.isStale())
+
+        f.refresh(1.0, 2.0, "X")
+        assertFalse(f.isStale())
+
+        clock.advance(Forecast.STALE_AFTER.minusSeconds(1))
+        assertFalse(f.isStale())
+        clock.advance(Duration.ofSeconds(1))
+        assertTrue(f.isStale())
     }
 
     // ─── hourNearest ─────────────────────────────────────────────────────────
