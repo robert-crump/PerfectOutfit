@@ -16,8 +16,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -48,19 +46,17 @@ class ExplorerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ExplorerUiState(selectedTemp = forecastTemp))
     val uiState: StateFlow<ExplorerUiState> = _uiState.asStateFlow()
 
-    private val activityType = MutableStateFlow<ActivityType?>(null)
-    private val useApparent = MutableStateFlow<Boolean?>(null)
+    /** Explorer always opens on Cycling, whatever Home has selected. */
+    private val activityType = MutableStateFlow(ActivityType.CYCLING)
 
     init {
-        viewModelScope.launch { activityType.value = preferencesManager.selectedActivityType.first() }
-        // Observed, not read once: toggling the preference in Settings re-resolves the chart.
-        viewModelScope.launch { preferencesManager.useApparentTemperature.collect { useApparent.value = it } }
         viewModelScope.launch { observeChart() }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private suspend fun observeChart() {
-        combine(activityType.filterNotNull(), useApparent.filterNotNull(), ::Pair)
+        // The basis is Settings' alone; observed, so changing it there re-resolves the chart.
+        combine(activityType, preferencesManager.useApparentTemperature, ::Pair)
             .distinctUntilChanged()
             .flatMapLatest { (type, apparent) ->
                 _uiState.update { it.copy(isLoading = true, activityType = type, useApparent = apparent) }
@@ -84,11 +80,6 @@ class ExplorerViewModel @Inject constructor(
         // A different activity type starts again from Home's forecast temperature.
         _uiState.update { it.copy(selectedTemp = forecastTemp, chart = null) }
         activityType.value = type
-    }
-
-    /** Switching basis keeps the selected degree where the new axis still reaches it. */
-    fun selectTemperatureMode(apparent: Boolean) {
-        useApparent.value = apparent
     }
 
     /** Marks [temp] on the chart (clamped to its axis); selecting the marked degree again clears it. */

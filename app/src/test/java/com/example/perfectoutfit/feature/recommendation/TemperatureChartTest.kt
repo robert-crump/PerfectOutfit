@@ -89,7 +89,6 @@ class TemperatureChartTest {
         assertFalse(chart.hasRatedHistory)
         assertEquals(null, chart.minTemp)
         assertTrue(chart.groups.isEmpty())
-        assertEquals(listOf(tights, jacket, jersey, vest, gloves), chart.notYetPerfect)
     }
 
     // ── item rows ─────────────────────────────────────────────────────────────
@@ -109,13 +108,12 @@ class TemperatureChartTest {
     }
 
     @Test
-    fun `untagged items get no row and tagged items without perfect entries are listed`() {
+    fun `only tagged items with a perfect entry get a row`() {
         val chart = build(
             listOf(entry(1, rating = 0, apparent = 5.0, jacket, gloves)),
             tagged = listOf(jacket, tights)
         )
         assertEquals(listOf(jacket), chart.groups.flatMap { g -> g.rows.map { it.item } })
-        assertEquals(listOf(tights), chart.notYetPerfect)
     }
 
     @Test

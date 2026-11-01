@@ -36,8 +36,7 @@ data class BodyPartRanges(val bodyPart: BodyPart, val rows: List<ItemRange>)
  */
 data class TemperatureChart(
     val degrees: List<DegreeCell>,
-    val groups: List<BodyPartRanges>,
-    val notYetPerfect: List<ClothingItem>
+    val groups: List<BodyPartRanges>
 ) {
     val minTemp: Int? get() = degrees.firstOrNull()?.temp
     val maxTemp: Int? get() = degrees.lastOrNull()?.temp
@@ -49,8 +48,8 @@ internal object TemperatureChartPolicy {
 
     /**
      * [entries] are the activity type's entries (unrated ones are ignored); [taggedItems] are the
-     * items currently tagged for it. Only tagged items get rows or appear in [TemperatureChart.notYetPerfect];
-     * the strip counts every perfect outfit, whatever its items.
+     * items currently tagged for it. Only tagged items get rows; the strip counts every perfect
+     * outfit, whatever its items.
      */
     fun build(
         entries: List<OutfitEntryWithDetails>,
@@ -90,11 +89,7 @@ internal object TemperatureChartPolicy {
                 .takeIf { it.isNotEmpty() }
                 ?.let { BodyPartRanges(part, it) }
         }
-        val notYetPerfect = tagged
-            .filter { it.id !in perfectTempsById }
-            .sortedWith(compareBy({ BODY_PART_DISPLAY_ORDER.indexOf(it.bodyPart) }, { it.name }))
-
-        return TemperatureChart(degrees, groups, notYetPerfect)
+        return TemperatureChart(degrees, groups)
     }
 
     private fun OutfitEntryWithDetails.roundedTemp(useApparent: Boolean): Int =

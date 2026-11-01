@@ -128,9 +128,12 @@ the pure, `internal` `TemperatureChartPolicy` doing the work. Degrees are rounde
   may overlap at a degree no single outfit was perfect at.
 - **Item rows:** one per item *currently tagged* for the activity type that is in at least one
   perfect entry: a bar from its coldest to its warmest perfect degree with a dot at each.
-  Grouped by `BODY_PART_DISPLAY_ORDER`, coldest minimum first (then lower maximum, then name).
-  Untagged items get no row even with perfect history; tagged items with none are listed as
-  "Not yet in a perfect outfit".
+  Ordered by `BODY_PART_DISPLAY_ORDER` (no body-part labels on screen), coldest minimum first
+  within a body part (then lower maximum, then name). Untagged items get no row even with
+  perfect history; tagged items without one aren't shown.
+- **Screen:** Explorer always opens on Cycling and has no basis toggle — the basis is Settings'
+  [preference](#apparent-vs-real-temperature). The strip sits pinned under the scrolling rows,
+  with its labels below it, as the chart's x-axis.
 - **Selection:** tapping or dragging the strip marks a degree; rows not spanning it fade, and a
   caption gives its perfect-outfit count. It starts at Home's forecast temperature when that is
   on the axis, survives a basis switch while the new axis reaches it, and resets on an activity

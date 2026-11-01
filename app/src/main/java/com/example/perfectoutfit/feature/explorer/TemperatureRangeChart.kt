@@ -5,7 +5,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,14 +27,11 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
-import com.example.perfectoutfit.core.model.BodyPart
-import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.feature.recommendation.DegreeCell
 import com.example.perfectoutfit.feature.recommendation.DegreeCoverage
 import com.example.perfectoutfit.feature.recommendation.ItemRange
@@ -70,13 +66,13 @@ internal fun rangeDescription(row: ItemRange): String =
         "${row.perfectTemps.size} temperatures"
 
 /**
- * The coverage strip, its axis labels and the selection caption, pinned above the rows.
+ * The selection caption, the coverage strip and its labels: the chart's x-axis, pinned below the rows.
  * Tapping or dragging selects a degree; tapping the selected one clears it ([onSelect]'s
  * second argument says whether the gesture may toggle). For TalkBack the strip is one
  * adjustable control that announces the caption.
  */
 @Composable
-internal fun CoverageHeader(
+internal fun CoverageAxis(
     chart: TemperatureChart,
     selectedTemp: Int?,
     onSelect: (temp: Int, toggle: Boolean) -> Unit,
@@ -90,6 +86,11 @@ internal fun CoverageHeader(
     val marker = MaterialTheme.colorScheme.onSurface
 
     Column(modifier) {
+        Text(
+            text = caption,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -141,11 +142,6 @@ internal fun CoverageHeader(
             if (selectedTemp != null) drawMarker(scale.xOf(selectedTemp, size.width), marker, 2.dp.toPx())
         }
         AxisLabels(scale, Modifier.fillMaxWidth().padding(top = 4.dp))
-        Text(
-            text = caption,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
-        )
     }
 }
 
@@ -184,20 +180,6 @@ private fun AxisLabels(scale: DegreeScale, modifier: Modifier) {
     }
 }
 
-@Composable
-internal fun BodyPartHeader(bodyPart: BodyPart, chart: TemperatureChart, selectedTemp: Int?) {
-    SelectionLine(chart, selectedTemp) {
-        Text(
-            text = bodyPart.displayName,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .padding(top = 16.dp, bottom = 4.dp)
-                .semantics { heading() }
-        )
-    }
-}
-
 /**
  * One item: its name above a thin bar from its coldest to its warmest perfect degree, with a
  * dot at each perfect degree. Fades when a degree is selected that the bar doesn't span.
@@ -226,19 +208,6 @@ internal fun ItemRangeRow(row: ItemRange, chart: TemperatureChart, selectedTemp:
                 row.perfectTemps.forEach { drawCircle(primary, 4.dp.toPx(), Offset(scale.xOf(it, size.width), y)) }
             }
         }
-    }
-}
-
-/** Items tagged for the activity type that no perfect outfit has included yet. */
-@Composable
-internal fun NotYetPerfect(items: List<ClothingItem>) {
-    Column {
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = "Not yet in a perfect outfit: " + items.joinToString(", ") { it.name },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
