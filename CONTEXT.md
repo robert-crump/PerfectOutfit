@@ -122,8 +122,9 @@ entries and the items tagged for it, so rating, editing or retagging updates it 
 the pure, `internal` `TemperatureChartPolicy` doing the work. Degrees are rounded
 [reference temperatures](#reference-temperature).
 
-- **Coverage strip:** one cell per degree from the coldest to the warmest *rated* degree: perfect
-  (≥ 1 entry rated 0 there), rated (entries, none perfect) or none. It counts outfits, every
+- **Coverage strip:** drawn like an item row, a line from the coldest to the warmest *rated*
+  degree with a dot per degree: filled = perfect (≥ 1 entry rated 0 there), hollow = rated
+  (entries, none perfect), no dot = nothing rated. It counts outfits, every
   perfect one whatever its items are tagged for — so it can differ from the item rows, which
   may overlap at a degree no single outfit was perfect at.
 - **Item rows:** one per item *currently tagged* for the activity type that is in at least one
@@ -134,7 +135,8 @@ the pure, `internal` `TemperatureChartPolicy` doing the work. Degrees are rounde
 - **Screen:** Explorer always opens on Cycling and has no basis toggle — the basis is Settings'
   [preference](#apparent-vs-real-temperature). The strip sits pinned under the scrolling rows,
   with its labels below it, as the chart's x-axis.
-- **Selection:** tapping or dragging the strip marks a degree; rows not spanning it fade, and a
+- **Selection:** tapping or dragging sideways anywhere from the chips down to the strip marks
+  a degree (vertical drags over the rows still scroll; only a tap on the strip itself can clear it); rows not spanning it fade, and a
   caption gives its perfect-outfit count. It starts at Home's forecast temperature when that is
   on the axis, survives a basis switch while the new axis reaches it, and resets on an activity
   type change. For TalkBack the strip is one adjustable control.

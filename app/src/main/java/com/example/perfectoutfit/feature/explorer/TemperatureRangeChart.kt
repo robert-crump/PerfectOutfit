@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -53,7 +52,7 @@ private class DegreeScale(val min: Int, val max: Int) {
 
 /** "7°C · 2 perfect outfits", or a hint when nothing is selected. */
 internal fun selectionCaption(cell: DegreeCell?): String = when {
-    cell == null -> "Tap or drag along the strip to pick a temperature"
+    cell == null -> "Touch the chart to pick a temperature"
     cell.coverage == DegreeCoverage.PERFECT ->
         "${cell.temp}°C · ${cell.perfectOutfits} perfect outfit${if (cell.perfectOutfits == 1) "" else "s"}"
     cell.coverage == DegreeCoverage.RATED -> "${cell.temp}°C · rated, none perfect"
@@ -66,9 +65,34 @@ internal fun rangeDescription(row: ItemRange): String =
         "${row.perfectTemps.size} temperatures"
 
 /**
- * The selection caption, the coverage strip and its labels: the chart's x-axis, pinned below the rows.
- * Tapping or dragging selects a degree; tapping the selected one clears it ([onSelect]'s
- * second argument says whether the gesture may toggle). For TalkBack the strip is one
+ * Selects the degree under the finger, on the chart's [DegreeScale] across this element's width:
+ * on a tap, and continuously while dragging sideways. A vertical drag is left to any scrolling
+ * child, so it can wrap the scrolling rows. With [toggleOnTap], tapping the selected degree clears it.
+ */
+@Composable
+internal fun Modifier.degreeSelection(
+    chart: TemperatureChart,
+    toggleOnTap: Boolean,
+    onSelect: (temp: Int, toggle: Boolean) -> Unit
+): Modifier {
+    val scale = DegreeScale(chart.minTemp ?: return this, chart.maxTemp ?: return this)
+    val select by rememberUpdatedState(onSelect)
+    return this
+        .pointerInput(scale.min, scale.max, toggleOnTap) {
+            detectTapGestures { select(scale.tempAt(it.x, size.width.toFloat()), toggleOnTap) }
+        }
+        .pointerInput(scale.min, scale.max) {
+            detectHorizontalDragGestures(
+                onDragStart = { select(scale.tempAt(it.x, size.width.toFloat()), false) }
+            ) { change, _ ->
+                select(scale.tempAt(change.position.x, size.width.toFloat()), false)
+            }
+        }
+}
+
+/**
+ * The selection caption, the coverage line and its labels: the chart's x-axis, pinned below the rows.
+ * Tapping or dragging selects a degree; tapping the selected one clears it. For TalkBack the strip is one
  * adjustable control that announces the caption.
  */
 @Composable
@@ -82,7 +106,7 @@ internal fun CoverageAxis(
     val select by rememberUpdatedState(onSelect)
     val caption = selectionCaption(selectedTemp?.let { chart.cellAt(it) })
     val primary = MaterialTheme.colorScheme.primary
-    val baseline = MaterialTheme.colorScheme.outlineVariant
+    val surface = MaterialTheme.colorScheme.surface
     val marker = MaterialTheme.colorScheme.onSurface
 
     Column(modifier) {
@@ -95,16 +119,7 @@ internal fun CoverageAxis(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(STRIP_HEIGHT)
-                .pointerInput(scale.min, scale.max) {
-                    detectTapGestures { select(scale.tempAt(it.x, size.width.toFloat()), true) }
-                }
-                .pointerInput(scale.min, scale.max) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { select(scale.tempAt(it.x, size.width.toFloat()), false) }
-                    ) { change, _ ->
-                        select(scale.tempAt(change.position.x, size.width.toFloat()), false)
-                    }
-                }
+                .degreeSelection(chart, toggleOnTap = true, onSelect = onSelect)
                 .semantics {
                     contentDescription = "Temperature"
                     stateDescription = caption
@@ -119,22 +134,25 @@ internal fun CoverageAxis(
                     }
                 }
         ) {
-            val cellW = scale.cellWidth(size.width)
-            val gap = minOf(1.dp.toPx(), cellW * 0.15f)
-            drawLine(baseline, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
-            chart.degrees.forEachIndexed { i, cell ->
-                val left = i * cellW + gap / 2
-                val cellSize = Size(cellW - gap, size.height)
+            // Drawn like an item row: a line across the whole axis, a dot per rated degree —
+            // filled where an outfit was perfect, hollow where none was.
+            val y = size.height / 2
+            val radius = DOT_RADIUS.toPx()
+            val stroke = 1.5.dp.toPx()
+            drawLine(
+                primary.copy(alpha = BAR_ALPHA),
+                Offset(scale.xOf(scale.min, size.width), y),
+                Offset(scale.xOf(scale.max, size.width), y),
+                BAR_WIDTH.toPx(),
+                StrokeCap.Round
+            )
+            chart.degrees.forEach { cell ->
+                val centre = Offset(scale.xOf(cell.temp, size.width), y)
                 when (cell.coverage) {
-                    DegreeCoverage.PERFECT -> drawRect(primary, Offset(left, 0f), cellSize)
+                    DegreeCoverage.PERFECT -> drawCircle(primary, radius, centre)
                     DegreeCoverage.RATED -> {
-                        val stroke = 1.dp.toPx()
-                        drawRect(
-                            primary,
-                            Offset(left + stroke / 2, stroke / 2),
-                            Size(cellSize.width - stroke, cellSize.height - stroke),
-                            style = Stroke(stroke)
-                        )
+                        drawCircle(surface, radius, centre)
+                        drawCircle(primary, radius - stroke / 2, centre, style = Stroke(stroke))
                     }
                     DegreeCoverage.NONE -> Unit
                 }
@@ -203,9 +221,9 @@ internal fun ItemRangeRow(row: ItemRange, chart: TemperatureChart, selectedTemp:
                 val xMin = scale.xOf(row.minTemp, size.width)
                 val xMax = scale.xOf(row.maxTemp, size.width)
                 if (xMax > xMin) {
-                    drawLine(primary.copy(alpha = 0.45f), Offset(xMin, y), Offset(xMax, y), 3.dp.toPx(), StrokeCap.Round)
+                    drawLine(primary.copy(alpha = BAR_ALPHA), Offset(xMin, y), Offset(xMax, y), BAR_WIDTH.toPx(), StrokeCap.Round)
                 }
-                row.perfectTemps.forEach { drawCircle(primary, 4.dp.toPx(), Offset(scale.xOf(it, size.width), y)) }
+                row.perfectTemps.forEach { drawCircle(primary, DOT_RADIUS.toPx(), Offset(scale.xOf(it, size.width), y)) }
             }
         }
     }
@@ -235,3 +253,6 @@ private fun DrawScope.drawMarker(x: Float, colour: Color, width: Float) {
 private val STRIP_HEIGHT = 28.dp
 private val ROW_BAR_HEIGHT = 14.dp
 private const val FADED_ALPHA = 0.35f
+private const val BAR_ALPHA = 0.45f
+private val BAR_WIDTH = 3.dp
+private val DOT_RADIUS = 4.dp

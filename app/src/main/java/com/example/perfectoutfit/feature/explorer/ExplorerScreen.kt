@@ -76,8 +76,14 @@ fun ExplorerScreen(
                     modifier = Modifier.padding(top = 24.dp)
                 )
                 else -> {
-                    // Rows scroll; the x-axis stays put underneath them.
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    // Rows scroll; the x-axis stays put underneath them. Touching anywhere
+                    // above it moves the selection too (vertical drags still scroll).
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .degreeSelection(chart, toggleOnTap = false, onSelect = viewModel::selectTemp)
+                    ) {
                         if (chart.groups.isEmpty()) {
                             Text(
                                 text = "No perfect outfits yet — rate one as perfect to see item ranges",
