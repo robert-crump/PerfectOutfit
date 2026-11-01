@@ -41,13 +41,6 @@ internal object RecommendationPolicy {
         .map { it.id }
         .toSet()
 
-    fun stops(candidates: List<OutfitEntryWithDetails>, useApparent: Boolean): List<Int> =
-        candidates
-            .filter { it.entry.comfortRating != null }
-            .map { it.roundedTemp(useApparent) }
-            .distinct()
-            .sorted()
-
     // Comparator: rating priority (0 → 1 → -1), tiebreak by newest timestamp
     private val byRatingThenNewest: Comparator<OutfitEntryWithDetails> =
         compareBy<OutfitEntryWithDetails> { ratingPriority(it.entry.comfortRating!!) }

@@ -9,6 +9,7 @@ import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.feature.forecast.ForecastLocation
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.recommendation.Recommendations
+import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import com.example.perfectoutfit.testutil.FakePreferencesDataStore
 import kotlinx.coroutines.test.runTest
@@ -33,7 +34,7 @@ class OutfitWidgetTest {
     private val entryDao = FakeOutfitEntryDao()
     private val preferences = PreferencesManager(FakePreferencesDataStore())
     private val store = WidgetForecastStore(FakePreferencesDataStore(), Json, clock)
-    private val content = OutfitWidgetContent(store, preferences, Recommendations(entryDao), clock)
+    private val content = OutfitWidgetContent(store, preferences, Recommendations(entryDao, FakeClothingItemDao()), clock)
 
     private fun hour(time: LocalDateTime, real: Double, apparent: Double = real) = HourlyWeather(
         time = time,
@@ -151,7 +152,7 @@ class OutfitWidgetTest {
         val later = Clock.fixed(day.atTime(16, 5).toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
         entryDao.ratedEntries = listOf(rated(1, ActivityType.WALKING, apparent = 10.0))
 
-        val binding = OutfitWidgetContent(store, preferences, Recommendations(entryDao), later)
+        val binding = OutfitWidgetContent(store, preferences, Recommendations(entryDao, FakeClothingItemDao()), later)
             .load(ActivityType.WALKING)
 
         assertEquals(NO_TEMPERATURE_TEXT, binding.valueText)
@@ -189,7 +190,7 @@ class OutfitWidgetTest {
         val later = Clock.fixed(day.atTime(16, 5).toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
         entryDao.ratedEntries = listOf(rated(1, ActivityType.WALKING, apparent = 10.0))
 
-        val bindings = OutfitWidgetContent(store, preferences, Recommendations(entryDao), later).loadAll()
+        val bindings = OutfitWidgetContent(store, preferences, Recommendations(entryDao, FakeClothingItemDao()), later).loadAll()
 
         assertTrue(bindings.none { it.lit })
         assertTrue(bindings.all { it.opensActivityType })

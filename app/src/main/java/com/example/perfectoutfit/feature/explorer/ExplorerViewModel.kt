@@ -4,16 +4,23 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
-import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.feature.recommendation.DegreeCell
 import com.example.perfectoutfit.feature.recommendation.Recommendations
+import com.example.perfectoutfit.feature.recommendation.TemperatureChart
 import com.example.perfectoutfit.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlin.math.abs
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,12 +28,11 @@ data class ExplorerUiState(
     val activityType: ActivityType = ActivityType.CYCLING,
     val isLoading: Boolean = true,
     val useApparent: Boolean = true,
-    /** Sorted, distinct rounded temperatures that have rated outfit history for [activityType]. */
-    val stops: List<Int> = emptyList(),
-    val selectedIndex: Int = 0,
-    val recommendation: OutfitEntryWithDetails? = null
+    val chart: TemperatureChart? = null,
+    /** The degree marked on the chart, always within its axis; null = none. */
+    val selectedTemp: Int? = null
 ) {
-    val selectedTemp: Int? get() = stops.getOrNull(selectedIndex)
+    val selectedCell: DegreeCell? get() = selectedTemp?.let { chart?.cellAt(it) }
 }
 
 @HiltViewModel
@@ -39,78 +45,59 @@ class ExplorerViewModel @Inject constructor(
     private val forecastTemp: Int? = savedStateHandle.get<Int>("forecastTemp")
         ?.takeIf { it != Screen.Explorer.NO_FORECAST_TEMP }
 
-    private val _uiState = MutableStateFlow(ExplorerUiState())
+    private val _uiState = MutableStateFlow(ExplorerUiState(selectedTemp = forecastTemp))
     val uiState: StateFlow<ExplorerUiState> = _uiState.asStateFlow()
 
+    private val activityType = MutableStateFlow<ActivityType?>(null)
+    private val useApparent = MutableStateFlow<Boolean?>(null)
+
     init {
-        viewModelScope.launch {
-            val activityType = preferencesManager.selectedActivityType.first()
-            var initial = true
-            // Observed, not read once: toggling the preference re-resolves stops and recommendation.
-            preferencesManager.useApparentTemperature.collect { useApparent ->
-                if (initial) {
-                    initial = false
-                    _uiState.value = _uiState.value.copy(useApparent = useApparent)
-                    loadStops(activityType, preferredTarget = forecastTemp)
-                } else {
-                    applyTemperatureMode(useApparent)
+        viewModelScope.launch { activityType.value = preferencesManager.selectedActivityType.first() }
+        // Observed, not read once: toggling the preference in Settings re-resolves the chart.
+        viewModelScope.launch { preferencesManager.useApparentTemperature.collect { useApparent.value = it } }
+        viewModelScope.launch { observeChart() }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private suspend fun observeChart() {
+        combine(activityType.filterNotNull(), useApparent.filterNotNull(), ::Pair)
+            .distinctUntilChanged()
+            .flatMapLatest { (type, apparent) ->
+                _uiState.update { it.copy(isLoading = true, activityType = type, useApparent = apparent) }
+                recommendations.temperatureChart(type, apparent).map { chart -> type to chart }
+            }
+            .collect { (type, chart) ->
+                _uiState.update { state ->
+                    if (state.activityType != type) return@update state
+                    state.copy(
+                        isLoading = false,
+                        chart = chart,
+                        // A selection the new axis doesn't reach is dropped, not moved.
+                        selectedTemp = state.selectedTemp?.takeIf { chart.cellAt(it) != null }
+                    )
                 }
             }
-        }
     }
 
-    fun selectActivityType(activityType: ActivityType) {
-        viewModelScope.launch { loadStops(activityType, preferredTarget = forecastTemp) }
+    fun selectActivityType(type: ActivityType) {
+        if (type == activityType.value) return
+        // A different activity type starts again from Home's forecast temperature.
+        _uiState.update { it.copy(selectedTemp = forecastTemp, chart = null) }
+        activityType.value = type
     }
 
-    fun selectTemperatureMode(useApparent: Boolean) {
-        viewModelScope.launch { applyTemperatureMode(useApparent) }
+    /** Switching basis keeps the selected degree where the new axis still reaches it. */
+    fun selectTemperatureMode(apparent: Boolean) {
+        useApparent.value = apparent
     }
 
-    private suspend fun applyTemperatureMode(useApparent: Boolean) {
-        if (useApparent == _uiState.value.useApparent) return
-        val previousTemp = _uiState.value.selectedTemp
-        _uiState.value = _uiState.value.copy(useApparent = useApparent)
-        loadStops(_uiState.value.activityType, preferredTarget = previousTemp)
-    }
-
-    fun selectIndex(index: Int) {
-        val stops = _uiState.value.stops
-        if (index !in stops.indices) return
-        _uiState.value = _uiState.value.copy(selectedIndex = index)
-        applyRecommendationForCurrentStop()
-    }
-
-    private suspend fun loadStops(activityType: ActivityType, preferredTarget: Int?) {
-        _uiState.value = _uiState.value.copy(isLoading = true, activityType = activityType, recommendation = null)
-        val useApparent = _uiState.value.useApparent
-        val stops = recommendations.stops(activityType, useApparent)
-        val initialIndex = when {
-            stops.isEmpty() -> 0
-            else -> nearestIndex(stops, preferredTarget ?: stops[stops.size / 2])
-        }
-        _uiState.value = _uiState.value.copy(
-            isLoading = false,
-            stops = stops,
-            selectedIndex = initialIndex
-        )
-        applyRecommendationForCurrentStop()
-    }
-
-    private fun nearestIndex(stops: List<Int>, target: Int): Int =
-        stops.indices.minByOrNull { abs(stops[it] - target) } ?: 0
-
-    private fun applyRecommendationForCurrentStop() {
-        val temp = _uiState.value.selectedTemp ?: return
-        val activityType = _uiState.value.activityType
-        val useApparent = _uiState.value.useApparent
-        viewModelScope.launch {
-            val recommendation = recommendations.find(activityType, temp.toDouble(), useApparent)
-            // Discard if the activityType, mode or stop changed while the query was in flight.
-            val s = _uiState.value
-            if (s.activityType == activityType && s.useApparent == useApparent && s.selectedTemp == temp) {
-                _uiState.value = s.copy(recommendation = recommendation)
-            }
+    /** Marks [temp] on the chart (clamped to its axis); selecting the marked degree again clears it. */
+    fun selectTemp(temp: Int, toggle: Boolean = false) {
+        _uiState.update { state ->
+            val min = state.chart?.minTemp ?: return@update state
+            val max = state.chart.maxTemp ?: return@update state
+            val clamped = temp.coerceIn(min, max)
+            state.copy(selectedTemp = if (toggle && clamped == state.selectedTemp) null else clamped)
         }
     }
 }

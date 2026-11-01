@@ -15,6 +15,7 @@ import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
 import com.example.perfectoutfit.feature.widget.WidgetForecastStore
 import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
 import com.example.perfectoutfit.testutil.FakeOpenMeteoApi
+import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import com.example.perfectoutfit.testutil.FakeOutfitItemDao
 import com.example.perfectoutfit.testutil.FakePreferencesDataStore
@@ -70,7 +71,7 @@ class HomeViewModelTest {
             forecast = Forecast(api, clock),
             liveOutfitHandoffStore = LiveOutfitHandoffStore(),
             outfitLogging = logging,
-            recommendations = Recommendations(entryDao),
+            recommendations = Recommendations(entryDao, FakeClothingItemDao()),
             preferencesManager = PreferencesManager(FakePreferencesDataStore()),
             widgetForecastStore = WidgetForecastStore(FakePreferencesDataStore(), Json, clock),
             widgetUpdater = FakeWidgetUpdater()

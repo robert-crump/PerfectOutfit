@@ -5,6 +5,7 @@ import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.feature.home.HourlyWeather
+import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -12,11 +13,11 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDateTime
 
-/** Workout-window extremes, the Explorer stop list, and the in-flight staleness rule. */
+/** Workout-window extremes and the in-flight staleness rule. */
 class RecommendationsWindowTest {
 
     private val dao = FakeOutfitEntryDao()
-    private val recommendations = Recommendations(dao)
+    private val recommendations = Recommendations(dao, FakeClothingItemDao())
     private val t = LocalDateTime.of(2026, 1, 1, 12, 0)
 
     private fun hour(real: Double, apparent: Double = real) = HourlyWeather(
@@ -124,30 +125,5 @@ class RecommendationsWindowTest {
             )
         }
         assertEquals(1L, result?.coldest?.entry?.id)
-    }
-
-    // ── stops (Explorer) ──────────────────────────────────────────────────────
-
-    @Test
-    fun `stops are distinct rounded reference temperatures sorted ascending`() {
-        dao.ratedEntries = listOf(
-            entry(1, rating = 0, apparent = 12.4),
-            entry(2, rating = 1, apparent = 3.6),
-            entry(3, rating = -1, apparent = 12.0),   // duplicate stop 12
-            entry(4, rating = null, apparent = 30.0)  // unrated → no stop
-        )
-        assertEquals(listOf(4, 12), runBlocking { recommendations.stops(ActivityType.CYCLING, true) })
-    }
-
-    @Test
-    fun `stops follow the apparent-vs-real preference`() {
-        dao.ratedEntries = listOf(entry(1, rating = 0, apparent = 5.0, real = 15.0))
-        assertEquals(listOf(5), runBlocking { recommendations.stops(ActivityType.CYCLING, true) })
-        assertEquals(listOf(15), runBlocking { recommendations.stops(ActivityType.CYCLING, false) })
-    }
-
-    @Test
-    fun `stops is empty without rated history`() {
-        assertEquals(emptyList<Int>(), runBlocking { recommendations.stops(ActivityType.CYCLING, true) })
     }
 }

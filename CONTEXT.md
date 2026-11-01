@@ -43,7 +43,7 @@ implement `WeatherReading`, so they are judged by the same rule.
 A user preference toggling whether the app reasons in feels-like ("apparent") or dry-bulb
 ("real") temperature. It is reactive — Home and Explorer collect it, so toggling it in
 Settings re-resolves the [reference temperature](#reference-temperature) (and, in Explorer,
-the stops and recommendation) while they are open. The Rate screen also collects it, so
+the [temperature chart](#temperature-chart)) while they are open. The Rate screen also collects it, so
 its likely-items follow the preference.
 
 ### UV warning threshold
@@ -108,13 +108,33 @@ temperature and the apparent-vs-real preference; the module loads rated history
 memory), rounds, and matches in three tiers over rated entries: (1) exact rounded
 temperature, newest wins regardless of rating; (2) within ±1 °C, best rating
 (0 > 1 > -1) then newest; (3) within ±2 °C, same. `RecommendationPolicy` is `internal` to
-the module. `likelyItemIds` are the items of perfect-rated (0) entries within ±2 °C. The
-Explorer **stops** are the distinct rounded reference temperatures with rated history.
+the module. `likelyItemIds` are the items of perfect-rated (0) entries within ±2 °C.
 
 **Workout window:** for a workout of N hours, the first N forecast hours are the window;
 the *coldest* and *warmest* hours (by reference temperature, ties going to the later hour)
 each get their own recommendation. A one-hour window has coldest == warmest. A result is
 discarded (`null`) if the caller's activity type or duration changed while the query ran.
+
+### Temperature chart
+Explorer's view of an [activity type](#activity-type)'s rated history (issue #32), built by
+`Recommendations.temperatureChart(activityType, useApparent)` — a flow over the activity type's
+entries and the items tagged for it, so rating, editing or retagging updates it in place — with
+the pure, `internal` `TemperatureChartPolicy` doing the work. Degrees are rounded
+[reference temperatures](#reference-temperature).
+
+- **Coverage strip:** one cell per degree from the coldest to the warmest *rated* degree: perfect
+  (≥ 1 entry rated 0 there), rated (entries, none perfect) or none. It counts outfits, every
+  perfect one whatever its items are tagged for — so it can differ from the item rows, which
+  may overlap at a degree no single outfit was perfect at.
+- **Item rows:** one per item *currently tagged* for the activity type that is in at least one
+  perfect entry: a bar from its coldest to its warmest perfect degree with a dot at each.
+  Grouped by `BODY_PART_DISPLAY_ORDER`, coldest minimum first (then lower maximum, then name).
+  Untagged items get no row even with perfect history; tagged items with none are listed as
+  "Not yet in a perfect outfit".
+- **Selection:** tapping or dragging the strip marks a degree; rows not spanning it fade, and a
+  caption gives its perfect-outfit count. It starts at Home's forecast temperature when that is
+  on the axis, survives a basis switch while the new axis reaches it, and resets on an activity
+  type change. For TalkBack the strip is one adjustable control.
 
 ### Mode comparison
 Whether feels-like or actual temperature fits the user's ratings better (issue #28), shown

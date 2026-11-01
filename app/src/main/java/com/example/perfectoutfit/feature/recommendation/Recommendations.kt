@@ -1,11 +1,13 @@
 package com.example.perfectoutfit.feature.recommendation
 
+import com.example.perfectoutfit.core.database.dao.ClothingItemDao
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherReading
 import com.example.perfectoutfit.core.model.referenceTemp
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,13 +24,14 @@ data class WorkoutWindowRecommendation(
 /**
  * The one entry point for outfit recommendations (see "Recommendation" in CONTEXT.md).
  * Owns loading rated history, rounding the reference temperature, the tiered matching,
- * likely-item lookup, the Explorer stop list and the workout-window extremes.
+ * likely-item lookup, Explorer's temperature chart and the workout-window extremes.
  *
  * Callers pass the apparent-vs-real preference in and observe it themselves.
  */
 @Singleton
 class Recommendations @Inject constructor(
-    private val outfitEntryDao: OutfitEntryDao
+    private val outfitEntryDao: OutfitEntryDao,
+    private val clothingItemDao: ClothingItemDao
 ) {
     /** Best rated outfit for [referenceTemp] (rounded here), or null. */
     suspend fun find(activityType: ActivityType, referenceTemp: Double, useApparent: Boolean): OutfitEntryWithDetails? =
@@ -71,9 +74,15 @@ class Recommendations @Inject constructor(
     fun modeComparison(): Flow<ModeComparison> =
         outfitEntryDao.getAllWithDetails().map(ModeComparisonPolicy::compare)
 
-    /** Sorted, distinct rounded reference temperatures that have rated history for [activityType]. */
-    suspend fun stops(activityType: ActivityType, useApparent: Boolean): List<Int> =
-        RecommendationPolicy.stops(outfitEntryDao.getRatedEntriesWithDetails(activityType), useApparent)
+    /**
+     * Explorer's temperature chart for [activityType], re-emitted whenever its entries or the
+     * items tagged for it change.
+     */
+    fun temperatureChart(activityType: ActivityType, useApparent: Boolean): Flow<TemperatureChart> =
+        combine(
+            outfitEntryDao.getAllWithDetailsByActivityType(activityType),
+            clothingItemDao.getByActivityType(activityType)
+        ) { entries, tagged -> TemperatureChartPolicy.build(entries, tagged, useApparent) }
 
     companion object {
         /**

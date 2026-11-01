@@ -8,7 +8,7 @@ What to wear for your ride, run, commute or walk — from the forecast and the o
     <td><img src="docs/screenshots/workout.png" width="200" alt="Home: a 3-hour run, outfit for its warmest hour, with a UV warning"></td>
     <td><img src="docs/screenshots/rate.png" width="200" alt="Rate: the items you wore and too cold, perfect or too hot"></td>
     <td><img src="docs/screenshots/history.png" width="200" alt="History: past outfits with their temperature and comfort rating"></td>
-    <td><img src="docs/screenshots/explorer.png" width="200" alt="Explorer: what you wore at 1 °C"></td>
+    <td><img src="docs/screenshots/explorer.png" width="200" alt="Explorer: each item's range of perfect temperatures, marked at 1 °C"></td>
     <td><img src="docs/screenshots/settings.png" width="200" alt="Settings: clothing catalog, feels-like temperature, file backup and Google Drive"></td>
   </tr>
 </table>

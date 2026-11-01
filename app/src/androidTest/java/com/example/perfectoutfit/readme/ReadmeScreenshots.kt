@@ -43,7 +43,6 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
-import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
@@ -102,7 +101,7 @@ class ReadmeScreenshots {
         context = InstrumentationRegistry.getInstrumentation().targetContext
         screenshots = ReadmeScreenshotCapture.cleared(context)
 
-        // Home's noon ride, the coldest and warmest hour of the 3-hour run, and Explorer's stop.
+        // Home's noon ride, the coldest and warmest hour of the 3-hour run, and Explorer's marked degree.
         val noon = feelsLike(0)
         outfits = DemoHistory.generate(
             today,
@@ -125,7 +124,7 @@ class ReadmeScreenshots {
         captureSettings()
     }
 
-    /** Home's cycling recommendation for noon, then Explorer from the grid, slid to a cold stop. */
+    /** Home's cycling recommendation for noon, then Explorer from the grid, marking a cold degree. */
     private fun captureHomeAndExplorer() {
         ActivityScenario.launch(MainActivity::class.java).use {
             click("Cycling")
@@ -135,16 +134,12 @@ class ReadmeScreenshots {
             // Explorer opens from the activity grid's app bar, not the result step's.
             compose.onAllNodesWithContentDescription("Back").onFirst().performClick()
             compose.onAllNodesWithContentDescription("Outfit Explorer").onFirst().performClick()
-            waitForText("What you wore")
-            val stops = outfits
-                .filter { it.activityType == ActivityType.CYCLING && it.rating != null }
-                .map { it.feelsLike.roundToInt() }
-                .distinct()
-                .sorted()
-            val index = stops.indices.minBy { abs(stops[it] - EXPLORER_TEMP) }
-            compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress)).onFirst()
-                .performSemanticsAction(SemanticsActions.SetProgress) { it(index.toFloat()) }
-            waitForText("${stops[index]}°C")
+            // The strip is the screen's one adjustable control; its values are degrees.
+            val strip = SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress)
+            compose.waitUntil(UI_TIMEOUT_MS) { compose.onAllNodes(strip).fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodes(strip).onFirst()
+                .performSemanticsAction(SemanticsActions.SetProgress) { it(EXPLORER_TEMP.toFloat()) }
+            waitForText("$EXPLORER_TEMP°C ·", substring = true)
             screenshots.capture(compose, "explorer")
         }
     }

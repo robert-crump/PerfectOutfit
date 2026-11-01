@@ -6,6 +6,7 @@ import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.WeatherSnapshot
+import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -16,7 +17,7 @@ import org.junit.Test
 class ModeComparisonTest {
 
     private val dao = FakeOutfitEntryDao()
-    private val recommendations = Recommendations(dao)
+    private val recommendations = Recommendations(dao, FakeClothingItemDao())
 
     private fun compare(vararg entries: OutfitEntryWithDetails): ModeComparison {
         dao.details.value = entries.toList()
