@@ -247,6 +247,11 @@ fun HomeScreen(
             when (wizardStep) {
                 WizardStep.LOCATION_ACTIVITY_TYPE -> LocationActivityStep(
                     selectedLocationName = uiState.selectedLocationName,
+                    // Always the current hour, whichever workout hour the result step last showed.
+                    currentHour = uiState.hourlyWeather.firstOrNull(),
+                    currentTemp = uiState.displayTempAt(0),
+                    useApparentTemperature = uiState.useApparentTemperature,
+                    isLoading = uiState.isLoading,
                     onActivityTypeSelected = { activityType, hours ->
                         viewModel.selectActivityType(activityType, hours)
                         wizardStep = WizardStep.RESULT
@@ -278,6 +283,10 @@ private fun resultTitle(activityType: ActivityType, workoutDurationHours: Int): 
 @Composable
 private fun LocationActivityStep(
     selectedLocationName: String,
+    currentHour: HourlyWeather?,
+    currentTemp: Int?,
+    useApparentTemperature: Boolean,
+    isLoading: Boolean,
     onActivityTypeSelected: (ActivityType, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -290,17 +299,13 @@ private fun LocationActivityStep(
             .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                Icons.Default.LocationOn,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(selectedLocationName, style = MaterialTheme.typography.bodyLarge)
-        }
+        CurrentWeatherCard(
+            locationName = selectedLocationName,
+            hour = currentHour,
+            temp = currentTemp,
+            useApparentTemperature = useApparentTemperature,
+            isLoading = isLoading
+        )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -349,6 +354,47 @@ private fun LocationActivityStep(
                     // A lone tile in the last row keeps half the width.
                     if (rowActivityTypes.size == 1) Spacer(modifier = Modifier.weight(1f))
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The activity grid's weather header: the current hour's temperature beside its basis line and
+ * place. Without hours it says why ("Loading weather…" / "Weather unavailable"); the result
+ * step carries the error card with its buttons.
+ */
+@Composable
+private fun CurrentWeatherCard(
+    locationName: String,
+    hour: HourlyWeather?,
+    temp: Int?,
+    useApparentTemperature: Boolean,
+    isLoading: Boolean
+) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = if (hour != null && temp != null) "${temp}°C" else "–°",
+                style = MaterialTheme.typography.displaySmall
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                if (hour != null) {
+                    BasisLine(weather = hour, useApparentTemperature = useApparentTemperature)
+                } else {
+                    Text(
+                        text = if (isLoading) "Loading weather…" else "Weather unavailable",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                PlaceLine(locationName = locationName, timeLabel = if (hour != null) "Now" else null)
             }
         }
     }
