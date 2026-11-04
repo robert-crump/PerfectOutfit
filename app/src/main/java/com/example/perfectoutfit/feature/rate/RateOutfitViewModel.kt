@@ -32,7 +32,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import javax.inject.Inject
 
 enum class LogOutfitStep { DATE_TIME_LOCATION, OUTFIT_CATEGORIES, SUMMARY, RATING }
@@ -53,6 +56,8 @@ data class RateOutfitUiState(
     val mode: OutfitScreenMode = OutfitScreenMode.NewPast,
     val isLoading: Boolean = true,
     val weatherSnapshot: WeatherSnapshot? = null,
+    /** The workout hour of the entry being rated (its `createdAt`; rate-existing mode only). */
+    val workoutTime: LocalDateTime? = null,
     val activityType: ActivityType = ActivityType.CYCLING,
     val selectedItemIds: Set<Long> = emptySet(),
     val comfortRating: Int? = null,
@@ -168,6 +173,9 @@ class RateOutfitViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             weatherSnapshot = details.weatherSnapshot,
+                            workoutTime = LocalDateTime.ofInstant(
+                                Instant.ofEpochMilli(details.entry.createdAt), ZoneId.systemDefault()
+                            ),
                             activityType = details.entry.activityType,
                             selectedItemIds = edits.itemIds,
                             comfortRating = edits.comfortRating,

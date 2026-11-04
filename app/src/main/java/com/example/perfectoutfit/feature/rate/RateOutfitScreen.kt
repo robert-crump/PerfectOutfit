@@ -69,6 +69,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
+import com.example.perfectoutfit.ui.components.entryDateLabel
 import com.example.perfectoutfit.ui.components.ComfortRatingBar
 import com.example.perfectoutfit.ui.components.verticalScrollbar
 import java.time.LocalDate
@@ -252,9 +253,15 @@ private fun RateExistingOutfitContent(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             uiState.weatherSnapshot?.let { ws ->
-                if (ws.locationName.isNotEmpty()) {
+                // "Sun, 12 Oct · 14:00 · Aachen": the workout hour the outfit and weather were for.
+                val header = listOfNotNull(
+                    uiState.workoutTime?.let { entryDateLabel(it.toLocalDate(), LocalDate.now(), withWeekday = true) },
+                    uiState.workoutTime?.format(timeFormatter),
+                    ws.locationName.takeIf { it.isNotEmpty() }
+                ).joinToString(" · ")
+                if (header.isNotEmpty()) {
                     Text(
-                        text = ws.locationName,
+                        text = header,
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
