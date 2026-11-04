@@ -47,19 +47,30 @@ the [temperature chart](#temperature-chart)) while they are open. The Rate scree
 its likely-items follow the preference.
 
 ### UV warning threshold
-When Home's result step shows its UV warning card: `WeatherThresholds.isUvHigh`
-(`feature/home/WeatherThresholds.kt`), UV `>= 5`. That was already the threshold the
-Home screen's UV card used (issue #1), so it was kept rather than the WHO "high" band of
-`>= 6`. Wind has no warning and no colour bands (issue #23 removed the wind card and the
-good/moderate/severe status colours); the weather card shows wind and rain values plainly.
+When Home's weather card shows its UV hint (and tints the UV metric's sun icon):
+`WeatherThresholds.isUvHigh` (`feature/home/WeatherThresholds.kt`), UV `>= 5`. That was
+already the threshold the Home screen's UV card used (issue #1), so it was kept rather than
+the WHO "high" band of `>= 6`. Wind has no warning and no colour bands (issue #23 removed the
+wind card and the good/moderate/severe status colours); the weather card shows wind and rain
+values plainly.
 
 ### Rain ahead
-When Home's result step shows its umbrella card: `WeatherThresholds.rainAhead`, the first
+When Home's weather card shows its rain hint: `WeatherThresholds.rainAhead`, the first
 hour from now to the end of today whose precipitation probability is `>= 50 %`, with the
 day's remaining peak. It is judged from the current hour, not the hour being dressed for
 (a long workout's coldest/warmest hour), because it answers what to pack, not what to wear;
-rain after midnight doesn't count. When the current hour itself is likely, the card says
-"Rain likely now" instead of a start time.
+rain after midnight doesn't count. When the current hour itself is likely, the hint says
+"Rain likely now" instead of a start time. The hint names its own time because the card's Rain
+value above it is the dressed-for hour's probability, not today's.
+
+### Weather card
+Home's view of an hour. On the result step it is the hour being dressed for (the first hour,
+or a long workout's coldest/warmest): its [reference temperature](#reference-temperature),
+then "Feels like (Actual 7°C)" — the basis, with the other value in brackets — then the place
+and "Now" (the current clock hour) or the hour's time; below, UV, wind and rain; below those,
+one hint line per active warning ([UV](#uv-warning-threshold), [rain ahead](#rain-ahead)), with
+no section when neither applies. The activity grid shows a compact card of the same top lines,
+always for the current hour.
 
 ### Rating reminder
 The notification that asks the user to rate an outfit entry after a workout (activity

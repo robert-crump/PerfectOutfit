@@ -26,16 +26,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Umbrella
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedIconButton
@@ -64,9 +68,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
@@ -81,6 +88,8 @@ import com.example.perfectoutfit.ui.components.OutfitCard
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+private val HOUR_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 private enum class WizardStep { LOCATION_ACTIVITY_TYPE, RESULT }
 
@@ -451,7 +460,11 @@ private fun ResultStep(
                         displayTemp = uiState.activeDisplayTemp,
                         weather = currentWeather,
                         useApparentTemperature = uiState.useApparentTemperature,
-                        locationName = uiState.selectedLocationName
+                        locationName = uiState.selectedLocationName,
+                        timeLabel = if (uiState.activeHourIndex == 0) "Now"
+                        else currentWeather.time.format(HOUR_FORMAT),
+                        // Judged from now, not the workout's hour: it's about what to pack, not what to wear.
+                        rainAhead = WeatherThresholds.rainAhead(uiState.hourlyWeather)
                     )
                 }
 
@@ -467,13 +480,6 @@ private fun ResultStep(
                         displayTemp = uiState.activeDisplayTemp,
                         useApparentTemperature = uiState.useApparentTemperature
                     )
-                }
-
-                // Judged from now, not the workout's hour: it's about what to pack, not what to wear.
-                WeatherThresholds.rainAhead(uiState.hourlyWeather)?.let { RainAheadCard(it) }
-
-                if (currentWeather != null && WeatherThresholds.isUvHigh(currentWeather.uvIndex)) {
-                    UvInfoCard(uvIndex = currentWeather.uvIndex)
                 }
             }
         }
@@ -528,103 +534,180 @@ private fun WorkoutHourSelector(
     }
 }
 
+/**
+ * The hour being dressed for: its reference temperature, basis, place and time, then UV, wind
+ * and rain, then a hint per active warning (high UV, [rainAhead]).
+ */
 @Composable
 private fun WeatherCard(
     displayTemp: Int,
     weather: HourlyWeather,
     useApparentTemperature: Boolean,
-    locationName: String
+    locationName: String,
+    timeLabel: String,
+    rainAhead: RainAhead?
 ) {
-    val tempLabel = stringResource(
-        if (useApparentTemperature) R.string.temperature_apparent else R.string.temperature_real
-    )
-    // The value not used for matching, shown smaller so a surprising number explains itself
-    val otherLabel = stringResource(
-        if (useApparentTemperature) R.string.temperature_real else R.string.temperature_apparent
-    )
-    val otherTemp = (
-        if (useApparentTemperature) weather.temperatureCelsius else weather.apparentTemperatureCelsius
-    ).roundToInt()
-
+    val uvHigh = WeatherThresholds.isUvHigh(weather.uvIndex)
     Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${displayTemp}°C",
-                    style = MaterialTheme.typography.displaySmall
-                )
-                Text(
-                    text = tempLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "$otherLabel ${otherTemp}°C",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = locationName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+            Column {
+                Text(text = "${displayTemp}°C", style = MaterialTheme.typography.displayMedium)
+                BasisLine(weather = weather, useApparentTemperature = useApparentTemperature)
+                Spacer(modifier = Modifier.height(4.dp))
+                PlaceLine(locationName = locationName, timeLabel = timeLabel)
             }
-            Row(modifier = Modifier.weight(1.4f)) {
-                WeatherMetric(label = "UV", value = "${weather.uvIndex}", unit = "", modifier = Modifier.weight(1f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(modifier = Modifier.fillMaxWidth()) {
                 WeatherMetric(
+                    icon = Icons.Default.WbSunny,
+                    label = "UV",
+                    value = "${weather.uvIndex}",
+                    unit = "",
+                    iconTint = if (uvHigh) MaterialTheme.colorScheme.tertiary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                WeatherMetric(
+                    icon = Icons.Default.Air,
                     label = "Wind",
                     value = "${weather.windSpeedKmh.toInt()}",
                     unit = " km/h",
                     modifier = Modifier.weight(1f)
                 )
                 WeatherMetric(
+                    icon = Icons.Default.WaterDrop,
                     label = "Rain",
                     value = "${weather.precipitationProbabilityPercent}",
                     unit = " %",
                     modifier = Modifier.weight(1f)
                 )
             }
+            if (uvHigh || rainAhead != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (uvHigh) {
+                        WeatherHint(Icons.Default.Warning, "High UV — sunglasses, UV sleeves or sun lotion")
+                    }
+                    if (rainAhead != null) WeatherHint(Icons.Default.Umbrella, rainHint(rainAhead))
+                }
+            }
         }
     }
 }
 
-/** One centred column: the label above, the value (with a smaller unit) below. */
+/** The rain-ahead hint names its own time, since the Rain value above is the dressed-for hour's. */
+private fun rainHint(rain: RainAhead): String {
+    val start = if (rain.startsNow) "now" else "from ${rain.from.format(HOUR_FORMAT)}"
+    return "Rain likely $start, up to ${rain.peakPercent} % — pack a rain jacket or umbrella"
+}
+
+/**
+ * "Feels like (Actual 7°C)": the basis matching uses, then the other value as an aside, so a
+ * surprising number explains itself.
+ */
 @Composable
-private fun WeatherMetric(label: String, value: String, unit: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+private fun BasisLine(weather: HourlyWeather, useApparentTemperature: Boolean) {
+    val basis = stringResource(
+        if (useApparentTemperature) R.string.temperature_apparent else R.string.temperature_real
+    )
+    val otherLabel = stringResource(
+        if (useApparentTemperature) R.string.temperature_real else R.string.temperature_apparent
+    )
+    val otherTemp = (
+        if (useApparentTemperature) weather.temperatureCelsius else weather.apparentTemperatureCelsius
+    ).roundToInt()
+    val asideColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        text = buildAnnotatedString {
+            append(basis)
+            withStyle(SpanStyle(color = asideColor)) { append(" ($otherLabel ${otherTemp}°C)") }
+        },
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+}
+
+/** "📍 Aachen · Now": a long place name ellipsizes, the time stays. */
+@Composable
+private fun PlaceLine(locationName: String, timeLabel: String?) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            Icons.Default.LocationOn,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = locationName,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        if (timeLabel != null) {
+            Text(
+                text = " · $timeLabel",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+/** One centred column: icon and label above, the value (with a smaller unit) below. */
+@Composable
+private fun WeatherMetric(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    unit: String,
+    modifier: Modifier = Modifier,
+    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    Column(
+        modifier = modifier.semantics(mergeDescendants = true) {},
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = iconTint)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Text(
             text = buildAnnotatedString {
                 append(value)
-                withStyle(SpanStyle(fontSize = MaterialTheme.typography.labelSmall.fontSize)) { append(unit) }
+                withStyle(SpanStyle(fontSize = MaterialTheme.typography.titleSmall.fontSize)) { append(unit) }
             },
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
             maxLines = 1
         )
+    }
+}
+
+/** One warning line at the bottom of the weather card. */
+@Composable
+private fun WeatherHint(icon: ImageVector, text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.tertiary
+        )
+        Text(text = text, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -643,64 +726,6 @@ private fun NoRecommendationCard(displayTemp: Int, useApparentTemperature: Boole
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-private fun RainAheadCard(rain: RainAhead) {
-    val title = if (rain.startsNow) "Rain likely now"
-    else "Rain likely from ${rain.from.format(DateTimeFormatter.ofPattern("HH:mm"))}"
-    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                Icons.Default.Umbrella,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary
-            )
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Up to ${rain.peakPercent} % later today. Consider packing an umbrella or a rain jacket.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun UvInfoCard(uvIndex: Int) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                Icons.Default.Warning,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary
-            )
-            Column {
-                Text(
-                    text = "UV-Index $uvIndex",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Consider using sun glasses as well as UV sleeves and/or sun lotion.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
