@@ -473,6 +473,7 @@ private fun ResultStep(
                     OutfitCard(
                         title = "Recommended outfit",
                         outfit = recommendation,
+                        useApparentTemperature = uiState.useApparentTemperature,
                         onEditOutfit = onEditOutfit
                     )
                 } else {
