@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,7 +66,21 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
-import com.example.perfectoutfit.core.model.BodyPart
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.compositeOver
+import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
+import com.example.perfectoutfit.core.model.referenceTemp
+import com.example.perfectoutfit.feature.home.WeatherThresholds
+import com.example.perfectoutfit.ui.components.BasisLine
+import com.example.perfectoutfit.ui.components.WeatherMetricsRow
+import com.example.perfectoutfit.ui.components.neutralCardColors
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.ui.components.entryDateLabel
 import com.example.perfectoutfit.ui.components.ComfortRatingBar
@@ -242,6 +255,11 @@ private fun RateExistingOutfitContent(
         },
         contentWindowInsets = WindowInsets(0)
     ) { innerPadding ->
+        var showItemsSheet by rememberSaveable { mutableStateOf(false) }
+        val selectedItems = availableItems
+            .filter { it.id in uiState.selectedItemIds }
+            .sortedBy { BODY_PART_DISPLAY_ORDER.indexOf(it.bodyPart) }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -250,74 +268,61 @@ private fun RateExistingOutfitContent(
                 .imePadding()
                 .verticalScrollbar(scrollState)
                 .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            uiState.weatherSnapshot?.let { ws ->
-                // "Sun, 12 Oct · 14:00 · Aachen": the workout hour the outfit and weather were for.
-                val header = listOfNotNull(
-                    uiState.workoutTime?.let { entryDateLabel(it.toLocalDate(), LocalDate.now(), withWeekday = true) },
-                    uiState.workoutTime?.format(timeFormatter),
-                    ws.locationName.takeIf { it.isNotEmpty() }
-                ).joinToString(" · ")
-                if (header.isNotEmpty()) {
+            GeneralCard(uiState)
+
+            DetailCard(
+                title = "Items worn",
+                action = { TextButton(onClick = { showItemsSheet = true }) { Text("Edit") } }
+            ) {
+                if (selectedItems.isEmpty()) {
                     Text(
-                        text = header,
-                        style = MaterialTheme.typography.titleMedium
+                        "No items selected",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-                Text(
-                    text = "Weather: ${ws.temperatureCelsius.roundToInt()}\u00B0C " +
-                        "(${stringResource(R.string.temperature_apparent).lowercase()} " +
-                        "${ws.apparentTemperatureCelsius.roundToInt()}\u00B0C)",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Wind: ${ws.windSpeedKmh.toInt()} km/h | " +
-                        "UV: ${ws.uvIndex} | " +
-                        "Cloud: ${ws.cloudCoverPercent}%",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Text("Select items you wore:", style = MaterialTheme.typography.titleMedium)
-
-            BodyPart.entries.forEach { bodyPart ->
-                val bodyPartItems = availableItems.filter { it.bodyPart == bodyPart }
-                if (bodyPartItems.isNotEmpty()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(bodyPart.displayName, style = MaterialTheme.typography.titleSmall)
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            bodyPartItems.forEach { item ->
-                                FilterChip(
-                                    selected = item.id in uiState.selectedItemIds,
-                                    onClick = { viewModel.toggleItem(item.id) },
-                                    label = { Text(item.name, style = MaterialTheme.typography.bodySmall) }
-                                )
-                            }
-                        }
+                } else {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        selectedItems.forEach { WornItemPill(it.name) }
                     }
                 }
             }
 
-            OutlinedTextField(
-                value = uiState.notes,
-                onValueChange = viewModel::setNotes,
-                label = { Text("Outfit Notes") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                minLines = 2
-            )
+            DetailCard(title = "Notes") {
+                // Bare field, so its text lines up with the card title instead of TextField's inset.
+                BasicTextField(
+                    value = uiState.notes,
+                    onValueChange = viewModel::setNotes,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (uiState.notes.isEmpty()) {
+                                Text(
+                                    "Tap to add notes…",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
+                )
+            }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = animatedAlpha))
-                    .padding(vertical = 4.dp)
+            // Flashes when opened from the rating reminder, to point at what's being asked.
+            val cardColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            DetailCard(
+                title = "How did it feel?",
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+                    .copy(alpha = animatedAlpha)
+                    .compositeOver(cardColor)
             ) {
                 ComfortRatingBar(
                     selectedRating = uiState.comfortRating,
@@ -325,7 +330,173 @@ private fun RateExistingOutfitContent(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        if (showItemsSheet) {
+            ItemsWornSheet(
+                availableItems = availableItems,
+                selectedItemIds = uiState.selectedItemIds,
+                onToggle = viewModel::toggleItem,
+                onDismiss = { showItemsSheet = false }
+            )
+        }
+    }
+}
+
+/** When and where, then the weather that hour, laid out like Home's weather card. */
+@Composable
+private fun GeneralCard(uiState: RateOutfitUiState) {
+    val ws = uiState.weatherSnapshot
+    // "Sun, 12 Oct · 14:00 · Aachen": the workout hour the outfit and weather were for.
+    val header = listOfNotNull(
+        uiState.workoutTime?.let { entryDateLabel(it.toLocalDate(), LocalDate.now(), withWeekday = true) },
+        uiState.workoutTime?.format(timeFormatter),
+        ws?.locationName?.takeIf { it.isNotEmpty() }
+    ).joinToString(" · ")
+    if (header.isEmpty() && ws == null) return
+
+    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (header.isNotEmpty()) {
+                Text(text = header, style = MaterialTheme.typography.titleMedium)
+            }
+            if (ws != null) {
+                Column {
+                    Text(
+                        text = "${ws.referenceTemp(uiState.useApparentTemperature).roundToInt()}°C",
+                        style = MaterialTheme.typography.displaySmall
+                    )
+                    BasisLine(weather = ws, useApparentTemperature = uiState.useApparentTemperature)
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                WeatherMetricsRow(weather = ws, uvHigh = WeatherThresholds.isUvHigh(ws.uvIndex))
+            }
+        }
+    }
+}
+
+/** A detail card: a small primary-coloured title (with an optional action at its end), then content. */
+@Composable
+private fun DetailCard(
+    title: String,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    action: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = if (action != null) 4.dp else 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                action?.invoke()
+            }
+            content()
+        }
+    }
+}
+
+/** A worn item, read-only: editing happens in [ItemsWornSheet]. */
+@Composable
+private fun WornItemPill(name: String) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    ) {
+        Text(
+            text = name,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+    }
+}
+
+/** Every item on offer, by body part; a tap toggles it on the entry straight away. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun ItemsWornSheet(
+    availableItems: List<ClothingItem>,
+    selectedItemIds: Set<Long>,
+    onToggle: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    val colors = outfitChipColorSet()
+    val chipBorder = FilterChipDefaults.filterChipBorder(
+        enabled = true,
+        selected = false,
+        borderColor = MaterialTheme.colorScheme.outline,
+        selectedBorderColor = Color.Transparent
+    )
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Items worn", style = MaterialTheme.typography.titleLarge)
+            BODY_PART_DISPLAY_ORDER.forEach { bodyPart ->
+                val items = availableItems.filter { it.bodyPart == bodyPart }
+                if (items.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            bodyPart.displayName,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items.forEach { item ->
+                                val isSelected = item.id in selectedItemIds
+                                val bg = if (isSelected) colors.activeBg else colors.inactiveBg
+                                val label = if (isSelected) colors.activeLabel else colors.inactiveLabel
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { onToggle(item.id) },
+                                    label = { Text(item.name) },
+                                    border = chipBorder,
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        containerColor = bg,
+                                        selectedContainerColor = bg,
+                                        labelColor = label,
+                                        selectedLabelColor = label
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Button(
+                onClick = {
+                    scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Done") }
         }
     }
 }
@@ -845,10 +1016,13 @@ private fun WizardRatingStep(
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 minLines = 2
             )
-            ComfortRatingBar(
-                selectedRating = uiState.comfortRating,
-                onRatingSelected = viewModel::setRating
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("How did the outfit feel?", style = MaterialTheme.typography.titleSmall)
+                ComfortRatingBar(
+                    selectedRating = uiState.comfortRating,
+                    onRatingSelected = viewModel::setRating
+                )
+            }
         }
 
         Surface(

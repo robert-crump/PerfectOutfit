@@ -26,14 +26,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Umbrella
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -68,26 +65,23 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.ui.components.BasisLine
 import com.example.perfectoutfit.ui.components.OutfitCard
+import com.example.perfectoutfit.ui.components.WeatherMetricsRow
+import com.example.perfectoutfit.ui.components.neutralCardColors
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 private val HOUR_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
@@ -429,11 +423,6 @@ private fun ActivityTypeTile(
     }
 }
 
-/** Every card on Home: one neutral container, so colour is left to the actions. */
-@Composable
-private fun neutralCardColors() =
-    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ResultStep(
@@ -609,31 +598,7 @@ private fun WeatherCard(
                 PlaceLine(locationName = locationName, timeLabel = timeLabel)
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Row(modifier = Modifier.fillMaxWidth()) {
-                WeatherMetric(
-                    icon = Icons.Default.WbSunny,
-                    label = "UV",
-                    value = "${weather.uvIndex}",
-                    unit = "",
-                    iconTint = if (uvHigh) MaterialTheme.colorScheme.tertiary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
-                WeatherMetric(
-                    icon = Icons.Default.Air,
-                    label = "Wind",
-                    value = "${weather.windSpeedKmh.toInt()}",
-                    unit = " km/h",
-                    modifier = Modifier.weight(1f)
-                )
-                WeatherMetric(
-                    icon = Icons.Default.WaterDrop,
-                    label = "Rain",
-                    value = "${weather.precipitationProbabilityPercent}",
-                    unit = " %",
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            WeatherMetricsRow(weather = weather, uvHigh = uvHigh)
             if (uvHigh || rainAhead != null) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -651,32 +616,6 @@ private fun WeatherCard(
 private fun rainHint(rain: RainAhead): String {
     val start = if (rain.startsNow) "now" else "from ${rain.from.format(HOUR_FORMAT)}"
     return "Rain likely $start, up to ${rain.peakPercent} % — pack a rain jacket or umbrella"
-}
-
-/**
- * "Feels like (Actual 7°C)": the basis matching uses, then the other value as an aside, so a
- * surprising number explains itself.
- */
-@Composable
-private fun BasisLine(weather: HourlyWeather, useApparentTemperature: Boolean) {
-    val basis = stringResource(
-        if (useApparentTemperature) R.string.temperature_apparent else R.string.temperature_real
-    )
-    val otherLabel = stringResource(
-        if (useApparentTemperature) R.string.temperature_real else R.string.temperature_apparent
-    )
-    val otherTemp = (
-        if (useApparentTemperature) weather.temperatureCelsius else weather.apparentTemperatureCelsius
-    ).roundToInt()
-    val asideColor = MaterialTheme.colorScheme.onSurfaceVariant
-    Text(
-        text = buildAnnotatedString {
-            append(basis)
-            withStyle(SpanStyle(color = asideColor)) { append(" ($otherLabel ${otherTemp}°C)") }
-        },
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurface
-    )
 }
 
 /** "📍 Aachen · Now": a long place name ellipsizes, the time stays. */
@@ -706,41 +645,6 @@ private fun PlaceLine(locationName: String, timeLabel: String?) {
                 maxLines = 1
             )
         }
-    }
-}
-
-/** One centred column: icon and label above, the value (with a smaller unit) below. */
-@Composable
-private fun WeatherMetric(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    unit: String,
-    modifier: Modifier = Modifier,
-    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant
-) {
-    Column(
-        modifier = modifier.semantics(mergeDescendants = true) {},
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = iconTint)
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Text(
-            text = buildAnnotatedString {
-                append(value)
-                withStyle(SpanStyle(fontSize = MaterialTheme.typography.titleSmall.fontSize)) { append(unit) }
-            },
-            style = MaterialTheme.typography.headlineMedium,
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
     }
 }
 

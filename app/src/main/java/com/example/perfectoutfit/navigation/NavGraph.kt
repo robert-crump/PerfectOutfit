@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -277,6 +278,8 @@ private fun NavGraphContent(
     Box(
         modifier = Modifier
             .padding(innerPadding)
+            // So a screen's imePadding() subtracts the bottom bar it already sits above.
+            .consumeWindowInsets(innerPadding)
             .fillMaxSize(),
         contentAlignment = Alignment.TopCenter
     ) {

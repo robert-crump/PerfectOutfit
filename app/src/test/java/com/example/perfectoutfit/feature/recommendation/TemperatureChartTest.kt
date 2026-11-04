@@ -125,9 +125,9 @@ class TemperatureChartTest {
             entry(4, rating = 0, apparent = 0.0, vest),
             entry(5, rating = 0, apparent = 12.0, vest)
         ))
-        assertEquals(listOf(BodyPart.LEGS, BodyPart.UPPER_BODY, BodyPart.HANDS), chart.groups.map { it.bodyPart })
+        assertEquals(listOf(BodyPart.UPPER_BODY, BodyPart.HANDS, BodyPart.LEGS), chart.groups.map { it.bodyPart })
         // Jacket 0..4 before Vest 0..12 (same min, lower max), then Jersey 10..10.
-        assertEquals(listOf(jacket, vest, jersey), chart.groups[1].rows.map { it.item })
+        assertEquals(listOf(jacket, vest, jersey), chart.groups[0].rows.map { it.item })
     }
 
     @Test

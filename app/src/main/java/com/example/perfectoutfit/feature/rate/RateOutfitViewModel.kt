@@ -59,6 +59,8 @@ data class RateOutfitUiState(
     /** The workout hour of the entry being rated (its `createdAt`; rate-existing mode only). */
     val workoutTime: LocalDateTime? = null,
     val activityType: ActivityType = ActivityType.CYCLING,
+    /** Which temperature leads the detail card's weather (the user's preference). */
+    val useApparentTemperature: Boolean = true,
     val selectedItemIds: Set<Long> = emptySet(),
     val comfortRating: Int? = null,
     val isSaved: Boolean = false,
@@ -140,6 +142,11 @@ class RateOutfitViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
+        viewModelScope.launch {
+            preferencesManager.useApparentTemperature.collect { useApparent ->
+                _uiState.update { it.copy(useApparentTemperature = useApparent) }
+            }
+        }
         // Likely items follow the selected hour, the activityType and the (reactive) apparent/real
         // temperature preference.
         viewModelScope.launch {

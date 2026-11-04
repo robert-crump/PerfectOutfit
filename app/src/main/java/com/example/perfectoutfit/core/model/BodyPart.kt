@@ -12,12 +12,15 @@ enum class BodyPart(val displayName: String) {
     HANDS("Hands")
 }
 
-/** Single source of truth for the order clothing categories are displayed throughout the app. */
+/**
+ * Single source of truth for the order clothing categories are displayed throughout the app:
+ * head to toe, with hands after the arms they hang from.
+ */
 val BODY_PART_DISPLAY_ORDER = listOf(
-    BodyPart.LEGS,
+    BodyPart.HEAD_THROAT,
     BodyPart.UPPER_BODY,
     BodyPart.ARMS,
-    BodyPart.FEET,
-    BodyPart.HEAD_THROAT,
-    BodyPart.HANDS
+    BodyPart.HANDS,
+    BodyPart.LEGS,
+    BodyPart.FEET
 )
