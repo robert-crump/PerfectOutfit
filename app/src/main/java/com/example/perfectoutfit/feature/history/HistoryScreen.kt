@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -58,6 +57,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.perfectoutfit.R
 import com.example.perfectoutfit.ui.components.ActivityTypeSelector
 import com.example.perfectoutfit.ui.components.ratingEmoji
 import com.example.perfectoutfit.ui.components.verticalScrollbar
@@ -169,7 +169,7 @@ fun HistoryScreen(
                 onClick = onNavigateToNewOutfit,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                icon = { Icon(painterResource(R.drawable.ic_outfit), contentDescription = null) },
                 text = { Text("Outfit") },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
