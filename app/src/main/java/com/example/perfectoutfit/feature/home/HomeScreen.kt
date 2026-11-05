@@ -28,7 +28,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Umbrella
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -36,7 +35,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedIconButton
@@ -65,7 +63,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -78,7 +75,9 @@ import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.ui.components.BasisLine
 import com.example.perfectoutfit.ui.components.OutfitCard
-import com.example.perfectoutfit.ui.components.WeatherMetricsRow
+import com.example.perfectoutfit.ui.components.PlaceLine
+import com.example.perfectoutfit.ui.components.WeatherCard
+import com.example.perfectoutfit.ui.components.WeatherHint
 import com.example.perfectoutfit.ui.components.neutralCardColors
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -491,6 +490,8 @@ private fun ResultStep(
 
                 val currentWeather = uiState.activeHour
                 if (currentWeather != null) {
+                    // Judged from now, not the workout's hour: it's about what to pack, not what to wear.
+                    val rainAhead = WeatherThresholds.rainAhead(uiState.hourlyWeather)
                     WeatherCard(
                         displayTemp = uiState.activeDisplayTemp,
                         weather = currentWeather,
@@ -498,8 +499,11 @@ private fun ResultStep(
                         locationName = uiState.selectedLocationName,
                         timeLabel = if (uiState.activeHourIndex == 0) "Now"
                         else currentWeather.time.format(HOUR_FORMAT),
-                        // Judged from now, not the workout's hour: it's about what to pack, not what to wear.
-                        rainAhead = WeatherThresholds.rainAhead(uiState.hourlyWeather)
+                        hints = listOfNotNull(
+                            WeatherHint(Icons.Default.Warning, "High UV — sunglasses, UV sleeves or sun lotion")
+                                .takeIf { WeatherThresholds.isUvHigh(currentWeather.uvIndex) },
+                            rainAhead?.let { WeatherHint(Icons.Default.Umbrella, rainHint(it)) }
+                        )
                     )
                 }
 
@@ -570,96 +574,10 @@ private fun WorkoutHourSelector(
     }
 }
 
-/**
- * The hour being dressed for: its reference temperature, basis, place and time, then UV, wind
- * and rain, then a hint per active warning (high UV, [rainAhead]).
- */
-@Composable
-private fun WeatherCard(
-    displayTemp: Int,
-    weather: HourlyWeather,
-    useApparentTemperature: Boolean,
-    locationName: String,
-    timeLabel: String,
-    rainAhead: RainAhead?
-) {
-    val uvHigh = WeatherThresholds.isUvHigh(weather.uvIndex)
-    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Column {
-                Text(text = "${displayTemp}°C", style = MaterialTheme.typography.displayMedium)
-                BasisLine(weather = weather, useApparentTemperature = useApparentTemperature)
-                Spacer(modifier = Modifier.height(4.dp))
-                PlaceLine(locationName = locationName, timeLabel = timeLabel)
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            WeatherMetricsRow(weather = weather, uvHigh = uvHigh)
-            if (uvHigh || rainAhead != null) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (uvHigh) {
-                        WeatherHint(Icons.Default.Warning, "High UV — sunglasses, UV sleeves or sun lotion")
-                    }
-                    if (rainAhead != null) WeatherHint(Icons.Default.Umbrella, rainHint(rainAhead))
-                }
-            }
-        }
-    }
-}
-
 /** The rain-ahead hint names its own time, since the Rain value above is the dressed-for hour's. */
 private fun rainHint(rain: RainAhead): String {
     val start = if (rain.startsNow) "now" else "from ${rain.from.format(HOUR_FORMAT)}"
     return "Rain likely $start, up to ${rain.peakPercent} % — pack a rain jacket or umbrella"
-}
-
-/** "📍 Aachen · Now": a long place name ellipsizes, the time stays. */
-@Composable
-private fun PlaceLine(locationName: String, timeLabel: String?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            Icons.Default.LocationOn,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = locationName,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false)
-        )
-        if (timeLabel != null) {
-            Text(
-                text = " · $timeLabel",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-        }
-    }
-}
-
-/** One warning line at the bottom of the weather card. */
-@Composable
-private fun WeatherHint(icon: ImageVector, text: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.tertiary
-        )
-        Text(text = text, style = MaterialTheme.typography.bodyMedium)
-    }
 }
 
 @Composable

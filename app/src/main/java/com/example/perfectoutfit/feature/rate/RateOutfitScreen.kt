@@ -68,7 +68,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.text.BasicTextField
@@ -77,9 +76,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.compositeOver
 import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 import com.example.perfectoutfit.core.model.referenceTemp
-import com.example.perfectoutfit.feature.home.WeatherThresholds
-import com.example.perfectoutfit.ui.components.BasisLine
-import com.example.perfectoutfit.ui.components.WeatherMetricsRow
+import com.example.perfectoutfit.ui.components.CardTitleRow
+import com.example.perfectoutfit.ui.components.WeatherCard
 import com.example.perfectoutfit.ui.components.neutralCardColors
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.ui.components.entryDateLabel
@@ -344,44 +342,37 @@ private fun RateExistingOutfitContent(
     }
 }
 
-/** When and where, then the weather that hour, laid out like Home's weather card. */
+/** The workout's weather, in Home's weather card; the date and hour stand where Home says "Now". */
 @Composable
 private fun GeneralCard(uiState: RateOutfitUiState) {
     val ws = uiState.weatherSnapshot
-    // "Sun, 12 Oct · 14:00 · Aachen": the workout hour the outfit and weather were for.
-    val header = listOfNotNull(
+    // "Sun, 12 Oct · 14:00": the workout hour the outfit and weather were for.
+    val timeLabel = listOfNotNull(
         uiState.workoutTime?.let { entryDateLabel(it.toLocalDate(), LocalDate.now(), withWeekday = true) },
-        uiState.workoutTime?.format(timeFormatter),
-        ws?.locationName?.takeIf { it.isNotEmpty() }
-    ).joinToString(" · ")
-    if (header.isEmpty() && ws == null) return
+        uiState.workoutTime?.format(timeFormatter)
+    ).joinToString(" · ").ifEmpty { null }
 
-    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (header.isNotEmpty()) {
-                Text(text = header, style = MaterialTheme.typography.titleMedium)
-            }
-            if (ws != null) {
-                Column {
-                    Text(
-                        text = "${ws.referenceTemp(uiState.useApparentTemperature).roundToInt()}°C",
-                        style = MaterialTheme.typography.displaySmall
-                    )
-                    BasisLine(weather = ws, useApparentTemperature = uiState.useApparentTemperature)
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                WeatherMetricsRow(weather = ws, uvHigh = WeatherThresholds.isUvHigh(ws.uvIndex))
-            }
+    if (ws != null) {
+        // No hints: they advise on what to pack now, not on a past workout.
+        WeatherCard(
+            displayTemp = ws.referenceTemp(uiState.useApparentTemperature).roundToInt(),
+            weather = ws,
+            useApparentTemperature = uiState.useApparentTemperature,
+            locationName = ws.locationName,
+            timeLabel = timeLabel
+        )
+    } else if (timeLabel != null) {
+        Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
+            Text(
+                text = timeLabel,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(16.dp)
+            )
         }
     }
 }
 
-/** A detail card: a small primary-coloured title (with an optional action at its end), then content. */
+/** A detail card: a [CardTitleRow] (with an optional action at its end), then content. */
 @Composable
 private fun DetailCard(
     title: String,
@@ -393,24 +384,12 @@ private fun DetailCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
+        CardTitleRow(title = title, action = action)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = if (action != null) 4.dp else 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
-                action?.invoke()
-            }
             content()
         }
     }
