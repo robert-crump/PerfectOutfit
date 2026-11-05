@@ -91,6 +91,16 @@ class Forecast @Inject constructor(
         return fetched.filter { it.time.toLocalDate() == date }
     }
 
+    /**
+     * Hours of [date] at another place (a past outfit logged elsewhere). Always fetches and never
+     * touches the forecast, so Home keeps showing the current location. Throws if the fetch fails.
+     */
+    suspend fun hoursAt(lat: Double, lon: Double, date: LocalDate): List<HourlyWeather> {
+        val day = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        return WeatherMapper.extractAllHours(api.getWeatherForDateRange(lat, lon, day, day))
+            .filter { it.time.toLocalDate() == date }
+    }
+
     companion object {
         const val WINDOW_HOURS = 24
 

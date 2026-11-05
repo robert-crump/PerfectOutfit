@@ -8,17 +8,21 @@ import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.model.referenceTemp
+import com.example.perfectoutfit.core.network.GeocodingApi
 import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
 import com.example.perfectoutfit.feature.outfit.LogLocation
 import com.example.perfectoutfit.feature.outfit.LogMode
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
+import com.example.perfectoutfit.feature.outfit.RecentPlace
+import com.example.perfectoutfit.feature.outfit.recentPlaces
 import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.recommendation.Recommendations
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +46,15 @@ enum class LogOutfitStep { DATE_TIME_LOCATION, OUTFIT_CATEGORIES, SUMMARY, RATIN
 
 /** Alias to the single source of truth defined in BodyPart.kt. */
 val LOG_OUTFIT_CATEGORY_ORDER = com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
+
+/** A city search hit: where it is, plus "Region, Country" to tell same-named towns apart. */
+data class PlaceSearchResult(val location: LogLocation, val region: String)
+
+/** Typing pause before a city search runs. */
+const val PLACE_SEARCH_DEBOUNCE_MS = 300L
+
+/** Characters needed before a city search runs. */
+const val PLACE_SEARCH_MIN_CHARS = 2
 
 /** The user-editable parts of an existing entry. */
 data class OutfitEdits(val itemIds: Set<Long>, val comfortRating: Int?, val notes: String)
@@ -77,6 +90,13 @@ data class RateOutfitUiState(
     val isLoadingDateWeather: Boolean = false,
     val logLocationSelected: Boolean = false,
     val logLocationName: String = "",
+    /** The place a past outfit is logged at; null = the current (GPS) location. */
+    val chosenLocation: LogLocation? = null,
+    val showLocationSheet: Boolean = false,
+    val recentPlaces: List<RecentPlace> = emptyList(),
+    val locationQuery: String = "",
+    val searchResults: List<PlaceSearchResult> = emptyList(),
+    val searchFailed: Boolean = false,
     val likelyItemIds: Set<Long> = emptySet(),
     val notes: String = "",
     val workoutDurationHours: Int = 1,
@@ -112,7 +132,8 @@ class RateOutfitViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val forecast: Forecast,
     private val liveOutfitHandoffStore: LiveOutfitHandoffStore,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val geocodingApi: GeocodingApi
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -141,7 +162,12 @@ class RateOutfitViewModel @Inject constructor(
         .combine(_entryItems, ::itemsToOffer)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val locationQuery = MutableStateFlow("")
+
     init {
+        viewModelScope.launch {
+            locationQuery.collectLatest { query -> search(query.trim()) }
+        }
         viewModelScope.launch {
             preferencesManager.useApparentTemperature.collect { useApparent ->
                 _uiState.update { it.copy(useApparentTemperature = useApparent) }
@@ -212,9 +238,9 @@ class RateOutfitViewModel @Inject constructor(
                     )
                 }
                 is OutfitScreenMode.NewPast -> {
-                    // GPS-only: there is no location picker anymore, so the wizard always uses
-                    // the forecast's (current) location, same as the Home screen. Only dates up
-                    // to today can be picked (the date picker's max date).
+                    // Starts at the forecast's (current) location; the location sheet can switch
+                    // to a recent or searched place. Only dates up to today can be picked (the
+                    // date picker's max date).
                     val today = forecast.today()
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -224,17 +250,27 @@ class RateOutfitViewModel @Inject constructor(
                         selectedItemIds = emptySet(),
                         logStep = LogOutfitStep.DATE_TIME_LOCATION,
                         logLocationSelected = true,
-                        logLocationName = forecast.location?.name ?: ""
+                        logLocationName = forecast.location?.name ?: "",
+                        recentPlaces = recentPlaces(
+                            outfitLogging.allEntries().first().map { it.weatherSnapshot },
+                            forecast.location
+                        )
                     )
                 }
             }
         }
     }
 
-    /** Hours of [date] from the forecast; empty if unknown and the fetch fails. */
-    private suspend fun loadHours(date: LocalDate): List<HourlyWeather> =
+    /**
+     * Hours of [date] at [at] (null = the current location, from the forecast); empty if unknown
+     * and the fetch fails.
+     */
+    private suspend fun loadHours(
+        date: LocalDate,
+        at: LogLocation? = _uiState.value.chosenLocation
+    ): List<HourlyWeather> =
         try {
-            forecast.hoursFor(date)
+            if (at == null) forecast.hoursFor(date) else forecast.hoursAt(at.lat, at.lon, date)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -263,10 +299,11 @@ class RateOutfitViewModel @Inject constructor(
             selectedHourIndex = -1,
             isLoadingDateWeather = true
         )
+        val at = _uiState.value.chosenLocation
         viewModelScope.launch {
-            val hours = loadHours(date)
-            // Ignore the result if the user has picked another date in the meantime.
-            if (_uiState.value.selectedDate != date) return@launch
+            val hours = loadHours(date, at)
+            // Ignore the result if the user has picked another date or place in the meantime.
+            if (_uiState.value.selectedDate != date || _uiState.value.chosenLocation != at) return@launch
             _uiState.value = _uiState.value.copy(
                 isLoadingDateWeather = false,
                 hoursForSelectedDate = hours
@@ -279,6 +316,77 @@ class RateOutfitViewModel @Inject constructor(
         val hours = _uiState.value.hoursForSelectedDate
         val match = Forecast.hourNearest(hours, hour) ?: return
         _uiState.value = _uiState.value.copy(selectedHourIndex = hours.indexOf(match))
+    }
+
+    // ─── Location picker (past logging) ──────────────────────────────────────
+
+    fun openLocationSheet() {
+        _uiState.update { it.copy(showLocationSheet = true) }
+    }
+
+    fun dismissLocationSheet() {
+        locationQuery.value = ""
+        _uiState.update { it.copy(showLocationSheet = false, locationQuery = "") }
+    }
+
+    fun setLocationQuery(query: String) {
+        _uiState.update { it.copy(locationQuery = query) }
+        locationQuery.value = query
+    }
+
+    /**
+     * Switches the place the outfit is logged at ([place] null = the current location) and
+     * fetches its weather for the selected date, keeping the picked clock hour.
+     */
+    fun selectLocation(place: LogLocation?) {
+        val state = _uiState.value
+        val date = state.selectedDate
+        val clockHour = state.selectedHour?.time?.hour
+        locationQuery.value = ""
+        _uiState.value = state.copy(
+            chosenLocation = place,
+            logLocationName = place?.name ?: forecast.location?.name ?: "",
+            showLocationSheet = false,
+            locationQuery = "",
+            hoursForSelectedDate = emptyList(),
+            selectedHourIndex = -1,
+            isLoadingLocationWeather = true
+        )
+        viewModelScope.launch {
+            val hours = loadHours(date, place)
+            // Ignore the result if the user has picked another date or place in the meantime.
+            if (_uiState.value.selectedDate != date || _uiState.value.chosenLocation != place) return@launch
+            val hour = clockHour?.let { Forecast.hourNearest(hours, it) }
+            _uiState.update {
+                it.copy(
+                    isLoadingLocationWeather = false,
+                    hoursForSelectedDate = hours,
+                    selectedHourIndex = hour?.let(hours::indexOf) ?: -1
+                )
+            }
+        }
+    }
+
+    /** Runs a city search for [query] once typing pauses; cancelled by the next keystroke. */
+    private suspend fun search(query: String) {
+        if (query.length < PLACE_SEARCH_MIN_CHARS) {
+            _uiState.update { it.copy(searchResults = emptyList(), searchFailed = false) }
+            return
+        }
+        delay(PLACE_SEARCH_DEBOUNCE_MS)
+        val results = try {
+            geocodingApi.search(query).results.map { r ->
+                PlaceSearchResult(
+                    location = LogLocation(r.name, r.latitude, r.longitude),
+                    region = listOf(r.admin1, r.country).filter { it.isNotBlank() }.joinToString(", ")
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+        _uiState.update { it.copy(searchResults = results.orEmpty(), searchFailed = results == null) }
     }
 
     // ─── Wizard navigation ───────────────────────────────────────────────────
@@ -349,7 +457,9 @@ class RateOutfitViewModel @Inject constructor(
 
                     outfitLogging.log(
                         hour = selectedHour,
-                        location = LogLocation(state.logLocationName, forecast.location?.lat ?: 0.0, forecast.location?.lon ?: 0.0),
+                        location = state.chosenLocation ?: LogLocation(
+                            state.logLocationName, forecast.location?.lat ?: 0.0, forecast.location?.lon ?: 0.0
+                        ),
                         activityType = state.activityType,
                         clothingItemIds = state.selectedItemIds,
                         rating = state.comfortRating,

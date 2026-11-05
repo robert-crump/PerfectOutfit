@@ -16,6 +16,7 @@ class FakeOpenMeteoApi(
     var forecastCalls = 0
     val forecastCoordinates = mutableListOf<Pair<Double, Double>>()
     val dateRangeCalls = mutableListOf<Pair<String, String>>()
+    val dateRangeCoordinates = mutableListOf<Pair<Double, Double>>()
     var failNext = false
 
     /** When set, forecast fetches suspend until it completes. */
@@ -37,6 +38,7 @@ class FakeOpenMeteoApi(
         hourly: String, timezone: String
     ): ForecastResponse {
         dateRangeCalls += startDate to endDate
+        dateRangeCoordinates += latitude to longitude
         checkFail()
         return response((forecastHours + archiveHours).filter { it.toLocalDate().toString() in startDate..endDate })
     }

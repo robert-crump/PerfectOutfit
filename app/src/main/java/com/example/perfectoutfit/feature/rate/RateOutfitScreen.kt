@@ -30,6 +30,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import com.example.perfectoutfit.feature.outfit.LogLocation
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -607,9 +616,20 @@ private fun WizardDateTimeLocationStep(
         ) {
             Text("When and where did you work out?", style = MaterialTheme.typography.titleLarge)
 
-            // Location \u2014 GPS-only, so this is a static display of the current location.
+            // Location \u2014 the current place by default; tapping opens the location sheet.
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Location", style = MaterialTheme.typography.labelLarge)
+                OutlinedButton(
+                    onClick = viewModel::openLocationSheet,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        if (uiState.chosenLocation == null) Icons.Default.MyLocation else Icons.Default.Place,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(uiState.logLocationName.ifBlank { LogLocation.DEFAULT_NAME })
+                }
                 if (uiState.isLoadingLocationWeather) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -618,11 +638,6 @@ private fun WizardDateTimeLocationStep(
                         CircularProgressIndicator(modifier = Modifier.width(20.dp))
                         Text("Loading weather\u2026", style = MaterialTheme.typography.bodySmall)
                     }
-                } else {
-                    Text(
-                        text = if (uiState.logLocationSelected) uiState.logLocationName else "Current Location",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
                 }
             }
 
@@ -734,6 +749,87 @@ private fun WizardDateTimeLocationStep(
                     .padding(16.dp),
                 enabled = !uiState.isLoadingLocationWeather && !uiState.isLoadingDateWeather && uiState.selectedHour != null
             ) { Text("Next") }
+        }
+    }
+
+    if (uiState.showLocationSheet) LocationSheet(uiState, viewModel)
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun LocationSheet(uiState: RateOutfitUiState, viewModel: RateOutfitViewModel) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var searching by rememberSaveable { mutableStateOf(false) }
+    ModalBottomSheet(onDismissRequest = viewModel::dismissLocationSheet, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp)
+                .imePadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Where did you work out?", style = MaterialTheme.typography.titleLarge)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                FilterChip(
+                    selected = uiState.chosenLocation == null,
+                    onClick = { viewModel.selectLocation(null) },
+                    label = { Text("Current location") },
+                    leadingIcon = { Icon(Icons.Default.MyLocation, contentDescription = null, Modifier.size(18.dp)) }
+                )
+                uiState.recentPlaces.forEach { place ->
+                    FilterChip(
+                        selected = uiState.chosenLocation == place.location,
+                        onClick = { viewModel.selectLocation(place.location) },
+                        label = {
+                            Text(place.distanceLabel?.let { "${place.location.name} \u00B7 $it" } ?: place.location.name)
+                        }
+                    )
+                }
+                FilterChip(
+                    selected = searching,
+                    onClick = { searching = !searching },
+                    label = { Text("Search city\u2026") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, Modifier.size(18.dp)) }
+                )
+            }
+            if (searching) {
+                val focusRequester = remember { FocusRequester() }
+                LaunchedEffect(Unit) { focusRequester.requestFocus() }
+                OutlinedTextField(
+                    value = uiState.locationQuery,
+                    onValueChange = viewModel::setLocationQuery,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                    placeholder = { Text("City") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
+                )
+                if (uiState.searchFailed) {
+                    Text(
+                        "Couldn\u2019t search \u2014 check your connection",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                Column {
+                    uiState.searchResults.forEach { result ->
+                        ListItem(
+                            headlineContent = { Text(result.location.name) },
+                            supportingContent = result.region.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+                            leadingContent = { Icon(Icons.Default.Place, contentDescription = null) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.clickable { viewModel.selectLocation(result.location) }
+                        )
+                    }
+                }
+            }
         }
     }
 }

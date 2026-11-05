@@ -190,4 +190,30 @@ class ForecastTest {
     fun `hourNearest is null for no hours`() {
         assertNull(Forecast.hourNearest(emptyList(), 9))
     }
+
+    @Test
+    fun `hoursAt fetches another place's day without touching the forecast`() = runTest {
+        val api = FakeOpenMeteoApi(window, archiveHours = fullDay(old))
+        val f = forecast(api)
+        f.refresh(48.1, 11.5, "Munich")
+        val before = f.hours.first()
+
+        val hours = f.hoursAt(52.5, 13.4, old)
+
+        assertEquals(fullDay(old), hours.map { it.time })
+        assertEquals(52.5 to 13.4, api.dateRangeCoordinates.single())
+        assertEquals(before, f.hours.first())
+        assertEquals(ForecastLocation(48.1, 11.5, "Munich"), f.location)
+    }
+
+    @Test
+    fun `hoursAt fetches even for a day the forecast already knows`() = runTest {
+        val api = FakeOpenMeteoApi(window)
+        val f = forecast(api)
+        f.refresh(48.1, 11.5, "Munich")
+
+        f.hoursAt(52.5, 13.4, day)
+
+        assertEquals(1, api.dateRangeCalls.size)
+    }
 }
