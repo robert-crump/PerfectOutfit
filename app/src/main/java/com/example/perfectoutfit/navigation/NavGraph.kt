@@ -54,7 +54,8 @@ import com.example.perfectoutfit.feature.history.HistoryScreen
 import com.example.perfectoutfit.feature.home.HomeLaunch
 import com.example.perfectoutfit.feature.home.HomeLaunchState
 import com.example.perfectoutfit.feature.home.HomeScreen
-import com.example.perfectoutfit.feature.rate.RateOutfitScreen
+import com.example.perfectoutfit.feature.rate.LogOutfitScreen
+import com.example.perfectoutfit.feature.rate.RateEntryScreen
 import com.example.perfectoutfit.feature.settings.ModeComparisonScreen
 import com.example.perfectoutfit.feature.settings.SettingsScreen
 import kotlinx.coroutines.flow.first
@@ -327,7 +328,7 @@ private fun NavGraphContent(
                 )
             ) { entry ->
                 val highlight = entry.arguments?.getBoolean("highlight") ?: false
-                RateOutfitScreen(
+                RateEntryScreen(
                     onNavigateBack = { navController.popBackStackOnce(entry) },
                     highlightRating = highlight,
                     externalCancelRequested = pendingNavigation != null,
@@ -339,7 +340,7 @@ private fun NavGraphContent(
                 route = Screen.NewOutfit.route,
                 arguments = listOf(navArgument("isLive") { type = NavType.BoolType; defaultValue = false })
             ) { entry ->
-                RateOutfitScreen(
+                LogOutfitScreen(
                     onNavigateBack = { navController.popBackStackOnce(entry) },
                     externalCancelRequested = pendingNavigation != null,
                     onExternalCancelConfirmed = onTabSwitchConfirmed,

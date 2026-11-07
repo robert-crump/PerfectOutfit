@@ -1,29 +1,16 @@
 package com.example.perfectoutfit.feature.rate
 
-import com.example.perfectoutfit.core.model.Place
-
-import androidx.lifecycle.SavedStateHandle
-import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
+import com.example.perfectoutfit.core.model.Place
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.network.GeocodingApi
 import com.example.perfectoutfit.core.network.GeocodingResponse
 import com.example.perfectoutfit.core.network.GeocodingResult
-import com.example.perfectoutfit.core.notification.FakeRatingReminder
-import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.forecast.Forecast
-import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
-import com.example.perfectoutfit.feature.outfit.OutfitLogging
-import com.example.perfectoutfit.feature.recommendation.Recommendations
-import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
-import com.example.perfectoutfit.testutil.FakeClothingItemDao
-import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
 import com.example.perfectoutfit.testutil.FakeOpenMeteoApi
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
-import com.example.perfectoutfit.testutil.FakeOutfitItemDao
-import com.example.perfectoutfit.testutil.FakePreferencesDataStore
 import com.example.perfectoutfit.testutil.FakeWeatherSnapshotDao
 import com.example.perfectoutfit.testutil.MutableClock
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +31,7 @@ import java.io.IOException
 import java.time.LocalDate
 import java.time.ZoneOffset
 
+/** The past-log place picker, through [LogOutfitViewModel]: weather fetching, saving, search. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LogLocationPickerTest {
 
@@ -85,23 +73,12 @@ class LogLocationPickerTest {
         windDirectionDegrees = 0, uvIndex = 0, cloudCoverPercent = 0, precipitationProbabilityPercent = 0
     )
 
-    private suspend fun viewModel(): RateOutfitViewModel {
+    private suspend fun viewModel(): LogOutfitViewModel {
         forecast.refresh(50.78, 6.08, "Aachen")
-        val logging = OutfitLogging(
-            entryDao, FakeOutfitItemDao(), snapshotDao, FakeDatabaseTransactionRunner(), FakeRatingReminder(),
-            FakeWidgetUpdater()
-        )
-        return RateOutfitViewModel(
-            savedStateHandle = SavedStateHandle(),
-            outfitLogging = logging,
-            recommendations = Recommendations(entryDao, FakeClothingItemDao()),
-            catalogRepository = CatalogRepository(FakeClothingItemDao(), entryDao, FakeDatabaseTransactionRunner()),
-            forecast = forecast,
-            liveOutfitHandoffStore = LiveOutfitHandoffStore(),
-            preferencesManager = PreferencesManager(FakePreferencesDataStore()),
-            geocodingApi = geocoding
-        )
+        return logOutfitViewModel(forecast, clock, entryDao = entryDao, snapshotDao = snapshotDao, geocodingApi = geocoding)
     }
+
+    private val LogOutfitViewModel.wizard: LogWizardState get() = checkNotNull(uiState.value.wizard)
 
     @Test
     fun `past logging starts at the current location and offers recent places`() = runTest(dispatcher) {
@@ -113,84 +90,124 @@ class LogLocationPickerTest {
             )
         )
 
-        val state = viewModel().uiState.value
+        val vm = viewModel()
 
-        assertNull(state.chosenLocation)
-        assertEquals("Aachen", state.logLocationName)
-        assertEquals(listOf(cologne), state.recentPlaces.map { it.location })
+        assertNull(vm.wizard.place)
+        assertEquals("Aachen", vm.wizard.placeName)
+        assertEquals(listOf(cologne), vm.placeSearch.value.recentPlaces.map { it.location })
+    }
+
+    @Test
+    fun `the wizard's today and max date come from the injected Clock`() = runTest(dispatcher) {
+        val vm = viewModel()
+        assertEquals(day, vm.wizard.today)
+        assertEquals(day, vm.wizard.maxPickableDate)
+        assertEquals(18, vm.wizard.pickerDefaultHour)
     }
 
     @Test
     fun `choosing a place fetches its weather and keeps date and clock hour`() = runTest(dispatcher) {
         val vm = viewModel()
-        vm.selectHourByClockHour(9)
+        vm.pickClockHour(9)
+        vm.openPlaceSheet()
 
-        vm.selectLocation(cologne)
+        vm.pickPlace(cologne)
 
-        val state = vm.uiState.value
-        assertEquals(cologne, state.chosenLocation)
-        assertEquals("Cologne", state.logLocationName)
+        assertEquals(cologne, vm.wizard.place)
+        assertEquals("Cologne", vm.wizard.placeName)
         assertEquals(cologne.lat to cologne.lon, api.dateRangeCoordinates.last())
-        assertEquals(day, state.selectedDate)
-        assertEquals(day.atTime(9, 0), state.selectedHour?.time)
-        assertFalse(state.isLoadingLocationWeather)
-        assertFalse(state.showLocationSheet)
+        assertEquals(day, vm.wizard.date)
+        assertEquals(day.atTime(9, 0), vm.wizard.selectedHour?.time)
+        assertFalse(vm.wizard.loadingHours)
+        assertFalse(vm.placeSearch.value.showSheet)
     }
 
     @Test
     fun `choosing a place before picking a time leaves the time unpicked`() = runTest(dispatcher) {
         val vm = viewModel()
 
-        vm.selectLocation(cologne)
+        vm.pickPlace(cologne)
 
-        assertNull(vm.uiState.value.selectedHour)
+        assertNull(vm.wizard.selectedHour)
     }
 
     @Test
     fun `saving logs the entry at the chosen place`() = runTest(dispatcher) {
         val vm = viewModel()
-        vm.selectLocation(cologne)
-        vm.selectHourByClockHour(9)
+        vm.pickPlace(cologne)
+        vm.pickClockHour(9)
+        vm.next() // to items
         vm.toggleItem(1)
+        vm.next() // to the summary
+        vm.next() // to the rating
 
-        vm.save()
+        vm.next() // save
 
         val saved = snapshotDao.getAll().single()
         assertEquals("Cologne", saved.locationName)
         assertEquals(50.94, saved.latitude, 0.0)
         assertEquals(6.96, saved.longitude, 0.0)
+        assertTrue(vm.uiState.value.isSaved)
+    }
+
+    @Test
+    fun `saving at the current location logs the forecast's place`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.pickClockHour(9)
+        vm.next(); vm.toggleItem(1); vm.next(); vm.next(); vm.next()
+
+        val saved = snapshotDao.getAll().single()
+        assertEquals("Aachen", saved.locationName)
+        assertEquals(50.78, saved.latitude, 0.0)
     }
 
     @Test
     fun `choosing the current location again goes back to GPS`() = runTest(dispatcher) {
         val vm = viewModel()
-        vm.selectLocation(cologne)
-        vm.selectHourByClockHour(9)
+        vm.pickPlace(cologne)
+        vm.pickClockHour(9)
 
-        vm.selectLocation(null)
+        vm.pickPlace(null)
 
-        val state = vm.uiState.value
-        assertNull(state.chosenLocation)
-        assertEquals("Aachen", state.logLocationName)
-        assertEquals(day.atTime(9, 0), state.selectedHour?.time)
+        assertNull(vm.wizard.place)
+        assertEquals("Aachen", vm.wizard.placeName)
+        assertEquals(day.atTime(9, 0), vm.wizard.selectedHour?.time)
+    }
+
+    @Test
+    fun `picking a date loads its hours`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.pickDate(day.minusDays(1))
+        assertEquals(day.minusDays(1), vm.wizard.date)
+        assertFalse(vm.wizard.loadingHours)
+    }
+
+    @Test
+    fun `back from the first step asks to leave`() = runTest(dispatcher) {
+        val vm = viewModel()
+        assertTrue(vm.back())
+        vm.pickClockHour(9)
+        vm.next()
+        assertFalse(vm.back())
+        assertEquals(LogStep.WHEN_WHERE, vm.wizard.step)
     }
 
     @Test
     fun `search waits for typing to pause and needs two characters`() = runTest(dispatcher) {
         val vm = viewModel()
 
-        vm.setLocationQuery("C")
+        vm.setPlaceQuery("C")
         advanceTimeBy(1_000)
         assertTrue(geocoding.queries.isEmpty())
 
-        vm.setLocationQuery("Co")
-        vm.setLocationQuery("Col")
+        vm.setPlaceQuery("Co")
+        vm.setPlaceQuery("Col")
         advanceTimeBy(200)
         assertTrue(geocoding.queries.isEmpty())
         advanceTimeBy(200)
 
         assertEquals(listOf("Col"), geocoding.queries)
-        val result = vm.uiState.value.searchResults.single()
+        val result = vm.placeSearch.value.results.single()
         assertEquals(cologne, result.location)
         assertEquals("North Rhine-Westphalia, Germany", result.region)
     }
@@ -200,10 +217,10 @@ class LogLocationPickerTest {
         val vm = viewModel()
         geocoding.fail = true
 
-        vm.setLocationQuery("Col")
+        vm.setPlaceQuery("Col")
         advanceTimeBy(400)
 
-        assertTrue(vm.uiState.value.searchFailed)
-        assertTrue(vm.uiState.value.searchResults.isEmpty())
+        assertTrue(vm.placeSearch.value.failed)
+        assertTrue(vm.placeSearch.value.results.isEmpty())
     }
 }

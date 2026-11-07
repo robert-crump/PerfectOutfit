@@ -40,7 +40,7 @@ class FakeOutfitEntryDao : OutfitEntryDao {
     override suspend fun getById(id: Long): OutfitEntry? = entries[id]
 
     override suspend fun getWithDetailsById(id: Long): OutfitEntryWithDetails? =
-        throw UnsupportedOperationException()
+        details.value.find { it.entry.id == id }
 
     /** What the observable queries emit; [deleteById] removes from it too. */
     val details = MutableStateFlow<List<OutfitEntryWithDetails>>(emptyList())

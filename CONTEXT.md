@@ -225,6 +225,23 @@ none are known. Time comes from an injected `Clock`.
 **Wizard rule:** the outfit wizard can only pick hours up to today (the date picker's max
 date); live logs start on the date of the hour Home handed off.
 
+### Log wizard
+How a new outfit is logged, owned by the pure `LogWizardState` (`feature/rate/LogWizardState.kt`);
+`LogOutfitViewModel` only fetches weather and logs the result. Past logs go when and where →
+items → summary → rating → save; live logs (handed off from Home) go items → summary → save.
+`next()` / `back()` say whether to move, save, or leave (back on the first step). Next needs a
+picked hour (with no weather loading) on when and where, and at least one item on the summary;
+the items step can always go on. "Today" — for the [wizard rule](#forecast)'s max date, the
+Today/Yesterday labels and the time picker's default hour — is the injected `Clock`'s current
+hour when the wizard opens, never the system clock. Weather that arrives for a date or place
+picked over in the meantime is dropped. Rating an already-logged entry is a separate screen
+(`RateEntryViewModel`).
+
+**Discard rule** (`rememberDiscardGuard`): leaving a screen with nothing at stake happens
+straight away; otherwise a dialog asks first, whether the leave came from Back, Cancel or a
+bottom-bar tab switch. The wizard always asks once it is up; the rate screen asks only with
+unsaved edits.
+
 ### Display window
 The 24 hours from the current clock hour that Home shows (`Forecast.displayWindow()`),
 shorter if the known hours end sooner, empty if all known hours are in the past.
