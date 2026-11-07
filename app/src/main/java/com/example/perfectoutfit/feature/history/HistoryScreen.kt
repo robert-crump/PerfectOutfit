@@ -214,7 +214,7 @@ private fun HistoryCard(
     val entry = item.details.entry
     val date = SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(Date(entry.createdAt))
 
-    val emoji = ratingEmoji(entry.comfortRating)
+    val emoji = ratingEmoji(entry.rating)
 
     val secondaryText = if (selected)
         MaterialTheme.colorScheme.onSecondaryContainer

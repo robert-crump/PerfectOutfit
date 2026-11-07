@@ -11,6 +11,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.example.perfectoutfit.MainActivity
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.ComfortRating
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -60,9 +61,7 @@ class AndroidRatingReminder @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
-            .addAction(ratingAction(outfitEntryId, -1, context.getString(R.string.rating_too_cold)))
-            .addAction(ratingAction(outfitEntryId, 0, context.getString(R.string.rating_perfect)))
-            .addAction(ratingAction(outfitEntryId, 1, context.getString(R.string.rating_too_hot)))
+            .apply { ComfortRating.entries.forEach { addAction(ratingAction(outfitEntryId, it)) } }
             .build()
 
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -87,12 +86,12 @@ class AndroidRatingReminder @Inject constructor(
         channelCreated = true
     }
 
-    private fun ratingAction(outfitEntryId: Long, rating: Int, label: String): NotificationCompat.Action {
+    private fun ratingAction(outfitEntryId: Long, rating: ComfortRating): NotificationCompat.Action {
         val intent = Intent(context, RateOutfitActionReceiver::class.java).apply {
             action = RateOutfitActionReceiver.ACTION_RATE
-            data = Uri.parse("perfectoutfit-rate://$outfitEntryId/$rating")
+            data = Uri.parse("perfectoutfit-rate://$outfitEntryId/${rating.value}")
             putExtra(RateOutfitActionReceiver.EXTRA_ENTRY_ID, outfitEntryId)
-            putExtra(RateOutfitActionReceiver.EXTRA_RATING, rating)
+            putExtra(RateOutfitActionReceiver.EXTRA_RATING, rating.value)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
@@ -100,6 +99,6 @@ class AndroidRatingReminder @Inject constructor(
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Action.Builder(R.drawable.ic_launcher_foreground, label, pendingIntent).build()
+        return NotificationCompat.Action.Builder(R.drawable.ic_launcher_foreground, context.getString(rating.labelRes), pendingIntent).build()
     }
 }

@@ -169,6 +169,14 @@ pooling their pairs. A verdict needs ≥ 20 pairs and a gap of ≥ 10 points, el
 data yet" or "No clear difference". Item sets are read as they are now, so editing an entry
 or deleting an item can change the pairs.
 
+### Comfort rating
+How the temperature felt for a logged outfit (`ComfortRating`): too cold, perfect or too hot.
+The type owns everything about it: its labels, which stored values are valid, the
+temperature order too cold < perfect < too hot (used by [mode comparison](#mode-comparison))
+and the matching priority perfect > too hot > too cold (used by the
+[recommendation](#recommendation)). Room and the export file keep the plain Int (-1 / 0 / 1);
+`OutfitEntry.rating` is the typed view of it and no other code interprets the number.
+
 ### Outfit entry
 The persisted record of one outfit worn for one workout (`OutfitEntry`): its
 [activity type](#activity-type), its clothing items, a `WeatherSnapshot` of the workout hour, an optional comfort rating

@@ -27,4 +27,7 @@ data class OutfitEntry(
     val createdAt: Long,
     val ratedAt: Long? = null,
     val notes: String = ""
-)
+) {
+    /** [comfortRating] (the stored Int) as the domain type; null when unrated. */
+    val rating: ComfortRating? get() = ComfortRating.fromValue(comfortRating)
+}

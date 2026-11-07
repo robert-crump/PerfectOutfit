@@ -62,7 +62,7 @@ internal object ModeComparisonPolicy {
     fun compare(entries: List<OutfitEntryWithDetails>): ModeComparison {
         val byActivityType = ActivityType.entries.associateWith { activityType ->
             entries
-                .filter { it.entry.activityType == activityType && it.entry.comfortRating != null }
+                .filter { it.entry.activityType == activityType && it.entry.rating != null }
                 .groupBy { entry -> entry.clothingItems.map { it.id }.toSet() }
                 .filterKeys { it.isNotEmpty() }
                 .values
@@ -82,7 +82,7 @@ internal object ModeComparisonPolicy {
             for (j in i + 1 until entries.size) {
                 val a = entries[i]
                 val b = entries[j]
-                val ratingOrder = a.entry.comfortRating!!.compareTo(b.entry.comfortRating!!)
+                val ratingOrder = a.entry.rating!!.compareTo(b.entry.rating!!)
                 if (ratingOrder == 0) continue
                 pairs++
                 feelsLikeHalves += contradictionHalves(a, b, ratingOrder, useApparent = true)

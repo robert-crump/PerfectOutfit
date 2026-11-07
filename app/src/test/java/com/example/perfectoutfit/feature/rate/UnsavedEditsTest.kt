@@ -1,12 +1,13 @@
 package com.example.perfectoutfit.feature.rate
 
+import com.example.perfectoutfit.core.model.ComfortRating
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UnsavedEditsTest {
 
-    private val saved = OutfitEdits(itemIds = setOf(1L, 2L), comfortRating = 3, notes = "Windy")
+    private val saved = OutfitEdits(itemIds = setOf(1L, 2L), comfortRating = ComfortRating.TOO_HOT, notes = "Windy")
     private val loaded = RateOutfitUiState(
         mode = OutfitScreenMode.RateExisting(7),
         selectedItemIds = saved.itemIds,

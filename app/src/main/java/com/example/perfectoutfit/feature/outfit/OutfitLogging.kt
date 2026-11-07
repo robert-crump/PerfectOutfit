@@ -4,6 +4,7 @@ import com.example.perfectoutfit.core.database.DatabaseTransactionRunner
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
+import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.OutfitItem
@@ -54,7 +55,7 @@ class OutfitLogging @Inject constructor(
         location: LogLocation,
         activityType: ActivityType,
         clothingItemIds: Collection<Long>,
-        rating: Int? = null,
+        rating: ComfortRating? = null,
         notes: String = "",
         workoutDurationHours: Int = 1,
         mode: LogMode
@@ -68,7 +69,7 @@ class OutfitLogging @Inject constructor(
                 OutfitEntry(
                     weatherSnapshotId = snapshotId,
                     activityType = activityType,
-                    comfortRating = rating,
+                    comfortRating = rating?.value,
                     createdAt = workoutMs,
                     ratedAt = rating?.let { System.currentTimeMillis() },
                     notes = notes
@@ -88,14 +89,14 @@ class OutfitLogging @Inject constructor(
      * Sets the rating and stamps `ratedAt`; the pending reminder (if any) is cancelled. Returns
      * [RateResult.ENTRY_MISSING] (and writes nothing) if the entry no longer exists.
      */
-    suspend fun rate(entryId: Long, rating: Int): RateResult {
+    suspend fun rate(entryId: Long, rating: ComfortRating): RateResult {
         if (!applyRating(entryId, rating)) return RateResult.ENTRY_MISSING
         widgetUpdater.redraw()
         return RateResult.SAVED
     }
 
     /** Replaces items and notes of an existing entry, and rates it if [rating] is given, atomically. */
-    suspend fun update(entryId: Long, clothingItemIds: Collection<Long>, notes: String, rating: Int?) {
+    suspend fun update(entryId: Long, clothingItemIds: Collection<Long>, notes: String, rating: ComfortRating?) {
         transactionRunner.runInTransaction {
             outfitItemDao.deleteByEntryId(entryId)
             insertItems(entryId, clothingItemIds)
@@ -138,10 +139,10 @@ class OutfitLogging @Inject constructor(
         outfitEntryDao.getAllWithDetailsByActivityType(activityType)
 
     /** Returns false if the entry no longer exists; the reminder is cancelled either way. */
-    private suspend fun applyRating(entryId: Long, rating: Int): Boolean {
+    private suspend fun applyRating(entryId: Long, rating: ComfortRating): Boolean {
         ratingReminder.cancel(entryId)
         val entry = outfitEntryDao.getById(entryId) ?: return false
-        outfitEntryDao.update(entry.copy(comfortRating = rating, ratedAt = System.currentTimeMillis()))
+        outfitEntryDao.update(entry.copy(comfortRating = rating.value, ratedAt = System.currentTimeMillis()))
         return true
     }
 

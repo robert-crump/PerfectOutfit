@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.core.network.GeocodingApi
@@ -57,7 +58,7 @@ const val PLACE_SEARCH_DEBOUNCE_MS = 300L
 const val PLACE_SEARCH_MIN_CHARS = 2
 
 /** The user-editable parts of an existing entry. */
-data class OutfitEdits(val itemIds: Set<Long>, val comfortRating: Int?, val notes: String)
+data class OutfitEdits(val itemIds: Set<Long>, val comfortRating: ComfortRating?, val notes: String)
 
 sealed class OutfitScreenMode {
     data class RateExisting(val entryId: Long) : OutfitScreenMode()
@@ -75,7 +76,7 @@ data class RateOutfitUiState(
     /** Which temperature leads the detail card's weather (the user's preference). */
     val useApparentTemperature: Boolean = true,
     val selectedItemIds: Set<Long> = emptySet(),
-    val comfortRating: Int? = null,
+    val comfortRating: ComfortRating? = null,
     val isSaved: Boolean = false,
     /** Known hours of [selectedDate]. */
     val hoursForSelectedDate: List<HourlyWeather> = emptyList(),
@@ -200,7 +201,7 @@ class RateOutfitViewModel @Inject constructor(
                         _entryItems.value = details.clothingItems
                         val edits = OutfitEdits(
                             itemIds = details.clothingItems.map { it.id }.toSet(),
-                            comfortRating = details.entry.comfortRating,
+                            comfortRating = details.entry.rating,
                             notes = details.entry.notes
                         )
                         _uiState.value = _uiState.value.copy(
@@ -284,7 +285,7 @@ class RateOutfitViewModel @Inject constructor(
         )
     }
 
-    fun setRating(rating: Int?) {
+    fun setRating(rating: ComfortRating?) {
         _uiState.value = _uiState.value.copy(comfortRating = rating)
     }
 

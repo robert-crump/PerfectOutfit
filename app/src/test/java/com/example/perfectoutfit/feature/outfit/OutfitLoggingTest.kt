@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.feature.outfit
 
+import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.notification.FakeRatingReminder
 import com.example.perfectoutfit.feature.home.HourlyWeather
@@ -39,7 +40,7 @@ class OutfitLoggingTest {
     private val hourMs = hour.time.atZone(ZoneId.systemDefault()).toEpochSecond() * 1000
     private val location = LogLocation("Berlin", 52.5, 13.4)
 
-    private suspend fun log(rating: Int? = null, mode: LogMode) = logging.log(
+    private suspend fun log(rating: ComfortRating? = null, mode: LogMode) = logging.log(
         hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L, 2L),
         rating = rating, notes = "n", workoutDurationHours = 2, mode = mode
     )
@@ -53,14 +54,14 @@ class OutfitLoggingTest {
 
     @Test
     fun `live log with a rating still schedules a reminder`() = runTest {
-        log(rating = 0, mode = LogMode.LIVE)
+        log(rating = ComfortRating.PERFECT, mode = LogMode.LIVE)
 
         assertEquals(1, reminder.showCalls.size)
     }
 
     @Test
     fun `past log with rating does not schedule a reminder`() = runTest {
-        log(rating = 0, mode = LogMode.PAST)
+        log(rating = ComfortRating.PERFECT, mode = LogMode.PAST)
 
         assertTrue(reminder.showCalls.isEmpty())
     }
@@ -74,7 +75,7 @@ class OutfitLoggingTest {
 
     @Test
     fun `entry is stamped with the workout hour and stores items`() = runTest {
-        val id = log(rating = -1, mode = LogMode.PAST)
+        val id = log(rating = ComfortRating.TOO_COLD, mode = LogMode.PAST)
 
         val entry = entryDao.getById(id)!!
         assertEquals(hourMs, entry.createdAt)
@@ -123,7 +124,7 @@ class OutfitLoggingTest {
     fun `rate sets ratedAt and cancels the reminder`() = runTest {
         val id = log(mode = LogMode.LIVE)
 
-        logging.rate(id, 1)
+        logging.rate(id, ComfortRating.TOO_HOT)
 
         val entry = entryDao.getById(id)!!
         assertEquals(1, entry.comfortRating)
@@ -135,7 +136,7 @@ class OutfitLoggingTest {
     fun `rate reports saved for an existing entry`() = runTest {
         val id = log(mode = LogMode.LIVE)
 
-        assertEquals(RateResult.SAVED, logging.rate(id, 0))
+        assertEquals(RateResult.SAVED, logging.rate(id, ComfortRating.PERFECT))
     }
 
     @Test
@@ -144,7 +145,7 @@ class OutfitLoggingTest {
         logging.delete(listOf(id))
         val redraws = widget.redraws
 
-        assertEquals(RateResult.ENTRY_MISSING, logging.rate(id, 1))
+        assertEquals(RateResult.ENTRY_MISSING, logging.rate(id, ComfortRating.TOO_HOT))
         assertNull(entryDao.getById(id))
         assertEquals(redraws, widget.redraws)
         assertTrue(reminder.cancelledEntryIds.contains(id))
@@ -154,7 +155,7 @@ class OutfitLoggingTest {
     fun `update replaces items and notes and rates in one call`() = runTest {
         val id = log(mode = LogMode.PAST)
 
-        logging.update(id, clothingItemIds = listOf(3L), notes = "new", rating = 0)
+        logging.update(id, clothingItemIds = listOf(3L), notes = "new", rating = ComfortRating.PERFECT)
 
         val entry = entryDao.getById(id)!!
         assertEquals("new", entry.notes)
@@ -164,7 +165,7 @@ class OutfitLoggingTest {
 
     @Test
     fun `update without rating leaves the rating alone`() = runTest {
-        val id = log(rating = 1, mode = LogMode.PAST)
+        val id = log(rating = ComfortRating.TOO_HOT, mode = LogMode.PAST)
 
         logging.update(id, clothingItemIds = listOf(3L), notes = "x", rating = null)
 
@@ -208,10 +209,10 @@ class OutfitLoggingTest {
         val id = log(mode = LogMode.PAST)
         assertEquals(1, widget.redraws)
 
-        logging.rate(id, 0)
+        logging.rate(id, ComfortRating.PERFECT)
         assertEquals(2, widget.redraws)
 
-        logging.update(id, clothingItemIds = listOf(3L), notes = "x", rating = 1)
+        logging.update(id, clothingItemIds = listOf(3L), notes = "x", rating = ComfortRating.TOO_HOT)
         assertEquals(3, widget.redraws)
 
         logging.delete(listOf(id))

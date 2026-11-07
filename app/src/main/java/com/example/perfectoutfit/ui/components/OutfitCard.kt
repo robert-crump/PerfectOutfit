@@ -40,7 +40,7 @@ fun OutfitCard(
     onEditOutfit: (() -> Unit)? = null
 ) {
     val itemsByBodyPart = outfit.clothingItems.groupBy { it.bodyPart }
-    val ratingText = ratingLabel(outfit.entry.comfortRating)
+    val ratingText = ratingLabel(outfit.entry.rating)
     val wornOn = Instant.ofEpochMilli(outfit.entry.createdAt).atZone(ZoneId.systemDefault()).toLocalDate()
     val wornAt = outfit.weatherSnapshot.referenceTemp(useApparentTemperature).roundToInt()
     val matchText = listOf(ratingText, entryDateLabel(wornOn, LocalDate.now()), "at $wornAt°C")

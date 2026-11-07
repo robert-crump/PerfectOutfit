@@ -3,6 +3,7 @@ package com.example.perfectoutfit.feature.recommendation
 import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
+import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.referenceTemp
 import kotlin.math.roundToInt
@@ -56,8 +57,8 @@ internal object TemperatureChartPolicy {
         taggedItems: List<ClothingItem>,
         useApparent: Boolean
     ): TemperatureChart {
-        val rated = entries.filter { it.entry.comfortRating != null }
-        val perfect = rated.filter { it.entry.comfortRating == 0 }
+        val rated = entries.filter { it.entry.rating != null }
+        val perfect = rated.filter { it.entry.rating == ComfortRating.PERFECT }
 
         val degrees = if (rated.isEmpty()) emptyList() else {
             val ratedTemps = rated.map { it.roundedTemp(useApparent) }.toSet()

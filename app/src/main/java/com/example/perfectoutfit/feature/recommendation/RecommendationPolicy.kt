@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.feature.recommendation
 
+import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.referenceTemp
 import kotlin.math.roundToInt
@@ -11,7 +12,7 @@ internal object RecommendationPolicy {
         targetTemp: Int,
         useApparent: Boolean
     ): OutfitEntryWithDetails? {
-        val rated = candidates.filter { it.entry.comfortRating != null }
+        val rated = candidates.filter { it.entry.rating != null }
 
         // Step 1: exact match → newest entry wins regardless of rating
         val exact = rated
@@ -36,21 +37,15 @@ internal object RecommendationPolicy {
         targetTemp: Int,
         useApparent: Boolean
     ): Set<Long> = candidates
-        .filter { it.entry.comfortRating == 0 && it.roundedTemp(useApparent) in (targetTemp - 2)..(targetTemp + 2) }
+        .filter { it.entry.rating == ComfortRating.PERFECT && it.roundedTemp(useApparent) in (targetTemp - 2)..(targetTemp + 2) }
         .flatMap { it.clothingItems }
         .map { it.id }
         .toSet()
 
     // Comparator: rating priority (0 → 1 → -1), tiebreak by newest timestamp
     private val byRatingThenNewest: Comparator<OutfitEntryWithDetails> =
-        compareBy<OutfitEntryWithDetails> { ratingPriority(it.entry.comfortRating!!) }
+        compareBy<OutfitEntryWithDetails> { it.entry.rating!!.matchPriority }
             .thenByDescending { it.weatherSnapshot.timestamp }
-
-    private fun ratingPriority(rating: Int): Int = when (rating) {
-        0 -> 0
-        1 -> 1
-        else -> 2
-    }
 
     private fun OutfitEntryWithDetails.roundedTemp(useApparent: Boolean): Int =
         weatherSnapshot.referenceTemp(useApparent).roundToInt()

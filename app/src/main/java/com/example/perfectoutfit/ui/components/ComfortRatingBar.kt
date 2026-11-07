@@ -9,27 +9,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.example.perfectoutfit.R
+import com.example.perfectoutfit.core.model.ComfortRating
 
-/** Returns the emoji character for the given rating value, or null if no rating. */
+/** Returns the emoji character for the given rating, or null if no rating. */
 @Composable
-fun ratingEmoji(rating: Int?): String? = when (rating) {
-    -1 -> stringResource(R.string.rating_emoji_too_cold)
-     0 -> stringResource(R.string.rating_emoji_perfect)
-     1 -> stringResource(R.string.rating_emoji_too_hot)
-    else -> null
-}
+fun ratingEmoji(rating: ComfortRating?): String? = rating?.let { stringResource(it.emojiRes) }
 
-/** Returns the label + emoji for the given rating value (empty string if no rating). */
+/** Returns the label + emoji for the given rating (empty string if no rating). */
 @Composable
-fun ratingLabel(rating: Int?): String = when (rating) {
-    -1 -> "${stringResource(R.string.rating_too_cold)} ${stringResource(R.string.rating_emoji_too_cold)}"
-     0 -> "${stringResource(R.string.rating_perfect)} ${stringResource(R.string.rating_emoji_perfect)}"
-     1 -> "${stringResource(R.string.rating_too_hot)} ${stringResource(R.string.rating_emoji_too_hot)}"
-    else -> ""
-}
-
-private data class RatingOption(val value: Int, val label: String, val emoji: String)
+fun ratingLabel(rating: ComfortRating?): String =
+    rating?.let { "${stringResource(it.labelRes)} ${stringResource(it.emojiRes)}" } ?: ""
 
 /**
  * Too cold / Perfect / Too hot as one segmented row. Tapping the selected segment again clears
@@ -38,28 +27,22 @@ private data class RatingOption(val value: Int, val label: String, val emoji: St
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComfortRatingBar(
-    selectedRating: Int?,
-    onRatingSelected: (Int?) -> Unit,
+    selectedRating: ComfortRating?,
+    onRatingSelected: (ComfortRating?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val options = listOf(
-        RatingOption(-1, stringResource(R.string.rating_too_cold), stringResource(R.string.rating_emoji_too_cold)),
-        RatingOption(0,  stringResource(R.string.rating_perfect),  stringResource(R.string.rating_emoji_perfect)),
-        RatingOption(1,  stringResource(R.string.rating_too_hot),  stringResource(R.string.rating_emoji_too_hot))
-    )
-
     SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, option ->
-            val selected = selectedRating == option.value
+        ComfortRating.entries.forEachIndexed { index, option ->
+            val selected = selectedRating == option
             SegmentedButton(
                 selected = selected,
-                onClick = { onRatingSelected(if (selected) null else option.value) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                onClick = { onRatingSelected(if (selected) null else option) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = ComfortRating.entries.size),
                 // The emoji marks the choice, so no checkmark taking label space.
                 icon = {},
                 label = {
                     Text(
-                        text = "${option.emoji} ${option.label}",
+                        text = "${stringResource(option.emojiRes)} ${stringResource(option.labelRes)}",
                         maxLines = 1,
                         softWrap = false
                     )

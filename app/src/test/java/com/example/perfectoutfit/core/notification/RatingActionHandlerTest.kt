@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.core.notification
 
+import com.example.perfectoutfit.core.model.ComfortRating
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
@@ -59,14 +60,14 @@ class RatingActionHandlerTest {
     fun `handle saves the rating`() = runTest {
         fakeDao.seed(entryId = 42L)
 
-        handler.handle(context, entryId = 42L, rating = -1)
+        handler.handle(context, entryId = 42L, rating = ComfortRating.TOO_COLD)
 
         assertEquals(-1, fakeDao.lastUpdated?.comfortRating)
     }
 
     @Test
     fun `handle for a deleted entry is a no-op`() = runTest {
-        handler.handle(context, entryId = 999L, rating = 0)
+        handler.handle(context, entryId = 999L, rating = ComfortRating.PERFECT)
 
         assertNull(fakeDao.lastUpdated)
     }
@@ -75,7 +76,7 @@ class RatingActionHandlerTest {
     fun `handle overwrites a previous rating`() = runTest {
         fakeDao.seed(entryId = 5L, rating = 0)
 
-        handler.handle(context, entryId = 5L, rating = 1)
+        handler.handle(context, entryId = 5L, rating = ComfortRating.TOO_HOT)
 
         assertEquals(1, fakeDao.lastUpdated?.comfortRating)
     }
@@ -84,14 +85,14 @@ class RatingActionHandlerTest {
     fun `handle cancels the reminder for that entry`() = runTest {
         fakeDao.seed(entryId = 42L)
 
-        handler.handle(context, entryId = 42L, rating = -1)
+        handler.handle(context, entryId = 42L, rating = ComfortRating.TOO_COLD)
 
         assertEquals(listOf(42L), fakeRatingReminder.cancelledEntryIds)
     }
 
     @Test
     fun `handle cancels the reminder even for a deleted entry`() = runTest {
-        handler.handle(context, entryId = 999L, rating = 0)
+        handler.handle(context, entryId = 999L, rating = ComfortRating.PERFECT)
 
         assertTrue(fakeRatingReminder.cancelledEntryIds.contains(999L))
     }
@@ -100,7 +101,7 @@ class RatingActionHandlerTest {
     fun `handle for an existing entry says the rating was saved`() = runTest {
         fakeDao.seed(entryId = 42L)
 
-        handler.handle(context, entryId = 42L, rating = 0)
+        handler.handle(context, entryId = 42L, rating = ComfortRating.PERFECT)
 
         assertEquals(
             context.getString(R.string.rating_saved_toast, context.getString(R.string.rating_perfect)),
@@ -110,7 +111,7 @@ class RatingActionHandlerTest {
 
     @Test
     fun `handle for a deleted entry says it no longer exists instead of Rated`() = runTest {
-        handler.handle(context, entryId = 999L, rating = 0)
+        handler.handle(context, entryId = 999L, rating = ComfortRating.PERFECT)
 
         assertEquals(
             context.getString(R.string.rating_entry_missing_toast),
