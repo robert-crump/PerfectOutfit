@@ -11,7 +11,9 @@ import java.time.format.DateTimeFormatter
 /** In-memory [OpenMeteoApi]: serves the hours it was given, filtered by date like the real API. */
 class FakeOpenMeteoApi(
     private val forecastHours: List<LocalDateTime> = emptyList(),
-    private val archiveHours: List<LocalDateTime> = emptyList()
+    private val archiveHours: List<LocalDateTime> = emptyList(),
+    /** Feels-like temperature per hour; the default is flat. */
+    private val apparentTemperatureOf: (LocalDateTime) -> Double = { 0.0 }
 ) : OpenMeteoApi {
     var forecastCalls = 0
     val forecastCoordinates = mutableListOf<Pair<Double, Double>>()
@@ -56,7 +58,7 @@ class FakeOpenMeteoApi(
         hourly = HourlyData(
             time = times.map { it.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) },
             temperature2m = times.map { it.dayOfMonth.toDouble() },
-            apparentTemperature = times.map { 0.0 },
+            apparentTemperature = times.map(apparentTemperatureOf),
             windSpeed10m = times.map { 0.0 },
             windDirection10m = times.map { 0 },
             uvIndex = times.map { 0.0 },

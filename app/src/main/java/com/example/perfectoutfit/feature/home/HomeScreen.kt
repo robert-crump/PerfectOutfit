@@ -182,7 +182,7 @@ fun HomeScreen(
     val showOpenSettings = isPermissionError && permissionRequestedOnce && activity != null &&
         !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
 
-    val forecastTemp = if (uiState.hourlyWeather.isNotEmpty()) uiState.activeDisplayTemp else null
+    val forecastTemp = uiState.currentDisplayTemp
 
     Scaffold(
         topBar = {
@@ -242,7 +242,7 @@ fun HomeScreen(
                     selectedLocationName = uiState.selectedLocationName,
                     // Always the current hour, whichever workout hour the result step last showed.
                     currentHour = uiState.hourlyWeather.firstOrNull(),
-                    currentTemp = uiState.displayTempAt(0),
+                    currentTemp = uiState.currentDisplayTemp,
                     useApparentTemperature = uiState.useApparentTemperature,
                     isLoading = uiState.isLoading,
                     onActivityTypeSelected = { activityType, hours ->
@@ -284,7 +284,7 @@ private fun LocationActivityStep(
     modifier: Modifier = Modifier
 ) {
     var isLongWorkout by remember { mutableStateOf(false) }
-    var workoutHours by remember { mutableIntStateOf(2) }
+    var workoutHours by remember { mutableIntStateOf(HomeViewModel.DEFAULT_LONG_WORKOUT_HOURS) }
 
     Column(
         modifier = modifier
@@ -310,8 +310,8 @@ private fun LocationActivityStep(
             if (isLongWorkout) {
                 Spacer(modifier = Modifier.weight(1f))
                 OutlinedIconButton(
-                    onClick = { if (workoutHours > 2) workoutHours-- },
-                    enabled = workoutHours > 2
+                    onClick = { if (workoutHours > HomeViewModel.MIN_LONG_WORKOUT_HOURS) workoutHours-- },
+                    enabled = workoutHours > HomeViewModel.MIN_LONG_WORKOUT_HOURS
                 ) {
                     Text("−", style = MaterialTheme.typography.titleLarge)
                 }
@@ -322,8 +322,8 @@ private fun LocationActivityStep(
                     textAlign = TextAlign.Center
                 )
                 OutlinedIconButton(
-                    onClick = { if (workoutHours < 23) workoutHours++ },
-                    enabled = workoutHours < 23
+                    onClick = { if (workoutHours < HomeViewModel.MAX_LONG_WORKOUT_HOURS) workoutHours++ },
+                    enabled = workoutHours < HomeViewModel.MAX_LONG_WORKOUT_HOURS
                 ) {
                     Text("+", style = MaterialTheme.typography.titleLarge)
                 }
@@ -340,7 +340,7 @@ private fun LocationActivityStep(
                         ActivityTypeTile(
                             iconRes = activityType.iconRes,
                             label = activityType.displayName,
-                            onClick = { onActivityTypeSelected(activityType, if (isLongWorkout) workoutHours else 1) },
+                            onClick = { onActivityTypeSelected(activityType, if (isLongWorkout) workoutHours else HomeViewModel.SINGLE_HOUR) },
                             modifier = Modifier.weight(1f)
                         )
                     }

@@ -1,5 +1,17 @@
 PerfectOutfit � Progress Log
 
+2026-11-07 (8)
+- Implemented issue #43 (Home: one "dressed-for hour" concept).
+  Changes:
+    * HomeUiState.currentDisplayTemp feeds the activity grid and the Explorer shortcut, so Explorer
+      gets the current hour's temperature (it used to get the last long workout's, or 0).
+    * Duration bounds/default are HomeViewModel constants; selectActivityType clamps to them.
+    * Removed dead state: selectedHourIndex/selectedHour and the duplicate `recommendation`
+      (a one-hour workout uses coldestRecommendation).
+    * HomeViewModelTest: Explorer temp, coldest/warmest selection, duration bounds.
+      FakeOpenMeteoApi takes an apparent-temperature function. CONTEXT.md Weather card updated.
+  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
+
 2026-11-07 (7)
 - Implemented issue #42 (Home: typed error state; cancelled location requests aren't failures).
   Changes:
@@ -37,16 +49,4 @@ PerfectOutfit � Progress Log
       chart use them; the LOG_OUTFIT_CATEGORY_ORDER alias and itemsToOffer's alphabetical
       body-part sort are gone (itemsToOffer now returns head-to-toe).
     * Tests: ItemsToOfferTest pins head-to-toe; new BodyPartOrderTest.
-  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
-
-2026-11-07 (3)
-- Implemented issue #35 (Comfort rating becomes a domain type).
-  Changes:
-    * New core/model ComfortRating enum (TOO_COLD/PERFECT/TOO_HOT): stored value, label and
-      emoji string resources, matchPriority; declaration order is the temperature order.
-      OutfitEntry.rating is the typed view of the unchanged Int column (schema/export intact).
-    * Recommendation, temperature chart, mode comparison, rating bar, notification actions,
-      toast, OutfitLogging, Rate screen state and the action validator all use it; no bare
-      -1/0/1 interpretation remains outside the type (and its tests).
-    * ComfortRatingTest pins order and priority; CONTEXT.md gains "Comfort rating".
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).

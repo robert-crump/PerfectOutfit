@@ -70,7 +70,10 @@ then "Feels like (Actual 7°C)" — the basis, with the other value in brackets 
 and "Now" (the current clock hour) or the hour's time; below, UV, wind and rain; below those,
 one hint line per active warning ([UV](#uv-warning-threshold), [rain ahead](#rain-ahead)), with
 no section when neither applies. The activity grid shows a compact card of the same top lines,
-always for the current hour.
+always for the current hour. Which hour that is — the dressed-for hour — is owned by the Home
+ViewModel (`HomeUiState.activeHour`; `currentDisplayTemp` for the grid and the Explorer
+shortcut, which therefore always gets the current hour's temperature). The long-workout
+duration bounds (2–23 h) live there too.
 
 ### Rating reminder
 The notification that asks the user to rate an outfit entry after a workout (activity

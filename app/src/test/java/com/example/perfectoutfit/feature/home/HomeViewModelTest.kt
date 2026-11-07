@@ -45,7 +45,10 @@ class HomeViewModelTest {
     private val day = LocalDate.of(2026, 3, 10)
     private val clock = MutableClock(day.atTime(12, 50).toInstant(ZoneOffset.UTC))
     private val hours = (0..23).map { day.atTime(it, 0) }
-    private val api = FakeOpenMeteoApi(hours)
+    // Feels like 10 °C at 12:00, 2 °C at 13:00, 20 °C at 14:00, then flat 15 °C.
+    private val api = FakeOpenMeteoApi(hours, apparentTemperatureOf = {
+        when (it.hour) { 12 -> 10.0; 13 -> 2.0; 14 -> 20.0; else -> 15.0 }
+    })
     private val reminder = FakeRatingReminder()
 
     @Before
@@ -233,6 +236,52 @@ class HomeViewModelTest {
         viewModel.selectActivityType(ActivityType.RUNNING)
 
         assertEquals(day.atTime(13, 0), viewModel.uiState.value.activeHour?.time)
+    }
+
+    @Test
+    fun `Explorer from the activity grid gets the current hour's temperature, not the long workout's`() {
+        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        assertEquals(10, viewModel.uiState.value.currentDisplayTemp)
+
+        viewModel.selectActivityType(ActivityType.RUNNING, workoutDurationHours = 3)
+        viewModel.selectWorkoutTab(WorkoutTab.WARMEST)
+
+        assertEquals(20, viewModel.uiState.value.activeDisplayTemp)
+        assertEquals(10, viewModel.uiState.value.currentDisplayTemp)
+    }
+
+    @Test
+    fun `Explorer has no temperature while no hours are known`() {
+        val viewModel = viewModel(LocationResult.Unavailable("no fix"))
+
+        assertNull(viewModel.uiState.value.currentDisplayTemp)
+    }
+
+    @Test
+    fun `the result step dresses for the coldest or warmest hour of a long workout`() {
+        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+
+        viewModel.selectActivityType(ActivityType.RUNNING, workoutDurationHours = 3)
+        assertEquals(day.atTime(13, 0), viewModel.uiState.value.activeHour?.time)
+        assertEquals(2, viewModel.uiState.value.activeDisplayTemp)
+
+        viewModel.selectWorkoutTab(WorkoutTab.WARMEST)
+        assertEquals(day.atTime(14, 0), viewModel.uiState.value.activeHour?.time)
+        assertEquals(20, viewModel.uiState.value.activeDisplayTemp)
+    }
+
+    @Test
+    fun `a workout duration stays within the long-workout bounds`() {
+        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+
+        viewModel.selectActivityType(ActivityType.RUNNING, workoutDurationHours = 99)
+        assertEquals(HomeViewModel.MAX_LONG_WORKOUT_HOURS, viewModel.uiState.value.workoutDurationHours)
+
+        viewModel.selectActivityType(ActivityType.RUNNING, workoutDurationHours = 0)
+        assertEquals(HomeViewModel.SINGLE_HOUR, viewModel.uiState.value.workoutDurationHours)
+
+        assertEquals(2, HomeViewModel.DEFAULT_LONG_WORKOUT_HOURS)
+        assertEquals(23, HomeViewModel.MAX_LONG_WORKOUT_HOURS)
     }
 
     private val recommendation = OutfitEntryWithDetails(

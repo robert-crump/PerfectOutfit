@@ -55,14 +55,11 @@ data class HomeUiState(
     val loadingMessage: String = "Loading...",
     /** Hours shown in the home screen (current hour → +24 h). */
     val hourlyWeather: List<HourlyWeather> = emptyList(),
-    /** Index within hourlyWeather that the user has selected. */
-    val selectedHourIndex: Int = 0,
     val selectedActivityType: ActivityType = ActivityType.CYCLING,
     val selectedLocationName: String = "Current location",
-    val recommendation: OutfitEntryWithDetails? = null,
     val useApparentTemperature: Boolean = true,
     val error: HomeError? = null,
-    val workoutDurationHours: Int = 1,
+    val workoutDurationHours: Int = HomeViewModel.SINGLE_HOUR,
     val activeWorkoutTab: WorkoutTab = WorkoutTab.COLDEST,
     val coldestHourIndex: Int = 0,
     val warmestHourIndex: Int = 0,
@@ -72,21 +69,26 @@ data class HomeUiState(
     /** The outfit for the current hours is still being worked out; Home shows a spinner instead. */
     val isPreparingOutfit: Boolean = false,
 ) {
-    val selectedHour: HourlyWeather? get() = hourlyWeather.getOrNull(selectedHourIndex)
-
+    /**
+     * The one hour Home dresses for. On the result step it is the first hour, or a long workout's
+     * coldest/warmest; on the activity grid (and for Explorer) it is the current hour.
+     */
     val activeHourIndex: Int get() = when {
-        workoutDurationHours <= 1 -> 0
+        workoutDurationHours <= HomeViewModel.SINGLE_HOUR -> 0
         activeWorkoutTab == WorkoutTab.COLDEST -> coldestHourIndex
         else -> warmestHourIndex
     }
     val activeHour: HourlyWeather? get() = hourlyWeather.getOrNull(activeHourIndex)
     val activeRecommendation: OutfitEntryWithDetails? get() = when {
-        workoutDurationHours <= 1 -> recommendation
-        activeWorkoutTab == WorkoutTab.COLDEST -> coldestRecommendation
+        activeWorkoutTab == WorkoutTab.COLDEST || workoutDurationHours <= HomeViewModel.SINGLE_HOUR ->
+            coldestRecommendation
         else -> warmestRecommendation
     }
     val activeDisplayTemp: Int get() =
         activeHour?.roundedReferenceTemp(useApparentTemperature) ?: 0
+
+    /** The current hour's rounded reference temperature: what the activity grid and Explorer show. */
+    val currentDisplayTemp: Int? get() = displayTempAt(0)
 
     /** The rounded reference temperature of the hour at [index], or null if there is none. */
     fun displayTempAt(index: Int): Int? =
@@ -138,7 +140,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun selectActivityType(activityType: ActivityType, workoutDurationHours: Int = 1) {
+    fun selectActivityType(activityType: ActivityType, workoutDurationHours: Int = SINGLE_HOUR) {
+        val duration = if (workoutDurationHours <= SINGLE_HOUR) SINGLE_HOUR
+        else workoutDurationHours.coerceIn(MIN_LONG_WORKOUT_HOURS, MAX_LONG_WORKOUT_HOURS)
         // A widget tap can land on a Home kept alive since an earlier hour.
         val hours = currentDisplayWindow()
         val fetching = _uiState.value.isLoading || catchingUp
@@ -148,9 +152,8 @@ class HomeViewModel @Inject constructor(
             // While weather is still on its way, the spinner keeps saying so.
             loadingMessage = if (fetching) _uiState.value.loadingMessage else PREPARING_MESSAGE,
             selectedActivityType = activityType,
-            workoutDurationHours = workoutDurationHours,
+            workoutDurationHours = duration,
             activeWorkoutTab = WorkoutTab.COLDEST,
-            recommendation = null,
             coldestRecommendation = null,
             warmestRecommendation = null,
             coldestHourIndex = -1,
@@ -266,7 +269,6 @@ class HomeViewModel @Inject constructor(
                 isLoading = false,
                 isRefreshing = false,
                 hourlyWeather = displayHours,
-                selectedHourIndex = 0,
                 isPreparingOutfit = !keepOutfit,
                 loadingMessage = PREPARING_MESSAGE,
                 error = null
@@ -319,7 +321,7 @@ class HomeViewModel @Inject constructor(
         val state = _uiState.value.copy(isPreparingOutfit = catchingUp)
         _uiState.value = when {
             window == null -> state
-            duration <= 1 -> state.copy(recommendation = window.coldest)
+            duration <= SINGLE_HOUR -> state.copy(coldestRecommendation = window.coldest)
             else -> state.copy(
                 coldestHourIndex = window.coldestHourIndex,
                 warmestHourIndex = window.warmestHourIndex,
@@ -370,7 +372,6 @@ class HomeViewModel @Inject constructor(
             }
             _uiState.value = _uiState.value.copy(
                 hourlyWeather = currentDisplayWindow(),
-                selectedHourIndex = 0,
                 coldestHourIndex = -1,
                 warmestHourIndex = -1
             )
@@ -394,7 +395,13 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private companion object {
-        const val PREPARING_MESSAGE = "Finding your outfit..."
+    companion object {
+        /** A workout of one hour needs no long-workout picker. */
+        const val SINGLE_HOUR = 1
+        const val MIN_LONG_WORKOUT_HOURS = 2
+        const val MAX_LONG_WORKOUT_HOURS = 23
+        const val DEFAULT_LONG_WORKOUT_HOURS = MIN_LONG_WORKOUT_HOURS
+
+        private const val PREPARING_MESSAGE = "Finding your outfit..."
     }
 }
