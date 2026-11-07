@@ -1,4 +1,4 @@
-package com.example.perfectoutfit.feature.settings
+package com.example.perfectoutfit.core.exportimport
 
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.BodyPart

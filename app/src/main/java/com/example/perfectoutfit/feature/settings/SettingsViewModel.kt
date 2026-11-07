@@ -1,11 +1,10 @@
 package com.example.perfectoutfit.feature.settings
 
-import android.content.Context
-import android.net.Uri
 import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
+import com.example.perfectoutfit.core.exportimport.ExportImportManager
 import com.example.perfectoutfit.core.location.BackgroundLocationStep
 import com.example.perfectoutfit.core.location.LocationPermissions
 import com.example.perfectoutfit.core.location.nextBackgroundLocationStep
@@ -14,7 +13,6 @@ import com.example.perfectoutfit.feature.recommendation.ModeComparisonLine
 import com.example.perfectoutfit.feature.recommendation.Recommendations
 import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,8 +41,8 @@ enum class PermissionAction {
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
     private val exportImportManager: ExportImportManager,
+    private val documentFiles: DocumentFiles,
     private val preferencesManager: PreferencesManager,
     private val widgetUpdater: WidgetUpdater,
     private val locationPermissions: LocationPermissions,
@@ -124,14 +122,12 @@ class SettingsViewModel @Inject constructor(
         _permissionActions.trySend(action)
     }
 
-    fun exportData(uri: Uri) {
+    /** Writes all data to the document at [uri], a content URI the user picked. */
+    fun exportData(uri: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessing = true, message = null)
             try {
-                val json = exportImportManager.exportToJson()
-                context.contentResolver.openOutputStream(uri)?.use { stream ->
-                    stream.write(json.toByteArray())
-                }
+                documentFiles.writeText(uri, exportImportManager.exportToJson())
                 _uiState.value = _uiState.value.copy(isProcessing = false, message = "Data exported successfully")
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isProcessing = false, message = "Export failed: ${e.message}")
@@ -139,14 +135,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun importData(uri: Uri) {
+    /** Replaces all data with the document at [uri], a content URI the user picked. */
+    fun importData(uri: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessing = true, message = null)
             try {
-                val json = context.contentResolver.openInputStream(uri)?.use { stream ->
-                    stream.bufferedReader().readText()
-                } ?: throw IllegalStateException("Could not read file")
-                exportImportManager.importFromJson(json)
+                exportImportManager.importFromJson(documentFiles.readText(uri))
                 // Imported history changes which widget icons are lit.
                 widgetUpdater.redraw()
                 _uiState.value = _uiState.value.copy(isProcessing = false, message = "Data imported successfully")

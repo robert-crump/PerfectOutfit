@@ -99,7 +99,7 @@ fun SettingsScreen(
     ) { uri ->
         uri?.let {
             exporting = true
-            viewModel.exportData(it)
+            viewModel.exportData(it.toString())
         }
     }
 
@@ -300,7 +300,7 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     pendingImport = null
                     exporting = false
-                    viewModel.importData(uri)
+                    viewModel.importData(uri.toString())
                 }) { Text("Import") }
             },
             dismissButton = {

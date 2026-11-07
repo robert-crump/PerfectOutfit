@@ -1,7 +1,7 @@
 package com.example.perfectoutfit.feature.backup
 
-import com.example.perfectoutfit.feature.settings.ExportImportManager
-import com.example.perfectoutfit.feature.settings.CURRENT_EXPORT_VERSION
+import com.example.perfectoutfit.core.exportimport.ExportImportManager
+import com.example.perfectoutfit.core.exportimport.CURRENT_EXPORT_VERSION
 import kotlinx.serialization.SerializationException
 import java.security.MessageDigest
 import java.time.Clock

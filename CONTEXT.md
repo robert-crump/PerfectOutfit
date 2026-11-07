@@ -103,7 +103,8 @@ stale result never overwrites a newer one. Like `OpenMeteoApi` (`WeatherApiModul
 so the README screenshot test can replace it with `@TestInstallIn`.
 
 ### Export/import schema
-Settings' backup/restore feature (`feature/settings/ExportImportManager.kt`) serializes
+`ExportImportManager` (`core/exportimport/ExportImportManager.kt`), used by Settings' file
+export/import and by Drive backup (`feature/backup/`), serializes
 the five Room entities (`ClothingItem`, `ClothingItemActivityType`, `WeatherSnapshot`,
 `OutfitEntry`, `OutfitItem`) directly with `kotlinx.serialization` — there is no separate mirror DTO, so a field exists
 in exactly one place. `ExportData.version` is a schema version the app can branch on for
@@ -120,6 +121,9 @@ the database partially emptied. `DatabaseTransactionRunner` is the same
 interface-plus-Android-adapter seam as [Rating reminder](#rating-reminder) (`RoomTransactionRunner`
 in production, a same-thread fake under `app/src/test`), which is why the round-trip test
 runs on the plain JVM with fake DAOs instead of Robolectric.
+Settings reads and writes the picked file through `DocumentFiles` (`ContentResolverDocumentFiles`
+in production, `FakeDocumentFiles` under `app/src/test`), so `SettingsViewModelTest` covers
+export/import on the JVM too. The Drive backup screen state lives in `feature/backup/DriveBackupViewModel.kt`.
 
 ### Recommendation
 The outfit suggested for an [activity type](#activity-type) at a [reference temperature](#reference-temperature),

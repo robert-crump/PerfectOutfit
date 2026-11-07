@@ -1,5 +1,19 @@
 PerfectOutfit � Progress Log
 
+2026-11-07 (11)
+- Implemented issue #44 (Export/import schema moves to core; Drive backup ViewModel moves to backup).
+  Changes:
+    * core/exportimport/ExportImportManager.kt: ExportData, CURRENT_EXPORT_VERSION,
+      UnsupportedExportVersionException and the manager (test moved alongside). Backup no longer
+      imports anything from feature/settings.
+    * DriveBackupViewModel (+ UiState) moved to feature/backup; DriveBackupSection stays in Settings.
+    * DocumentFiles seam (ContentResolverDocumentFiles, bound in DocumentFilesModule): SettingsViewModel
+      no longer holds a Context; export/import take the picked content URI as a String.
+      A null output stream now fails the export instead of reporting success.
+    * SettingsViewModelTest (JVM, FakeDocumentFiles): export, failed write, import + widget redraw,
+      unreadable file, newer-version file. CONTEXT.md Export/import schema section updated.
+  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
+
 2026-11-07 (10)
 - Implemented issue #47 (Widget refresh reuses Forecast's fetch; widget hours aren't hand-mirrored).
   Changes:
@@ -12,6 +26,7 @@ PerfectOutfit � Progress Log
       is replaced on the next save. Removed a stray duplicate Place class in Forecast.kt.
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 
+
 2026-11-07 (9)
 - Implemented issue #38 (One place type with one default name).
   Changes:
@@ -22,6 +37,7 @@ PerfectOutfit � Progress Log
       Recent places still skips rows saved as "Current Location" (case-insensitive; test added).
     * Widget cache JSON layout unchanged, so existing caches and snapshot columns still read.
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
+
 
 2026-11-07 (8)
 - Implemented issue #43 (Home: one "dressed-for hour" concept).
@@ -35,6 +51,7 @@ PerfectOutfit � Progress Log
       FakeOpenMeteoApi takes an apparent-temperature function. CONTEXT.md Weather card updated.
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 
+
 2026-11-07 (7)
 - Implemented issue #42 (Home: typed error state; cancelled location requests aren't failures).
   Changes:
@@ -44,12 +61,3 @@ PerfectOutfit � Progress Log
     * HomeViewModelTest: permission retry on resume, unrelated errors not retried, cancel shows no error.
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 
-2026-11-07 (6)
-- Implemented issue #46 (One rounding rule, one current clock hour, workout hour via the Clock).
-  Changes:
-    * core/model/WeatherReading.kt: roundedTemp / roundedReferenceTemp are the only roundings;
-      the three private copies and the ad-hoc History/Home/Rate/OutfitCard/widget roundings use them.
-    * core/time/ClockHours.kt: Clock.currentHour() (Forecast, widget store, widget binding) and
-      Clock.epochMillisOf(hour); OutfitLogging takes a Clock for createdAt and ratedAt.
-    * OutfitLoggingTest: fixed clock in a non-system zone drives createdAt/ratedAt. CONTEXT.md updated.
-  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).

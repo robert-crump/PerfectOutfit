@@ -10,7 +10,7 @@ import com.example.perfectoutfit.feature.backup.DriveSession
 import com.example.perfectoutfit.feature.backup.DriveTokenProvider
 import com.example.perfectoutfit.feature.backup.SharedPreferencesBackupStateStore
 import com.example.perfectoutfit.feature.backup.WorkManagerBackupScheduler
-import com.example.perfectoutfit.feature.settings.ExportImportManager
+import com.example.perfectoutfit.core.exportimport.ExportImportManager
 import dagger.Binds
 import dagger.Module
 import dagger.Provides

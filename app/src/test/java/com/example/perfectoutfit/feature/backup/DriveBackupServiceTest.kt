@@ -2,8 +2,8 @@ package com.example.perfectoutfit.feature.backup
 
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
-import com.example.perfectoutfit.feature.settings.CURRENT_EXPORT_VERSION
-import com.example.perfectoutfit.feature.settings.ExportImportManager
+import com.example.perfectoutfit.core.exportimport.CURRENT_EXPORT_VERSION
+import com.example.perfectoutfit.core.exportimport.ExportImportManager
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.outfitLoggingOver
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao

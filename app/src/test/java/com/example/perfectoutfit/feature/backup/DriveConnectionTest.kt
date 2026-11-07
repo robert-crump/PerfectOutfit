@@ -1,6 +1,6 @@
 package com.example.perfectoutfit.feature.backup
 
-import com.example.perfectoutfit.feature.settings.ExportImportManager
+import com.example.perfectoutfit.core.exportimport.ExportImportManager
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.outfitLoggingOver
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
