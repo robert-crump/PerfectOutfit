@@ -201,6 +201,7 @@ class HomeViewModel @Inject constructor(
 
     private fun buildHandoffPayload(prefillItemIds: List<Long>) = LiveOutfitPayload(
         selectedHourTime = _uiState.value.activeHour?.time,
+        activityType = _uiState.value.selectedActivityType,
         workoutDurationHours = _uiState.value.workoutDurationHours,
         prefillItemIds = prefillItemIds
     )

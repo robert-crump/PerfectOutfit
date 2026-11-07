@@ -1,11 +1,13 @@
 package com.example.perfectoutfit.feature.home
 
+import com.example.perfectoutfit.core.model.ActivityType
 import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
 data class LiveOutfitPayload(
     val selectedHourTime: LocalDateTime?,
+    val activityType: ActivityType,
     val workoutDurationHours: Int,
     val prefillItemIds: List<Long>
 )

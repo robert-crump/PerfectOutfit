@@ -220,6 +220,11 @@ class RateOutfitViewModel @Inject constructor(
                 is OutfitScreenMode.NewLive -> {
                     val payload = liveOutfitHandoffStore.take()
                     val selectedTime = payload?.selectedHourTime
+                    // The handoff's activity type, never the DataStore value Home writes asynchronously.
+                    if (payload != null) {
+                        _activityType.value = payload.activityType
+                        _uiState.value = _uiState.value.copy(activityType = payload.activityType)
+                    }
                     val date = selectedTime?.toLocalDate() ?: forecast.today()
                     val hours = loadHours(date)
                     _uiState.value = _uiState.value.copy(

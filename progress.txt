@@ -1,4 +1,13 @@
-PerfectOutfit — Progress Log
+PerfectOutfit � Progress Log
+
+2026-11-07 (5)
+- Implemented issue #40 (Live outfit handoff carries its activity type).
+  Changes:
+    * LiveOutfitPayload gains activityType; HomeViewModel fills it from its selected type.
+    * RateOutfitViewModel's live setup uses the payload's activity type instead of the
+      DataStore value Home writes asynchronously (DataStore stays the fallback if no payload).
+    * New LiveHandoffActivityTypeTest: live mode logs the handed-off type, not the stored one.
+  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 
 2026-11-07 (4)
 - Implemented issue #36 (One head-to-toe rule for ordering clothing items).
@@ -49,11 +58,3 @@ PerfectOutfit — Progress Log
     * CONTEXT.md reminder rule covers delete and the missing-entry outcome.
   Verification: ./gradlew testDebugUnitTest passes (new OutfitLogging delete/rate tests,
   RatingActionHandler toast tests via ShadowToast).
-
-2026-10-24
-- Implemented issue #25 (History: neutral cards).
-  Cards sit on surfaceContainerHigh like Home's; selected cards keep secondaryContainer plus
-  the check circle. Unrated entries show a bold "Rate" label in primary instead of a tint
-  and the old hyphen.
-  Verification: ./gradlew testDebugUnitTest and readmeScreenshots pass; history.png
-  regenerated (explorer.png only re-rendered, left as is).
