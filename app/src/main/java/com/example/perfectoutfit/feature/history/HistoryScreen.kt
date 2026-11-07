@@ -1,6 +1,11 @@
 package com.example.perfectoutfit.feature.history
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,11 +45,16 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -79,6 +89,18 @@ fun HistoryScreen(
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
 
+    // The FAB hides once the list scrolls down and comes back when it scrolls up
+    var fabVisible by rememberSaveable { mutableStateOf(true) }
+    val fabScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -1f) fabVisible = false
+                else if (available.y > 1f) fabVisible = true
+                return Offset.Zero
+            }
+        }
+    }
+
     BackHandler(enabled = selecting, onBack = viewModel::clearSelection)
 
     Scaffold(
@@ -109,6 +131,7 @@ fun HistoryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .nestedScroll(fabScrollConnection)
         ) {
         Column(
             modifier = Modifier
@@ -164,16 +187,19 @@ fun HistoryScreen(
                 }
             }
         }
-        if (!selecting) {
+        AnimatedVisibility(
+            visible = !selecting && fabVisible,
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomEnd)
+        ) {
             ExtendedFloatingActionButton(
                 onClick = onNavigateToNewOutfit,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 icon = { Icon(painterResource(R.drawable.ic_outfit), contentDescription = null) },
                 text = { Text("Outfit") },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp)
+                modifier = Modifier.padding(16.dp)
             )
         }
         }

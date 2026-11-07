@@ -33,7 +33,8 @@ fun BodyPartSection(
             )
         } else {
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items.forEach { item ->
                     ClothingItemChip(

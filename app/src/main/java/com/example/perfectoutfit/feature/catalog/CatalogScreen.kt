@@ -354,7 +354,10 @@ private fun ActivityTypeChips(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Activities", style = MaterialTheme.typography.labelLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             ActivityType.entries.forEach { activityType ->
                 val isSelected = activityType in selected
                 FilterChip(
