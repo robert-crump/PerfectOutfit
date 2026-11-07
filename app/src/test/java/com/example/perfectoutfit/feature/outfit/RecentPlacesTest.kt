@@ -41,12 +41,11 @@ class RecentPlacesTest {
     }
 
     @Test
-    fun `blank, default-named and unresolved entries are skipped`() {
+    fun `blank and default-named entries are skipped`() {
         val places = recentPlaces(
             listOf(
                 snapshot("", 50.94, 6.96),
                 snapshot(Place.DEFAULT_NAME, 50.94, 6.96),
-                snapshot("Nowhere", 0.0, 0.0),
                 snapshot("Bonn", 50.73, 7.10)
             ),
             home

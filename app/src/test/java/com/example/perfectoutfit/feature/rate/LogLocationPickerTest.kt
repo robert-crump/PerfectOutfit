@@ -162,6 +162,20 @@ class LogLocationPickerTest {
     }
 
     @Test
+    fun `a forecast location change after the hours loaded does not move the saved place`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.pickClockHour(9)
+        forecast.refresh(52.52, 13.40, "Berlin")
+
+        vm.next(); vm.toggleItem(1); vm.next(); vm.next(); vm.next()
+
+        val saved = snapshotDao.getAll().single()
+        assertEquals("Aachen", saved.locationName)
+        assertEquals(50.78, saved.latitude, 0.0)
+        assertEquals(6.08, saved.longitude, 0.0)
+    }
+
+    @Test
     fun `choosing the current location again goes back to GPS`() = runTest(dispatcher) {
         val vm = viewModel()
         vm.pickPlace(cologne)

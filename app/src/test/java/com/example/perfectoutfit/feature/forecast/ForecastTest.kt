@@ -85,7 +85,9 @@ class ForecastTest {
         val f = forecast(api)
         f.refresh(1.0, 2.0, "X")
 
-        assertEquals(24, f.hoursFor(day).size)
+        val known = f.hoursFor(day)
+        assertEquals(Place(1.0, 2.0, "X"), known?.place)
+        assertEquals(24, known?.hours?.size)
         assertTrue(api.dateRangeCalls.isEmpty())
     }
 
@@ -96,7 +98,7 @@ class ForecastTest {
         f.refresh(1.0, 2.0, "X")
         val known = f.hours.first().size
 
-        assertEquals(24, f.hoursFor(old).size)
+        assertEquals(24, f.hoursFor(old)?.hours?.size)
         assertEquals(listOf(old.toString() to old.toString()), api.dateRangeCalls)
 
         val all = f.hours.first()
@@ -109,10 +111,10 @@ class ForecastTest {
     }
 
     @Test
-    fun `hoursFor returns empty without fetching while location is unknown`() = runTest {
+    fun `hoursFor returns null without fetching while location is unknown`() = runTest {
         val api = FakeOpenMeteoApi(window)
         val f = forecast(api)
-        assertTrue(f.hoursFor(day).isEmpty())
+        assertNull(f.hoursFor(day))
         assertTrue(api.dateRangeCalls.isEmpty())
     }
 

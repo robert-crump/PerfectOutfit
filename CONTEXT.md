@@ -243,7 +243,11 @@ picked hour (with no weather loading) on when and where, and at least one item o
 the items step can always go on. "Today" — for the [wizard rule](#forecast)'s max date, the
 Today/Yesterday labels and the time picker's default hour — is the injected `Clock`'s current
 hour when the wizard opens, never the system clock. Weather that arrives for a date or place
-picked over in the meantime is dropped. Rating an already-logged entry is a separate screen
+picked over in the meantime is dropped. Weather always arrives with the `Place` it was fetched
+for (`PlacedHours`; for the current location, `Forecast.hoursFor` returns the forecast's place),
+and that place, coordinates and name, is what gets logged and shown: a log's coordinates are
+always those of its weather. There is no "unresolved place" state; a wizard with no weather
+cannot save. Rating an already-logged entry is a separate screen
 (`RateEntryViewModel`).
 
 **Discard rule** (`rememberDiscardGuard`): leaving a screen with nothing at stake happens

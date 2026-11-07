@@ -13,7 +13,7 @@ import com.example.perfectoutfit.core.network.GeocodingApi
 import com.example.perfectoutfit.core.time.currentHour
 import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.forecast.Forecast
-import com.example.perfectoutfit.feature.home.HourlyWeather
+import com.example.perfectoutfit.feature.forecast.PlacedHours
 import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import com.example.perfectoutfit.feature.outfit.recentPlaces
@@ -105,30 +105,30 @@ class LogOutfitViewModel @Inject constructor(
             val handoff = liveOutfitHandoffStore.take()
             // The handoff's activity type, never the DataStore value Home writes asynchronously.
             val activityType = handoff?.activityType ?: preferencesManager.selectedActivityType.first()
-            val hours = loadHours(LogWizardState.liveStartDate(now, handoff), null)
+            val loaded = loadHours(LogWizardState.liveStartDate(now, handoff), null)
             _uiState.update {
-                it.copy(activityType = activityType, wizard = LogWizardState.live(now, handoff, hours, currentPlaceName))
+                it.copy(activityType = activityType, wizard = LogWizardState.live(now, handoff, loaded, currentPlaceName))
             }
         } else {
             val activityType = preferencesManager.selectedActivityType.first()
             placeSearcher.setRecentPlaces(
                 recentPlaces(outfitLogging.allEntries().first().map { it.weatherSnapshot }, forecast.location)
             )
-            val hours = loadHours(now.toLocalDate(), null)
+            val loaded = loadHours(now.toLocalDate(), null)
             _uiState.update {
-                it.copy(activityType = activityType, wizard = LogWizardState.past(now, hours, currentPlaceName))
+                it.copy(activityType = activityType, wizard = LogWizardState.past(now, loaded, currentPlaceName))
             }
         }
     }
 
-    /** Hours of [date] at [at] (null = the current location); empty if the fetch fails. */
-    private suspend fun loadHours(date: LocalDate, at: Place?): List<HourlyWeather> =
+    /** Hours of [date] at [at] (null = the current location), with that place; null if none could be fetched. */
+    private suspend fun loadHours(date: LocalDate, at: Place?): PlacedHours? =
         try {
-            if (at == null) forecast.hoursFor(date) else forecast.hoursAt(at.lat, at.lon, date)
+            if (at == null) forecast.hoursFor(date) else PlacedHours(at, forecast.hoursAt(at.lat, at.lon, date))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            emptyList()
+            null
         }
 
     private fun updateWizard(change: (LogWizardState) -> LogWizardState) =
@@ -143,8 +143,8 @@ class LogOutfitViewModel @Inject constructor(
         val date = after.date
         val place = after.place
         viewModelScope.launch {
-            val hours = loadHours(date, place)
-            updateWizard { it.hoursLoaded(date, place, hours) }
+            val loaded = loadHours(date, place)
+            updateWizard { it.hoursLoaded(date, place, loaded) }
         }
     }
 
@@ -193,10 +193,9 @@ class LogOutfitViewModel @Inject constructor(
     private fun save(request: LogRequest) {
         val activityType = _uiState.value.activityType
         viewModelScope.launch {
-            val current = forecast.location
             outfitLogging.log(
                 hour = request.hour,
-                location = request.place ?: Place(current?.lat ?: 0.0, current?.lon ?: 0.0, request.placeName),
+                location = request.place,
                 activityType = activityType,
                 clothingItemIds = request.itemIds,
                 rating = request.rating,

@@ -19,6 +19,9 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Hours of one day at the [place] they were fetched for. */
+data class PlacedHours(val place: Place, val hours: List<HourlyWeather>)
+
 /**
  * The known hours for the current location. Owns the hour cache, the display window, per-date
  * fetch-and-merge and the location name. Location acquisition is not its concern: callers
@@ -76,13 +79,15 @@ class Forecast @Inject constructor(
     }
 
     /**
-     * Hours of [date], fetching and merging them into the forecast if none are known yet.
-     * Returns empty without fetching while the location is unknown. Throws if the fetch fails.
+     * Hours of [date] at the current location, with that location: fetched and merged into the
+     * forecast if none are known yet. Null without fetching while the location is unknown.
+     * Throws if the fetch fails.
      */
-    suspend fun hoursFor(date: LocalDate): List<HourlyWeather> {
+    suspend fun hoursFor(date: LocalDate): PlacedHours? {
         val known = state.value
-        known.hours.filter { it.time.toLocalDate() == date }.let { if (it.isNotEmpty()) return it }
-        val location = known.location ?: return emptyList()
+        val location = known.location ?: return null
+        known.hours.filter { it.time.toLocalDate() == date }
+            .let { if (it.isNotEmpty()) return PlacedHours(location, it) }
 
         val day = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val fetched = WeatherMapper.extractAllHours(
@@ -90,13 +95,13 @@ class Forecast @Inject constructor(
         )
         state.value = state.value.let { current ->
             // A refresh may have swapped the location while we were fetching; drop stale data.
-            if (current.location != location) return fetched.filter { it.time.toLocalDate() == date }
+            if (current.location != location) return PlacedHours(location, fetched.filter { it.time.toLocalDate() == date })
             current.copy(
                 hours = (current.hours.filter { it.time.toLocalDate() != date } + fetched)
                     .sortedBy { it.time }
             )
         }
-        return fetched.filter { it.time.toLocalDate() == date }
+        return PlacedHours(location, fetched.filter { it.time.toLocalDate() == date })
     }
 
     /**

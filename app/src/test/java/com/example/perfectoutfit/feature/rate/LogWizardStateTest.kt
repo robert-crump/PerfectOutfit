@@ -3,6 +3,7 @@ package com.example.perfectoutfit.feature.rate
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.Place
+import com.example.perfectoutfit.feature.forecast.PlacedHours
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.LiveOutfitPayload
 import com.example.perfectoutfit.feature.outfit.LogMode
@@ -20,15 +21,19 @@ class LogWizardStateTest {
     private val today = LocalDate.of(2026, 3, 10)
     private val now = today.atTime(18, 0)
     private val yesterday = today.minusDays(1)
+    private val aachen = Place(50.78, 6.08, "Aachen")
     private val cologne = Place(50.94, 6.96, "Cologne")
 
     private fun hour(time: LocalDateTime) = HourlyWeather(time, 5.0, 3.0, 10.0, 180, 1, 50, 10)
     private fun hoursOf(date: LocalDate) = (0..23).map { hour(date.atTime(it, 0)) }
 
-    private fun past() = LogWizardState.past(now, hoursOf(today), "Aachen")
+    /** [date]'s hours as fetched for [at] (default: the current location, Aachen). */
+    private fun placed(date: LocalDate, at: Place = aachen) = PlacedHours(at, hoursOf(date))
+
+    private fun past() = LogWizardState.past(now, placed(today), "Aachen")
 
     private fun live(handoff: LiveOutfitPayload? = payload()) =
-        LogWizardState.live(now, handoff, hoursOf(handoff?.selectedHourTime?.toLocalDate() ?: today), "Aachen")
+        LogWizardState.live(now, handoff, placed(handoff?.selectedHourTime?.toLocalDate() ?: today), "Aachen")
 
     private fun payload(at: LocalDateTime? = today.atTime(9, 0)) = LiveOutfitPayload(
         selectedHourTime = at,
@@ -84,9 +89,9 @@ class LogWizardStateTest {
 
     @Test
     fun `the max pickable date is the Clock's today`() {
-        val justBeforeMidnight = LogWizardState.past(today.atTime(23, 0), hoursOf(today), "Aachen")
+        val justBeforeMidnight = LogWizardState.past(today.atTime(23, 0), placed(today), "Aachen")
         assertEquals(today, justBeforeMidnight.maxPickableDate)
-        val justAfter = LogWizardState.past(today.plusDays(1).atTime(0, 0), emptyList(), "Aachen")
+        val justAfter = LogWizardState.past(today.plusDays(1).atTime(0, 0), null, "Aachen")
         assertEquals(today.plusDays(1), justAfter.maxPickableDate)
     }
 
@@ -188,7 +193,7 @@ class LogWizardStateTest {
     @Test
     fun `a past log saves what was entered, as a past log`() {
         val rating = past().pickPlace(cologne)
-            .hoursLoaded(today, cologne, hoursOf(today))
+            .hoursLoaded(today, cologne, placed(today, cologne))
             .pickClockHour(9)
             .toggleItem(3)
             .forward().forward().forward()
@@ -209,11 +214,29 @@ class LogWizardStateTest {
     fun `a live log saves unrated, as a live log, with its handed-off duration`() {
         val request = (live().forward().next() as WizardMove.Save).request
         assertEquals(today.atTime(9, 0), request.hour.time)
-        assertNull(request.place)
-        assertEquals("Aachen", request.placeName)
+        assertEquals(aachen, request.place)
         assertNull(request.rating)
         assertEquals(2, request.durationHours)
         assertEquals(LogMode.LIVE, request.mode)
+    }
+
+    @Test
+    fun `a log at the current location saves the place its weather was fetched for`() {
+        val berlin = Place(52.52, 13.40, "Berlin")
+        val loaded = past().pickDate(yesterday).hoursLoaded(yesterday, null, placed(yesterday, berlin))
+        assertEquals("Berlin", loaded.placeName)
+
+        val rating = loaded.pickClockHour(9).toggleItem(1).forward().forward().forward()
+        assertEquals(berlin, (rating.next() as WizardMove.Save).request.place)
+    }
+
+    @Test
+    fun `hours that could not be fetched leave nothing to pick or save`() {
+        val s = past().pickDate(yesterday).hoursLoaded(yesterday, null, null)
+        assertFalse(s.loadingHours)
+        assertTrue(s.hours.isEmpty())
+        assertNull(s.weatherPlace)
+        assertFalse(s.pickClockHour(9).canGoNext)
     }
 
     // ─── Date and place race guards ──────────────────────────────────────────
@@ -224,7 +247,7 @@ class LogWizardStateTest {
         assertEquals(yesterday, s.date)
         assertNull(s.selectedHour)
         assertTrue(s.loadingHours)
-        val loaded = s.hoursLoaded(yesterday, null, hoursOf(yesterday))
+        val loaded = s.hoursLoaded(yesterday, null, placed(yesterday))
         assertFalse(loaded.loadingHours)
         assertNull(loaded.selectedHour)
         assertEquals(24, loaded.hours.size)
@@ -236,13 +259,13 @@ class LogWizardStateTest {
         assertEquals(cologne, s.place)
         assertEquals("Cologne", s.placeName)
         assertNull(s.selectedHour)
-        val loaded = s.hoursLoaded(today, cologne, hoursOf(today))
+        val loaded = s.hoursLoaded(today, cologne, placed(today, cologne))
         assertEquals(today.atTime(9, 0), loaded.selectedHour?.time)
     }
 
     @Test
     fun `picking a place before a time leaves the time unpicked`() {
-        val loaded = past().pickPlace(cologne).hoursLoaded(today, cologne, hoursOf(today))
+        val loaded = past().pickPlace(cologne).hoursLoaded(today, cologne, placed(today, cologne))
         assertNull(loaded.selectedHour)
     }
 
@@ -256,20 +279,20 @@ class LogWizardStateTest {
     @Test
     fun `hours for a date no longer picked are ignored`() {
         val s = past().pickDate(yesterday).pickDate(today.minusDays(2))
-        assertSame(s, s.hoursLoaded(yesterday, null, hoursOf(yesterday)))
+        assertSame(s, s.hoursLoaded(yesterday, null, placed(yesterday)))
     }
 
     @Test
     fun `hours for a place no longer picked are ignored`() {
         val s = past().pickPlace(cologne).pickPlace(null)
-        assertSame(s, s.hoursLoaded(today, cologne, hoursOf(today)))
+        assertSame(s, s.hoursLoaded(today, cologne, placed(today, cologne)))
     }
 
     @Test
     fun `a date picked while a place loads drops the place's late hours and the kept hour`() {
         val s = past().pickClockHour(9).pickPlace(cologne).pickDate(yesterday)
-        assertSame(s, s.hoursLoaded(today, cologne, hoursOf(today)))
-        assertNull(s.hoursLoaded(yesterday, cologne, hoursOf(yesterday)).selectedHour)
+        assertSame(s, s.hoursLoaded(today, cologne, placed(today, cologne)))
+        assertNull(s.hoursLoaded(yesterday, cologne, placed(yesterday, cologne)).selectedHour)
     }
 
     // ─── Edits ───────────────────────────────────────────────────────────────
@@ -283,7 +306,7 @@ class LogWizardStateTest {
 
     @Test
     fun `picking a clock hour with no hours known changes nothing`() {
-        val s = LogWizardState.past(now, emptyList(), "Aachen")
+        val s = LogWizardState.past(now, null, "Aachen")
         assertSame(s, s.pickClockHour(9))
     }
 }

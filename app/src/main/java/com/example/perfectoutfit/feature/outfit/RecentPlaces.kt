@@ -22,7 +22,7 @@ const val MAX_RECENT_PLACES = 5
 
 /**
  * The places of [snapshotsNewestFirst], most recently used first: one per town (same name within
- * [SAME_PLACE_KM], the newest coordinates winning), without unnamed or unresolved entries and
+ * [SAME_PLACE_KM], the newest coordinates winning), without unnamed entries and
  * without the [current] place, at most [limit].
  */
 fun recentPlaces(
@@ -34,7 +34,6 @@ fun recentPlaces(
     for (s in snapshotsNewestFirst) {
         val name = s.locationName.trim()
         if (name.isEmpty() || name.equals(Place.DEFAULT_NAME, ignoreCase = true)) continue
-        if (s.latitude == 0.0 && s.longitude == 0.0) continue
         val place = Place(s.latitude, s.longitude, name)
         if (places.none { it.isSamePlaceAs(place) }) places += place
     }

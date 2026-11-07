@@ -3,6 +3,7 @@ package com.example.perfectoutfit.feature.rate
 import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.Place
 import com.example.perfectoutfit.feature.forecast.Forecast
+import com.example.perfectoutfit.feature.forecast.PlacedHours
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.LiveOutfitPayload
 import com.example.perfectoutfit.feature.outfit.LogMode
@@ -15,9 +16,8 @@ enum class LogStep { WHEN_WHERE, ITEMS, SUMMARY, RATING }
 /** Everything [com.example.perfectoutfit.feature.outfit.OutfitLogging.log] needs from the wizard. */
 data class LogRequest(
     val hour: HourlyWeather,
-    /** Where it was worn; null = the current location, called [placeName]. */
-    val place: Place?,
-    val placeName: String,
+    /** Where it was worn: the place [hour]'s weather was fetched for. */
+    val place: Place,
     val itemIds: Set<Long>,
     val rating: ComfortRating?,
     val notes: String,
@@ -53,14 +53,18 @@ data class LogWizardState(
     /** The current clock hour when the wizard opened. */
     val now: LocalDateTime,
     val date: LocalDate,
-    /** Known hours of [date] at [place]. */
+    /** Known hours of [date] at [weatherPlace]. */
     val hours: List<HourlyWeather>,
+    /**
+     * Where [hours] were fetched for: the picked place, or the current location at the time.
+     * Null while no hours are known. This is the place that gets logged.
+     */
+    val weatherPlace: Place?,
     /** Index into [hours]; -1 = none picked. */
     val hourIndex: Int,
-    /** Where it was worn; null = the current location. */
+    /** Where it was worn, as picked; null = the current location. */
     val place: Place?,
-    val placeName: String,
-    /** The current location's name, shown when [place] is null. */
+    /** The current location's name when the wizard opened; shown until its weather is known. */
     val currentPlaceName: String,
     /** Weather for a newly picked date or place is on its way. */
     val loadingHours: Boolean = false,
@@ -77,6 +81,9 @@ data class LogWizardState(
     val maxPickableDate: LocalDate get() = today
 
     val selectedHour: HourlyWeather? get() = hours.getOrNull(hourIndex)
+
+    /** The name shown for where it was worn: the picked place, else where the weather came from. */
+    val placeName: String get() = place?.name ?: weatherPlace?.name ?: currentPlaceName
 
     /** The hour the time picker opens on. */
     val pickerDefaultHour: Int get() = selectedHour?.time?.hour ?: now.hour
@@ -115,24 +122,32 @@ data class LogWizardState(
     /** Picks [date] (dates after today are refused) and waits for its hours; the hour is cleared. */
     fun pickDate(date: LocalDate): LogWizardState =
         if (date > maxPickableDate) this
-        else copy(date = date, hours = emptyList(), hourIndex = -1, loadingHours = true, keepClockHour = null)
+        else copy(
+            date = date, hours = emptyList(), weatherPlace = null, hourIndex = -1,
+            loadingHours = true, keepClockHour = null
+        )
 
     /** Picks where it was worn ([place] null = the current location), keeping the clock hour once loaded. */
     fun pickPlace(place: Place?): LogWizardState = copy(
         place = place,
-        placeName = place?.name ?: currentPlaceName,
         hours = emptyList(),
+        weatherPlace = null,
         hourIndex = -1,
         loadingHours = true,
         keepClockHour = selectedHour?.time?.hour ?: keepClockHour
     )
 
-    /** [hours] fetched for [date] at [place]; ignored unless those are still the ones picked. */
-    fun hoursLoaded(date: LocalDate, place: Place?, hours: List<HourlyWeather>): LogWizardState {
+    /**
+     * [loaded] hours of [date] for the picked [place] (null = none could be fetched); ignored
+     * unless those are still the ones picked.
+     */
+    fun hoursLoaded(date: LocalDate, place: Place?, loaded: PlacedHours?): LogWizardState {
         if (date != this.date || place != this.place) return this
+        val hours = loaded?.hours.orEmpty()
         val kept = keepClockHour?.let { Forecast.hourNearest(hours, it) }
         return copy(
             hours = hours,
+            weatherPlace = loaded?.place,
             hourIndex = kept?.let(hours::indexOf) ?: -1,
             loadingHours = false,
             keepClockHour = null
@@ -154,21 +169,22 @@ data class LogWizardState(
 
     private fun toLogRequest(): LogRequest? {
         val hour = selectedHour ?: return null
+        val at = weatherPlace ?: return null
         if (itemIds.isEmpty()) return null
-        return LogRequest(hour, place, placeName, itemIds, rating, notes, durationHours, mode)
+        return LogRequest(hour, at, itemIds, rating, notes, durationHours, mode)
     }
 
     companion object {
-        /** A past log: today at the current place ([hours] = today's), no hour picked yet. */
-        fun past(now: LocalDateTime, hours: List<HourlyWeather>, currentPlaceName: String) = LogWizardState(
+        /** A past log: today at the current place ([loaded] = today's hours there), no hour picked yet. */
+        fun past(now: LocalDateTime, loaded: PlacedHours?, currentPlaceName: String) = LogWizardState(
             mode = LogMode.PAST,
             step = LogStep.WHEN_WHERE,
             now = now,
             date = now.toLocalDate(),
-            hours = hours,
+            hours = loaded?.hours.orEmpty(),
+            weatherPlace = loaded?.place,
             hourIndex = -1,
             place = null,
-            placeName = currentPlaceName,
             currentPlaceName = currentPlaceName
         )
 
@@ -178,22 +194,22 @@ data class LogWizardState(
 
         /**
          * A live log at the handed-off hour (else the first known), with its items and duration;
-         * [hours] are those of [liveStartDate].
+         * [loaded] are the current location's hours of [liveStartDate].
          */
         fun live(
             now: LocalDateTime,
             handoff: LiveOutfitPayload?,
-            hours: List<HourlyWeather>,
+            loaded: PlacedHours?,
             currentPlaceName: String
         ) = LogWizardState(
             mode = LogMode.LIVE,
             step = LogStep.ITEMS,
             now = now,
             date = liveStartDate(now, handoff),
-            hours = hours,
-            hourIndex = hours.indexOfFirst { it.time == handoff?.selectedHourTime }.coerceAtLeast(0),
+            hours = loaded?.hours.orEmpty(),
+            weatherPlace = loaded?.place,
+            hourIndex = loaded?.hours.orEmpty().indexOfFirst { it.time == handoff?.selectedHourTime }.coerceAtLeast(0),
             place = null,
-            placeName = currentPlaceName,
             currentPlaceName = currentPlaceName,
             itemIds = handoff?.prefillItemIds?.toSet().orEmpty(),
             durationHours = handoff?.workoutDurationHours ?: 1
