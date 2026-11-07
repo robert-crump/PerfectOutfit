@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,7 +43,7 @@ fun OutfitCard(
     val itemGroups = outfit.clothingItems.headToToeGroups { it.bodyPart }
     val ratingText = ratingLabel(outfit.entry.rating)
     val wornOn = Instant.ofEpochMilli(outfit.entry.createdAt).atZone(ZoneId.systemDefault()).toLocalDate()
-    val wornAt = outfit.weatherSnapshot.referenceTemp(useApparentTemperature).roundToInt()
+    val wornAt = outfit.weatherSnapshot.roundedReferenceTemp(useApparentTemperature)
     val matchText = listOf(ratingText, entryDateLabel(wornOn, LocalDate.now()), "at $wornAt°C")
         .filter { it.isNotEmpty() }
         .joinToString(" · ")

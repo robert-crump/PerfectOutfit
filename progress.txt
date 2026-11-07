@@ -1,4 +1,14 @@
-PerfectOutfit — Progress Log
+PerfectOutfit ï¿½ Progress Log
+
+2026-11-07 (6)
+- Implemented issue #46 (One rounding rule, one current clock hour, workout hour via the Clock).
+  Changes:
+    * core/model/WeatherReading.kt: roundedTemp / roundedReferenceTemp are the only roundings;
+      the three private copies and the ad-hoc History/Home/Rate/OutfitCard/widget roundings use them.
+    * core/time/ClockHours.kt: Clock.currentHour() (Forecast, widget store, widget binding) and
+      Clock.epochMillisOf(hour); OutfitLogging takes a Clock for createdAt and ratedAt.
+    * OutfitLoggingTest: fixed clock in a non-system zone drives createdAt/ratedAt. CONTEXT.md updated.
+  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 
 2026-11-07 (5)
 - Implemented issue #40 (Live outfit handoff carries its activity type).

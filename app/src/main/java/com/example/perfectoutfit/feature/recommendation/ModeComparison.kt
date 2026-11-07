@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.recommendation
 
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.referenceTemp
 import kotlin.math.abs
@@ -99,7 +100,7 @@ internal object ModeComparisonPolicy {
         ratingOrder: Int,
         useApparent: Boolean
     ): Int {
-        val tempOrder = a.roundedTemp(useApparent).compareTo(b.roundedTemp(useApparent))
+        val tempOrder = a.weatherSnapshot.roundedReferenceTemp(useApparent).compareTo(b.weatherSnapshot.roundedReferenceTemp(useApparent))
         return when {
             tempOrder == 0 -> 1
             tempOrder.sign() == ratingOrder.sign() -> 0
@@ -108,7 +109,4 @@ internal object ModeComparisonPolicy {
     }
 
     private fun Int.sign(): Int = compareTo(0)
-
-    private fun OutfitEntryWithDetails.roundedTemp(useApparent: Boolean): Int =
-        weatherSnapshot.referenceTemp(useApparent).roundToInt()
 }

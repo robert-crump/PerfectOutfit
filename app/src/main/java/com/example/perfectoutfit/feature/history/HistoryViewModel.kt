@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.history
 
 import androidx.lifecycle.ViewModel
+import com.example.perfectoutfit.core.model.roundedTemp
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
@@ -52,8 +53,8 @@ class HistoryViewModel @Inject constructor(
             entries.map {
                 HistoryItem(
                     details = it,
-                    actualCelsius = it.weatherSnapshot.temperatureCelsius.roundToInt(),
-                    feelsLikeCelsius = it.weatherSnapshot.apparentTemperatureCelsius.roundToInt(),
+                    actualCelsius = it.weatherSnapshot.temperatureCelsius.let(::roundedTemp),
+                    feelsLikeCelsius = it.weatherSnapshot.apparentTemperatureCelsius.let(::roundedTemp),
                     useApparent = useApparent
                 )
             }

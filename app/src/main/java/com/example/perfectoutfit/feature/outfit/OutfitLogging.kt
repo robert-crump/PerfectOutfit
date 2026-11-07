@@ -1,6 +1,8 @@
 package com.example.perfectoutfit.feature.outfit
 
 import com.example.perfectoutfit.core.database.DatabaseTransactionRunner
+import java.time.Clock
+import com.example.perfectoutfit.core.time.epochMillisOf
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
@@ -14,7 +16,6 @@ import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.toWeatherSnapshot
 import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import kotlinx.coroutines.flow.Flow
-import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,7 +48,8 @@ class OutfitLogging @Inject constructor(
     private val weatherSnapshotDao: WeatherSnapshotDao,
     private val transactionRunner: DatabaseTransactionRunner,
     private val ratingReminder: RatingReminder,
-    private val widgetUpdater: WidgetUpdater
+    private val widgetUpdater: WidgetUpdater,
+    private val clock: Clock = Clock.systemDefaultZone()
 ) {
     /** Logs an outfit worn during [hour]; returns the new entry id. */
     suspend fun log(
@@ -60,7 +62,7 @@ class OutfitLogging @Inject constructor(
         workoutDurationHours: Int = 1,
         mode: LogMode
     ): Long {
-        val workoutMs = hour.time.atZone(ZoneId.systemDefault()).toEpochSecond() * 1000
+        val workoutMs = clock.epochMillisOf(hour.time)
         val entryId = transactionRunner.runInTransaction {
             val snapshotId = weatherSnapshotDao.insert(
                 hour.toWeatherSnapshot(location.lat, location.lon, location.displayName)
@@ -71,7 +73,7 @@ class OutfitLogging @Inject constructor(
                     activityType = activityType,
                     comfortRating = rating?.value,
                     createdAt = workoutMs,
-                    ratedAt = rating?.let { System.currentTimeMillis() },
+                    ratedAt = rating?.let { clock.millis() },
                     notes = notes
                 )
             )
@@ -142,7 +144,7 @@ class OutfitLogging @Inject constructor(
     private suspend fun applyRating(entryId: Long, rating: ComfortRating): Boolean {
         ratingReminder.cancel(entryId)
         val entry = outfitEntryDao.getById(entryId) ?: return false
-        outfitEntryDao.update(entry.copy(comfortRating = rating.value, ratedAt = System.currentTimeMillis()))
+        outfitEntryDao.update(entry.copy(comfortRating = rating.value, ratedAt = clock.millis()))
         return true
     }
 

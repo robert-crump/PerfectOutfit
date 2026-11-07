@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.recommendation
 
 import com.example.perfectoutfit.core.database.dao.ClothingItemDao
+import com.example.perfectoutfit.core.model.roundedTemp
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
@@ -37,7 +38,7 @@ class Recommendations @Inject constructor(
     suspend fun find(activityType: ActivityType, referenceTemp: Double, useApparent: Boolean): OutfitEntryWithDetails? =
         RecommendationPolicy.findRecommendation(
             outfitEntryDao.getRatedEntriesWithDetails(activityType),
-            referenceTemp.roundToInt(),
+            roundedTemp(referenceTemp),
             useApparent
         )
 
@@ -66,7 +67,7 @@ class Recommendations @Inject constructor(
     suspend fun likelyItemIds(activityType: ActivityType, referenceTemp: Double, useApparent: Boolean): Set<Long> =
         RecommendationPolicy.likelyItemIds(
             outfitEntryDao.getRatedEntriesWithDetails(activityType),
-            referenceTemp.roundToInt(),
+            roundedTemp(referenceTemp),
             useApparent
         )
 

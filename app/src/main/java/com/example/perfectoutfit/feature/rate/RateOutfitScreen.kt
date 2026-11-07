@@ -1,6 +1,8 @@
 package com.example.perfectoutfit.feature.rate
 
 import android.app.DatePickerDialog
+import com.example.perfectoutfit.core.model.roundedReferenceTemp
+import com.example.perfectoutfit.core.model.roundedTemp
 import android.app.TimePickerDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -365,7 +367,7 @@ private fun GeneralCard(uiState: RateOutfitUiState) {
     if (ws != null) {
         // No hints: they advise on what to pack now, not on a past workout.
         WeatherCard(
-            displayTemp = ws.referenceTemp(uiState.useApparentTemperature).roundToInt(),
+            displayTemp = ws.roundedReferenceTemp(uiState.useApparentTemperature),
             weather = ws,
             useApparentTemperature = uiState.useApparentTemperature,
             locationName = ws.locationName,
@@ -725,8 +727,8 @@ private fun WizardDateTimeLocationStep(
                         text = "Weather \u2013 $dateLabel at ${selectedHour.time.format(timeFormatter)}",
                         style = MaterialTheme.typography.labelLarge
                     )
-                    WeatherInfoRow(stringResource(R.string.temperature_real), "${selectedHour.temperatureCelsius.roundToInt()}\u00B0C")
-                    WeatherInfoRow(stringResource(R.string.temperature_apparent), "${selectedHour.apparentTemperatureCelsius.roundToInt()}\u00B0C")
+                    WeatherInfoRow(stringResource(R.string.temperature_real), "${roundedTemp(selectedHour.temperatureCelsius)}\u00B0C")
+                    WeatherInfoRow(stringResource(R.string.temperature_apparent), "${roundedTemp(selectedHour.apparentTemperatureCelsius)}\u00B0C")
                     WeatherInfoRow("Wind", "${selectedHour.windSpeedKmh.toInt()} km/h ${selectedHour.windDirectionLabel}")
                     WeatherInfoRow("UV index", "${selectedHour.uvIndex}")
                     WeatherInfoRow("Cloud cover", "${selectedHour.cloudCoverPercent}%")
@@ -1006,9 +1008,9 @@ private fun WizardSummaryStep(
             if (hour != null) {
                 SummarySection("Weather") {
                     Text(
-                        text = "${hour.temperatureCelsius.roundToInt()}\u00B0C, " +
+                        text = "${roundedTemp(hour.temperatureCelsius)}\u00B0C, " +
                             "${stringResource(R.string.temperature_apparent).lowercase()} " +
-                            "${hour.apparentTemperatureCelsius.roundToInt()}\u00B0C",
+                            "${roundedTemp(hour.apparentTemperatureCelsius)}\u00B0C",
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(

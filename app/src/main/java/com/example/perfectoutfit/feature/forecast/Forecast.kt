@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.forecast
 
 import com.example.perfectoutfit.core.network.OpenMeteoApi
+import com.example.perfectoutfit.core.time.currentHour
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.WeatherMapper
 import kotlinx.coroutines.flow.Flow
@@ -61,7 +62,7 @@ class Forecast @Inject constructor(
     /** 24 hours starting at the current clock hour; empty if the known hours end before it. */
     fun displayWindow(): List<HourlyWeather> {
         val all = state.value.hours
-        val currentHour = LocalDateTime.now(clock).withMinute(0).withSecond(0).withNano(0)
+        val currentHour = clock.currentHour()
         val start = all.indexOfFirst { !it.time.isBefore(currentHour) }
         if (start < 0) return emptyList()
         return all.subList(start, minOf(start + WINDOW_HOURS, all.size))

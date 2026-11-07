@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.home
 
 import androidx.lifecycle.ViewModel
+import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.location.LocationResult
@@ -69,11 +70,11 @@ data class HomeUiState(
         else -> warmestRecommendation
     }
     val activeDisplayTemp: Int get() =
-        activeHour?.referenceTemp(useApparentTemperature)?.roundToInt() ?: 0
+        activeHour?.roundedReferenceTemp(useApparentTemperature) ?: 0
 
     /** The rounded reference temperature of the hour at [index], or null if there is none. */
     fun displayTempAt(index: Int): Int? =
-        hourlyWeather.getOrNull(index)?.referenceTemp(useApparentTemperature)?.roundToInt()
+        hourlyWeather.getOrNull(index)?.roundedReferenceTemp(useApparentTemperature)
 }
 
 @HiltViewModel

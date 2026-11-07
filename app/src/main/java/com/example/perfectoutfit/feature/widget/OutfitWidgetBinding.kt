@@ -1,6 +1,8 @@
 package com.example.perfectoutfit.feature.widget
 
+import com.example.perfectoutfit.core.time.currentHour
 import com.example.perfectoutfit.core.datastore.PreferencesManager
+import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.ThemeMode
 import com.example.perfectoutfit.core.model.WeatherReading
@@ -63,7 +65,7 @@ fun bindOutfitWidget(
     }
     return OutfitWidgetBinding(
         activityType = activityType,
-        valueText = hour?.let { "${it.referenceTemp(useApparent).roundToInt()}°" } ?: NO_TEMPERATURE_TEXT,
+        valueText = hour?.let { "${it.roundedReferenceTemp(useApparent)}°" } ?: NO_TEMPERATURE_TEXT,
         captionText = if (useApparent) APPARENT_CAPTION else REAL_CAPTION,
         lit = hour != null && recommended,
         opensActivityType = true
@@ -84,7 +86,7 @@ class OutfitWidgetContent @Inject constructor(
         val forecast = store.load()
         val useApparent = preferences.useApparentTemperature.first()
         val themeMode = preferences.themeMode.first()
-        val hour = forecast?.hourAt(LocalDateTime.now(clock))
+        val hour = forecast?.hourAt(clock.currentHour())
         return activityTypes.map { activityType ->
             val recommended = hour != null &&
                 recommendations.find(activityType, hour.referenceTemp(useApparent), useApparent) != null

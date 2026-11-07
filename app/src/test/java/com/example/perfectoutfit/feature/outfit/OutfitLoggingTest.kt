@@ -14,6 +14,8 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
@@ -44,6 +46,22 @@ class OutfitLoggingTest {
         hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L, 2L),
         rating = rating, notes = "n", workoutDurationHours = 2, mode = mode
     )
+
+    @Test
+    fun `workout hour and rated-at come from the injected clock and its zone`() = runTest {
+        val zone = ZoneId.of("Asia/Tokyo")
+        val fixed = Clock.fixed(Instant.parse("2026-09-01T10:00:00Z"), zone)
+        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
+
+        val id = clocked.log(
+            hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L),
+            rating = ComfortRating.PERFECT, mode = LogMode.PAST
+        )
+
+        val entry = entryDao.getById(id)!!
+        assertEquals(hour.time.atZone(zone).toInstant().toEpochMilli(), entry.createdAt)
+        assertEquals(fixed.millis(), entry.ratedAt)
+    }
 
     @Test
     fun `live log schedules a reminder at the workout hour`() = runTest {

@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.recommendation
 
 import com.example.perfectoutfit.core.model.headToToeGroups
+import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.ComfortRating
@@ -61,8 +62,8 @@ internal object TemperatureChartPolicy {
         val perfect = rated.filter { it.entry.rating == ComfortRating.PERFECT }
 
         val degrees = if (rated.isEmpty()) emptyList() else {
-            val ratedTemps = rated.map { it.roundedTemp(useApparent) }.toSet()
-            val perfectCounts = perfect.groupingBy { it.roundedTemp(useApparent) }.eachCount()
+            val ratedTemps = rated.map { it.weatherSnapshot.roundedReferenceTemp(useApparent) }.toSet()
+            val perfectCounts = perfect.groupingBy { it.weatherSnapshot.roundedReferenceTemp(useApparent) }.eachCount()
             (ratedTemps.min()..ratedTemps.max()).map { temp ->
                 val count = perfectCounts[temp] ?: 0
                 val coverage = when {
@@ -76,7 +77,7 @@ internal object TemperatureChartPolicy {
 
         val perfectTempsById = mutableMapOf<Long, MutableSet<Int>>()
         perfect.forEach { entry ->
-            val temp = entry.roundedTemp(useApparent)
+            val temp = entry.weatherSnapshot.roundedReferenceTemp(useApparent)
             entry.clothingItems.forEach { perfectTempsById.getOrPut(it.id) { mutableSetOf() } += temp }
         }
 
@@ -90,7 +91,4 @@ internal object TemperatureChartPolicy {
             .map { (part, group) -> BodyPartRanges(part, group) }
         return TemperatureChart(degrees, groups)
     }
-
-    private fun OutfitEntryWithDetails.roundedTemp(useApparent: Boolean): Int =
-        weatherSnapshot.referenceTemp(useApparent).roundToInt()
 }

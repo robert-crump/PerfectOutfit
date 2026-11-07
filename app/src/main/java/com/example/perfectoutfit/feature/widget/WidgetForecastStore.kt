@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.widget
 
 import androidx.datastore.core.DataStore
+import com.example.perfectoutfit.core.time.currentHour
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -65,7 +66,7 @@ class WidgetForecastStore @Inject constructor(
     suspend fun load(): WidgetForecast? = dataStore.data.first()[KEY]?.let(::decode)
 
     private fun encode(location: ForecastLocation, hours: List<HourlyWeather>): String {
-        val currentHour = LocalDateTime.now(clock).truncatedTo(ChronoUnit.HOURS)
+        val currentHour = clock.currentHour()
         val stored = StoredForecast(
             lat = location.lat,
             lon = location.lon,

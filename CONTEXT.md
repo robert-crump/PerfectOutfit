@@ -35,7 +35,7 @@ is the dry-bulb air temperature.
 Every place that recommends, matches, or displays "the temperature" uses the reference
 temperature — no screen ever judges an hour by both bases at once. The selection rule
 lives in exactly one place: the `WeatherReading.referenceTemp(useApparent)` extension
-(`core/model/WeatherReading.kt`), which returns a raw `Double`; callers round at the edge.
+(`core/model/WeatherReading.kt`), which returns a raw `Double`; callers round at the edge with the one rounding helper (`roundedTemp` / `roundedReferenceTemp`, same file).
 Both forecast hours (`HourlyWeather`) and persisted snapshots (`WeatherSnapshot`)
 implement `WeatherReading`, so they are judged by the same rule.
 
@@ -184,7 +184,7 @@ The persisted record of one outfit worn for one workout (`OutfitEntry`): its
 
 **`createdAt` rule:** `createdAt` is the epoch millis of the workout hour (not the wall
 clock at save time), for live and past logs alike. History sorts by it, so a past-dated log
-sorts by when the workout happened.
+sorts by when the workout happened. The hour-to-millis conversion, `ratedAt` and "the current clock hour" all come from the injected `Clock` (`core/time/ClockHours.kt`).
 
 ### Outfit logging
 The act of recording an outfit entry, owned entirely by `OutfitLogging`
