@@ -3,13 +3,17 @@ package com.example.perfectoutfit.feature.home
 import com.example.perfectoutfit.core.model.WeatherReading
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.core.network.ForecastResponse
+import com.example.perfectoutfit.core.time.LocalDateTimeIsoSerializer
+import kotlinx.serialization.Serializable
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
+/** One forecast hour. Serializable so the widget forecast can cache hours as they are. */
+@Serializable
 data class HourlyWeather(
-    val time: LocalDateTime,
+    @Serializable(with = LocalDateTimeIsoSerializer::class) val time: LocalDateTime,
     override val temperatureCelsius: Double,
     override val apparentTemperatureCelsius: Double,
     override val windSpeedKmh: Double,

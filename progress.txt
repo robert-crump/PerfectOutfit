@@ -1,5 +1,17 @@
 PerfectOutfit � Progress Log
 
+2026-11-07 (10)
+- Implemented issue #47 (Widget refresh reuses Forecast's fetch; widget hours aren't hand-mirrored).
+  Changes:
+    * Forecast.fetchAt(lat, lon): the one fetch-and-extract path; Forecast.refresh and
+      WidgetForecastRefresh both use it (the refresh no longer talks to OpenMeteoApi itself).
+    * HourlyWeather and Place are @Serializable (core/time/LocalDateTimeIsoSerializer);
+      WidgetForecast is serialized directly, StoredForecast/StoredHour are gone.
+    * WidgetForecast.hourAt(clock) uses Clock.currentHour() instead of its own truncation.
+    * Cache layout changed: an old-format or unreadable cache loads as null (tests added) and
+      is replaced on the next save. Removed a stray duplicate Place class in Forecast.kt.
+  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
+
 2026-11-07 (9)
 - Implemented issue #38 (One place type with one default name).
   Changes:
@@ -41,13 +53,3 @@ PerfectOutfit � Progress Log
       Clock.epochMillisOf(hour); OutfitLogging takes a Clock for createdAt and ratedAt.
     * OutfitLoggingTest: fixed clock in a non-system zone drives createdAt/ratedAt. CONTEXT.md updated.
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
-
-2026-11-07 (5)
-- Implemented issue #40 (Live outfit handoff carries its activity type).
-  Changes:
-    * LiveOutfitPayload gains activityType; HomeViewModel fills it from its selected type.
-    * RateOutfitViewModel's live setup uses the payload's activity type instead of the
-      DataStore value Home writes asynchronously (DataStore stays the fallback if no payload).
-    * New LiveHandoffActivityTypeTest: live mode logs the handed-off type, not the stored one.
-  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
-

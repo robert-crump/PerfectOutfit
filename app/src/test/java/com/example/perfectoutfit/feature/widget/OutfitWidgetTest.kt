@@ -254,7 +254,9 @@ class OutfitWidgetTest {
     fun `hourAt matches the clock hour exactly`() {
         val forecast = WidgetForecast(hamburg, listOf(hour(day.atTime(14, 0), 10.0)), 0)
 
-        assertEquals(10.0, forecast.hourAt(day.atTime(14, 59))!!.temperatureCelsius, 0.0)
-        assertNull(forecast.hourAt(day.atTime(15, 0)))
+        fun at(time: LocalDateTime) = Clock.fixed(time.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
+
+        assertEquals(10.0, forecast.hourAt(at(day.atTime(14, 59)))!!.temperatureCelsius, 0.0)
+        assertNull(forecast.hourAt(at(day.atTime(15, 0))))
     }
 }

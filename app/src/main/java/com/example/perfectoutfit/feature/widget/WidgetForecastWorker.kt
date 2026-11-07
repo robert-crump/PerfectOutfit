@@ -14,8 +14,7 @@ import androidx.work.WorkerParameters
 import com.example.perfectoutfit.core.location.LocationPermissions
 import com.example.perfectoutfit.core.location.LocationResult
 import com.example.perfectoutfit.core.location.LocationSource
-import com.example.perfectoutfit.core.network.OpenMeteoApi
-import com.example.perfectoutfit.feature.home.WeatherMapper
+import com.example.perfectoutfit.feature.forecast.Forecast
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -41,12 +40,13 @@ class WidgetForecastWorker @AssistedInject constructor(
 }
 
 /**
- * Refetches the widget's forecast and redraws it. With background location granted it follows
+ * Refetches the widget's forecast (through [Forecast.fetchAt], without touching Home's forecast)
+ * and redraws it. With background location granted it follows
  * the device; otherwise (or when no location comes back) it stays on the saved place. Nothing to
  * do while neither is known.
  */
 class WidgetForecastRefresh @Inject constructor(
-    private val api: OpenMeteoApi,
+    private val forecast: Forecast,
     private val store: WidgetForecastStore,
     private val widgetUpdater: WidgetUpdater,
     private val locationSource: LocationSource,
@@ -59,7 +59,7 @@ class WidgetForecastRefresh @Inject constructor(
         val saved = store.load()?.location
         val location = here ?: saved ?: return
         try {
-            val hours = WeatherMapper.extractAllHours(api.getForecast(location.lat, location.lon))
+            val hours = forecast.fetchAt(location.lat, location.lon)
             if (here != null) store.save(here, hours) else store.saveIfStillAt(location, hours)
         } catch (e: IOException) {
             // Offline: keep the saved hours.

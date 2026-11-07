@@ -267,11 +267,13 @@ type's result step. Both widgets share the icon layout (`outfit_widget_icon`) an
 when the saved hours don't cover now, all four tiles are faint; with no saved place a tap opens
 Home's first step, and TalkBack reads "open app" for it.
 
-**Widget forecast:** the widget never uses `Forecast`. Home saves
+**Widget forecast:** the widget never reads `Forecast`'s hours. Home saves
 the last resolved place and its hours to DataStore (`WidgetForecast`: location, hours,
-fetch time), a disposable cache outside Room and outside the
-[export/import schema](#exportimport-schema). A 30-minute worker (`WidgetForecastRefresh`)
-refetches. With background location granted (opt-in: Settings → Widget → "Follow my location",
+fetch time, serialized as is — no mirror of the forecast hour), a disposable cache outside Room
+and outside the [export/import schema](#exportimport-schema); a cache that can't be read (an
+older layout) counts as none saved and the next save replaces it. A 30-minute worker
+(`WidgetForecastRefresh`) refetches through `Forecast.fetchAt`, the same fetch-and-extract path
+as Home, without touching Home's forecast. With background location granted (opt-in: Settings → Widget → "Follow my location",
 issue #27) it asks `LocationSource` first and saves the device's place, so the widget follows
 the device; without it, or when no location comes back, it refetches the saved place, so the
 widget follows the *last place the app was opened*. Redraws

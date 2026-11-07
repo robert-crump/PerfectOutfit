@@ -5,6 +5,8 @@ import com.example.perfectoutfit.core.model.Place
 import com.example.perfectoutfit.core.location.LocationPermissions
 import com.example.perfectoutfit.core.location.LocationResult
 import com.example.perfectoutfit.core.location.LocationSource
+import androidx.datastore.preferences.core.edit
+import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.testutil.FakeOpenMeteoApi
 import com.example.perfectoutfit.testutil.FakePreferencesDataStore
@@ -26,11 +28,12 @@ class WidgetForecastRefreshTest {
     private val cologne = Place(50.94, 6.96, "Köln")
 
     private val api = FakeOpenMeteoApi(hours)
-    private val store = WidgetForecastStore(FakePreferencesDataStore(), Json, clock)
+    private val dataStore = FakePreferencesDataStore()
+    private val store = WidgetForecastStore(dataStore, Json, clock)
     private val widgetUpdater = FakeWidgetUpdater()
 
     private fun refresh(background: Boolean, device: LocationResult) = WidgetForecastRefresh(
-        api, store, widgetUpdater,
+        Forecast(api, clock), store, widgetUpdater,
         locationSource = object : LocationSource {
             override suspend fun current() = device
         },
@@ -102,5 +105,33 @@ class WidgetForecastRefreshTest {
 
         assertEquals(aachen, store.load()?.location)
         assertEquals(1, widgetUpdater.redraws)
+    }
+
+    @Test
+    fun `an old-format cache is ignored and refetched`() = runTest {
+        // The layout before the store serialized forecast hours as they are.
+        dataStore.edit {
+            it[WidgetForecastStore.KEY] = """{"lat":50.78,"lon":6.08,"name":"Aachen","hours":[""" +
+                """{"time":"2026-10-25T09:00","temperatureCelsius":5.0,"apparentTemperatureCelsius":3.0,""" +
+                """"windSpeedKmh":0.0,"windDirectionDegrees":0,"uvIndex":0,"cloudCoverPercent":0,""" +
+                """"precipitationProbabilityPercent":0}],"fetchedAtMs":0}"""
+        }
+        assertNull(store.load())
+
+        refresh(background = true, device = found(cologne)).run()
+
+        assertEquals(cologne, store.load()?.location)
+        assertEquals(15, store.load()?.hours?.size)
+        assertEquals(1, widgetUpdater.redraws)
+    }
+
+    @Test
+    fun `a cache with an unreadable hour is ignored`() = runTest {
+        store.save(aachen, listOf(HourlyWeather(day.atTime(9, 0), 5.0, 3.0, 0.0, 0, 0, 0, 0)))
+        dataStore.edit {
+            it[WidgetForecastStore.KEY] = it[WidgetForecastStore.KEY]!!.replace("2026-10-25T09:00", "not a time")
+        }
+
+        assertNull(store.load())
     }
 }

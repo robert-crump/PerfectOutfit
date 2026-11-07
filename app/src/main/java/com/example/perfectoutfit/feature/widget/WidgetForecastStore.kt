@@ -10,12 +10,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.time.Clock
-import java.time.LocalDateTime
-import java.time.format.DateTimeParseException
-import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -25,22 +21,27 @@ import javax.inject.Singleton
 @Retention(AnnotationRetention.BINARY)
 annotation class WidgetForecastData
 
-/** The last place the app resolved, and its hours, as the widget reads them (see "Widget" in CONTEXT.md). */
+/**
+ * The last place the app resolved, and its hours, as the widget reads them (see "Widget" in
+ * CONTEXT.md). Serialized as is: the store keeps no mirror of the forecast hour.
+ */
+@Serializable
 data class WidgetForecast(
     val location: Place,
     val hours: List<HourlyWeather>,
     val fetchedAtMs: Long
 ) {
-    /** The hour of [now], or null when the saved hours don't cover it. */
-    fun hourAt(now: LocalDateTime): HourlyWeather? {
-        val clockHour = now.truncatedTo(ChronoUnit.HOURS)
-        return hours.firstOrNull { it.time == clockHour }
+    /** The hour of [clock]'s current clock hour, or null when the saved hours don't cover it. */
+    fun hourAt(clock: Clock): HourlyWeather? {
+        val currentHour = clock.currentHour()
+        return hours.firstOrNull { it.time == currentHour }
     }
 }
 
 /**
  * Widget forecast: a disposable cache outside Room and outside the export/import schema.
- * Saving keeps only the hours from the current clock hour on, so the file stays small.
+ * Saving keeps only the hours from the current clock hour on, so the file stays small. A cache
+ * that can't be read (an older layout, say) counts as nothing saved; the next refresh replaces it.
  */
 @Singleton
 class WidgetForecastStore @Inject constructor(
@@ -68,81 +69,22 @@ class WidgetForecastStore @Inject constructor(
 
     private fun encode(location: Place, hours: List<HourlyWeather>): String {
         val currentHour = clock.currentHour()
-        val stored = StoredForecast(
-            lat = location.lat,
-            lon = location.lon,
-            name = location.name,
-            hours = hours.filter { !it.time.isBefore(currentHour) }.map(StoredHour::from),
+        val forecast = WidgetForecast(
+            location = location,
+            hours = hours.filter { !it.time.isBefore(currentHour) },
             fetchedAtMs = clock.millis()
         )
-        return json.encodeToString(StoredForecast.serializer(), stored)
+        return json.encodeToString(WidgetForecast.serializer(), forecast)
     }
 
-    private fun decode(raw: String): WidgetForecast? {
-        val stored = try {
-            json.decodeFromString(StoredForecast.serializer(), raw)
-        } catch (e: SerializationException) {
-            return null
-        } catch (e: IllegalArgumentException) {
-            return null
-        }
-        return try {
-            WidgetForecast(
-                location = Place(stored.lat, stored.lon, stored.name),
-                hours = stored.hours.map(StoredHour::toHourlyWeather),
-                fetchedAtMs = stored.fetchedAtMs
-            )
-        } catch (e: DateTimeParseException) {
-            null
-        }
+    // SerializationException is an IllegalArgumentException, as is malformed JSON.
+    private fun decode(raw: String): WidgetForecast? = try {
+        json.decodeFromString(WidgetForecast.serializer(), raw)
+    } catch (e: IllegalArgumentException) {
+        null
     }
 
-    @Serializable
-    private data class StoredForecast(
-        val lat: Double,
-        val lon: Double,
-        val name: String,
-        val hours: List<StoredHour>,
-        val fetchedAtMs: Long
-    )
-
-    @Serializable
-    private data class StoredHour(
-        val time: String,
-        val temperatureCelsius: Double,
-        val apparentTemperatureCelsius: Double,
-        val windSpeedKmh: Double,
-        val windDirectionDegrees: Int,
-        val uvIndex: Int,
-        val cloudCoverPercent: Int,
-        val precipitationProbabilityPercent: Int
-    ) {
-        fun toHourlyWeather() = HourlyWeather(
-            time = LocalDateTime.parse(time),
-            temperatureCelsius = temperatureCelsius,
-            apparentTemperatureCelsius = apparentTemperatureCelsius,
-            windSpeedKmh = windSpeedKmh,
-            windDirectionDegrees = windDirectionDegrees,
-            uvIndex = uvIndex,
-            cloudCoverPercent = cloudCoverPercent,
-            precipitationProbabilityPercent = precipitationProbabilityPercent
-        )
-
-        companion object {
-            fun from(hour: HourlyWeather) = StoredHour(
-                time = hour.time.toString(),
-                temperatureCelsius = hour.temperatureCelsius,
-                apparentTemperatureCelsius = hour.apparentTemperatureCelsius,
-                windSpeedKmh = hour.windSpeedKmh,
-                windDirectionDegrees = hour.windDirectionDegrees,
-                uvIndex = hour.uvIndex,
-                cloudCoverPercent = hour.cloudCoverPercent,
-                precipitationProbabilityPercent = hour.precipitationProbabilityPercent
-            )
-        }
-    }
-
-    private companion object {
+    internal companion object {
         val KEY = stringPreferencesKey("widget_forecast")
     }
 }

@@ -1,6 +1,5 @@
 package com.example.perfectoutfit.feature.widget
 
-import com.example.perfectoutfit.core.time.currentHour
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import com.example.perfectoutfit.core.model.ActivityType
@@ -86,7 +85,7 @@ class OutfitWidgetContent @Inject constructor(
         val forecast = store.load()
         val useApparent = preferences.useApparentTemperature.first()
         val themeMode = preferences.themeMode.first()
-        val hour = forecast?.hourAt(clock.currentHour())
+        val hour = forecast?.hourAt(clock)
         return activityTypes.map { activityType ->
             val recommended = hour != null &&
                 recommendations.find(activityType, hour.referenceTemp(useApparent), useApparent) != null

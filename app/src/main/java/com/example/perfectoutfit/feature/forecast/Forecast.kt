@@ -19,8 +19,6 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
-data class Place(val lat: Double, val lon: Double, val name: String)
-
 /**
  * The known hours for the current location. Owns the hour cache, the display window, per-date
  * fetch-and-merge and the location name. Location acquisition is not its concern: callers
@@ -51,9 +49,16 @@ class Forecast @Inject constructor(
 
     /** Replaces the forecast with a fresh fetch (past 2 days + today + tomorrow). Throws on failure. */
     suspend fun refresh(lat: Double, lon: Double, name: String) {
-        val fetched = WeatherMapper.extractAllHours(api.getForecast(lat, lon))
+        val fetched = fetchAt(lat, lon)
         state.value = State(Place(lat, lon, name), fetched, clock.instant())
     }
+
+    /**
+     * Fetches the forecast hours (past 2 days + today + tomorrow) at a place without touching this
+     * forecast; the widget refresh uses it for its own cache. Throws on failure.
+     */
+    suspend fun fetchAt(lat: Double, lon: Double): List<HourlyWeather> =
+        WeatherMapper.extractAllHours(api.getForecast(lat, lon))
 
     /** True when nothing was fetched yet or the last [refresh] is older than [STALE_AFTER]. */
     fun isStale(): Boolean {
