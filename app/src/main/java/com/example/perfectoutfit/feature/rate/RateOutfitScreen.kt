@@ -101,7 +101,6 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-private val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -672,9 +671,7 @@ private fun WizardDateTimeLocationStep(
                     Text(
                         when {
                             !dateSelected -> "Pick a city first"
-                            uiState.selectedDate == today -> "Today"
-                            uiState.selectedDate == today.minusDays(1) -> "Yesterday"
-                            else -> uiState.selectedDate.format(dateFormatter)
+                            else -> entryDateLabel(uiState.selectedDate, today, withWeekday = true, relative = true)
                         }
                     )
                 }
@@ -718,11 +715,7 @@ private fun WizardDateTimeLocationStep(
 
             // Weather info — only shown once both date and time are selected.
             if (selectedHour != null && !uiState.isLoadingLocationWeather) {
-                val dateLabel = when (uiState.selectedDate) {
-                    today              -> "Today"
-                    today.minusDays(1) -> "Yesterday"
-                    else               -> uiState.selectedDate.format(dateFormatter)
-                }
+                val dateLabel = entryDateLabel(uiState.selectedDate, today, withWeekday = true, relative = true)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = "Weather \u2013 $dateLabel at ${selectedHour.time.format(timeFormatter)}",
@@ -991,11 +984,7 @@ private fun WizardSummaryStep(
 
             val today = LocalDate.now()
             SummarySection("Date and Time") {
-                val dateLabel = when (uiState.selectedDate) {
-                    today              -> "Today"
-                    today.minusDays(1) -> "Yesterday"
-                    else               -> uiState.selectedDate.format(dateFormatter)
-                }
+                val dateLabel = entryDateLabel(uiState.selectedDate, today, withWeekday = true, relative = true)
                 Text(
                     text = "$dateLabel at ${hour?.time?.format(timeFormatter) ?: "\u2014"}",
                     style = MaterialTheme.typography.bodyLarge
