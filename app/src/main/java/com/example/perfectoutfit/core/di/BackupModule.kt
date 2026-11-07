@@ -6,7 +6,10 @@ import com.example.perfectoutfit.feature.backup.DriveAuth
 import com.example.perfectoutfit.feature.backup.DriveBackupService
 import com.example.perfectoutfit.feature.backup.DriveClient
 import com.example.perfectoutfit.feature.backup.DriveRestClient
+import com.example.perfectoutfit.feature.backup.DriveBackup
 import com.example.perfectoutfit.feature.backup.DriveSession
+import com.example.perfectoutfit.feature.backup.GoogleDriveBackup
+import com.example.perfectoutfit.core.notification.BackupFailureNotifier
 import com.example.perfectoutfit.feature.backup.DriveTokenProvider
 import com.example.perfectoutfit.feature.backup.SharedPreferencesBackupStateStore
 import com.example.perfectoutfit.feature.backup.WorkManagerBackupScheduler
@@ -34,6 +37,9 @@ abstract class BackupModule {
     abstract fun bindDriveSession(impl: DriveAuth): DriveSession
 
     @Binds
+    abstract fun bindDriveBackup(impl: GoogleDriveBackup): DriveBackup
+
+    @Binds
     abstract fun bindDriveTokenProvider(impl: DriveAuth): DriveTokenProvider
 
     companion object {
@@ -48,7 +54,8 @@ abstract class BackupModule {
             drive: DriveClient,
             exportImport: ExportImportManager,
             state: BackupStateStore,
+            notifier: BackupFailureNotifier,
             clock: Clock
-        ): DriveBackupService = DriveBackupService(drive, exportImport, state, clock)
+        ): DriveBackupService = DriveBackupService(drive, exportImport, state, notifier, clock)
     }
 }

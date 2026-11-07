@@ -123,7 +123,12 @@ in production, a same-thread fake under `app/src/test`), which is why the round-
 runs on the plain JVM with fake DAOs instead of Robolectric.
 Settings reads and writes the picked file through `DocumentFiles` (`ContentResolverDocumentFiles`
 in production, `FakeDocumentFiles` under `app/src/test`), so `SettingsViewModelTest` covers
-export/import on the JVM too. The Drive backup screen state lives in `feature/backup/DriveBackupViewModel.kt`.
+export/import on the JVM too. The Drive backup screen state lives in `feature/backup/DriveBackupViewModel.kt`,
+which reaches Drive backup only through the `DriveBackup` interface (`GoogleDriveBackup` in
+production: sign-in and consent, connect/disconnect, back up now, snapshots, restore, and a `status`
+flow that also picks up the scheduled backup's writes). `DriveBackupService.backup()` owns "a success
+forgets the last failure", recorded reason and notification alike, for both back-up-now and the
+scheduled `BackupRun`.
 
 ### Recommendation
 The outfit suggested for an [activity type](#activity-type) at a [reference temperature](#reference-temperature),

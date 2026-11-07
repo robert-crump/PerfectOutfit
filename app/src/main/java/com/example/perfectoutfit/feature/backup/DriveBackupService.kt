@@ -2,6 +2,7 @@ package com.example.perfectoutfit.feature.backup
 
 import com.example.perfectoutfit.core.exportimport.ExportImportManager
 import com.example.perfectoutfit.core.exportimport.CURRENT_EXPORT_VERSION
+import com.example.perfectoutfit.core.notification.BackupFailureNotifier
 import kotlinx.serialization.SerializationException
 import java.security.MessageDigest
 import java.time.Clock
@@ -24,12 +25,13 @@ class DriveBackupService(
     private val drive: DriveClient,
     private val exportImport: ExportImportManager,
     private val state: BackupStateStore,
+    private val notifier: BackupFailureNotifier,
     private val clock: Clock
 ) {
     /**
      * Uploads a snapshot unless the export is unchanged since the last backup *and* the Drive
      * folder still holds at least one backup (a deleted folder must be repopulated). Either way, a
-     * success forgets the last scheduled failure.
+     * success forgets the last scheduled failure and takes back its notification.
      */
     suspend fun backup(): BackupOutcome {
         val json = exportImport.exportToJson()
@@ -37,7 +39,7 @@ class DriveBackupService(
         val folderId = drive.findOrCreateFolder(FOLDER_NAME)
 
         if (hash == state.lastHash && backupsIn(folderId).isNotEmpty()) {
-            state.lastFailure = null
+            forgetFailure()
             return BackupOutcome.SKIPPED
         }
 
@@ -50,7 +52,7 @@ class DriveBackupService(
 
         state.lastHash = hash
         state.lastBackupTime = now
-        state.lastFailure = null
+        forgetFailure()
         return BackupOutcome.UPLOADED
     }
 
@@ -64,8 +66,16 @@ class DriveBackupService(
         exportImport.importFromJson(drive.downloadFile(snapshotId).toString(Charsets.UTF_8))
     }
 
-    /** Forgets local backup state; Drive files stay. */
-    fun onDisconnect() = state.clear()
+    /** Forgets local backup state and any failure notification; Drive files stay. */
+    fun forgetLocalState() {
+        state.clear()
+        notifier.clear()
+    }
+
+    private fun forgetFailure() {
+        state.lastFailure = null
+        notifier.clear()
+    }
 
     private suspend fun compatibilityOf(snapshotId: String): SnapshotCompatibility = try {
         val version = exportImport.fileVersion(drive.downloadFile(snapshotId).toString(Charsets.UTF_8))

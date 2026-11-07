@@ -16,6 +16,7 @@ import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -49,7 +50,8 @@ class DriveBackupServiceTest {
     private val drive = FakeDriveClient()
     private val state = FakeBackupStateStore()
     private val clock = MutableClock(Instant.parse("2026-09-01T08:00:00Z"))
-    private val service = DriveBackupService(drive, exportImport, state, clock)
+    private val notifier = FakeBackupFailureNotifier()
+    private val service = DriveBackupService(drive, exportImport, state, notifier, clock)
 
     private fun item(id: Long) =
         ClothingItem(id = id, bodyPart = BodyPart.HEAD_THROAT, name = "Item $id", isDefault = false)
@@ -128,12 +130,14 @@ class DriveBackupServiceTest {
     }
 
     @Test
-    fun `onDisconnect clears state and leaves Drive files`() = runTest {
+    fun `forgetting local state clears state and the notification and leaves Drive files`() = runTest {
         addItem(1)
         service.backup()
+        notifier.showFailure()
 
-        service.onDisconnect()
+        service.forgetLocalState()
 
+        assertFalse(notifier.visible)
         assertNull(state.lastHash)
         assertNull(state.lastBackupTime)
         assertEquals(1, drive.fileNames().size)
@@ -144,9 +148,39 @@ class DriveBackupServiceTest {
     fun `backup after disconnect uploads again`() = runTest {
         addItem(1)
         service.backup()
-        service.onDisconnect()
+        service.forgetLocalState()
 
         assertEquals(BackupOutcome.UPLOADED, service.backup())
+    }
+
+    @Test
+    fun `an uploaded backup takes back the failure notification`() = runTest {
+        notifier.showFailure()
+
+        assertEquals(BackupOutcome.UPLOADED, service.backup())
+
+        assertFalse(notifier.visible)
+    }
+
+    @Test
+    fun `a skipped backup also takes back the failure notification`() = runTest {
+        service.backup()
+        notifier.showFailure()
+
+        assertEquals(BackupOutcome.SKIPPED, service.backup())
+
+        assertFalse(notifier.visible)
+    }
+
+    @Test
+    fun `a failed backup leaves the notification alone`() = runTest {
+        val flaky = FlakyDriveClient().apply { failing = true }
+        val failingService = DriveBackupService(flaky, exportImport, state, notifier, clock)
+        notifier.showFailure()
+
+        runCatching { failingService.backup() }
+
+        assertTrue(notifier.visible)
     }
 
     @Test

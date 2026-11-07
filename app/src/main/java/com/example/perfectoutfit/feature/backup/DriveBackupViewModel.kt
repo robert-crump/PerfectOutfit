@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,70 +34,49 @@ data class DriveBackupUiState(
 
 @HiltViewModel
 class DriveBackupViewModel @Inject constructor(
-    private val auth: DriveAuth,
-    private val connection: DriveConnection,
-    private val service: DriveBackupService,
-    private val state: BackupStateStore
+    private val backup: DriveBackup
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(
-        DriveBackupUiState(lastBackupTime = state.lastBackupTime, lastFailure = state.lastFailure)
-    )
+    private val _uiState = MutableStateFlow(DriveBackupUiState())
     val uiState: StateFlow<DriveBackupUiState> = _uiState.asStateFlow()
-
-    private var pendingAccount: String? = null
 
     init {
         viewModelScope.launch {
-            auth.connectedAccount.collect { account ->
+            backup.status.collect { status ->
                 _uiState.update {
-                    it.copy(account = account, lastBackupTime = state.lastBackupTime, lastFailure = state.lastFailure)
+                    it.copy(
+                        account = status.account,
+                        lastBackupTime = status.lastBackupTime,
+                        lastFailure = status.lastFailure
+                    )
                 }
             }
         }
     }
 
     /** Sign in, then authorize; consent UI, if needed, continues in [onConsentResult]. */
-    fun connect(activity: Activity) = runBusy("Connecting to Google Drive failed") {
-        val email = auth.signIn(activity) ?: return@runBusy
-        when (val authorization = auth.authorize(activity, email)) {
-            is DriveAuthorization.Granted -> finishConnect(email)
-            is DriveAuthorization.ResolutionRequired -> {
-                pendingAccount = email
-                _uiState.update { it.copy(consentRequest = authorization.pendingIntent) }
-            }
-        }
+    fun connect(activity: Activity) = runBusy(CONNECT_FAILED) {
+        onConnectResult(backup.connect(activity))
     }
 
     fun consentLaunched() = _uiState.update { it.copy(consentRequest = null) }
 
     fun onConsentResult(resultCode: Int, data: Intent?) {
-        val email = pendingAccount ?: return
-        pendingAccount = null
         if (resultCode != Activity.RESULT_OK || data == null) {
             showMessage("Google Drive access was not granted")
             return
         }
-        runBusy("Connecting to Google Drive failed") {
-            auth.completeAuthorization(data)
-            finishConnect(email)
-        }
+        runBusy(CONNECT_FAILED) { onConnectResult(backup.completeConsent(data)) }
     }
 
-    fun disconnect() = runBusy("Disconnect failed") {
-        connection.disconnect()
-        refreshLastBackup()
-    }
+    fun disconnect() = runBusy("Disconnect failed") { backup.disconnect() }
 
     fun backupNow() = runBusy("Backup failed") {
-        connection.backupNow()
-            .onSuccess { showMessage(outcomeMessage(it)) }
-            .onFailure { showMessage("Backup failed: ${it.message}") }
-        refreshLastBackup()
+        showMessage(outcomeMessage(backup.backupNow()))
     }
 
     fun openRestorePicker() = runBusy("Could not list Drive backups") {
-        val snapshots = service.listSnapshots()
+        val snapshots = backup.listSnapshots()
         if (snapshots.isEmpty()) {
             showMessage("No backups found in Drive")
         } else {
@@ -117,27 +97,28 @@ class DriveBackupViewModel @Inject constructor(
         val snapshot = _uiState.value.restoreCandidate ?: return
         _uiState.update { it.copy(restoreCandidate = null) }
         runBusy("Restore failed") {
-            service.restore(snapshot.id)
+            backup.restore(snapshot.id)
             showMessage("Restored the backup from ${BackupTimeFormat.format(snapshot.timestamp)}")
         }
     }
 
     fun clearMessage() = _uiState.update { it.copy(message = null) }
 
-    private suspend fun finishConnect(email: String) {
-        connection.completeConnect(email)
-            .onSuccess { showMessage("Connected as $email. ${outcomeMessage(it)}") }
-            .onFailure { showMessage("Connected as $email, but the first backup failed: ${it.message}") }
-        refreshLastBackup()
+    private fun onConnectResult(result: ConnectResult) {
+        when (result) {
+            ConnectResult.Cancelled -> Unit
+            is ConnectResult.NeedsConsent -> _uiState.update { it.copy(consentRequest = result.pendingIntent) }
+            is ConnectResult.Connected -> result.firstBackup
+                .onSuccess { showMessage("Connected as ${result.email}. ${outcomeMessage(it)}") }
+                .onFailure {
+                    showMessage("Connected as ${result.email}, but the first backup failed: ${BackupFailureReason.of(it)}")
+                }
+        }
     }
 
     private fun outcomeMessage(outcome: BackupOutcome) = when (outcome) {
         BackupOutcome.UPLOADED -> "Backup uploaded"
         BackupOutcome.SKIPPED -> "Already backed up, nothing has changed"
-    }
-
-    private fun refreshLastBackup() = _uiState.update {
-        it.copy(lastBackupTime = state.lastBackupTime, lastFailure = state.lastFailure)
     }
 
     private fun showMessage(message: String) = _uiState.update { it.copy(message = message) }
@@ -147,13 +128,20 @@ class DriveBackupViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 block()
+            } catch (e: TimeoutCancellationException) {
+                // A sign-in timeout, not the ViewModel being cleared.
+                showMessage("$failurePrefix: ${BackupFailureReason.of(e)}")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                showMessage("$failurePrefix: ${e.message}")
+                showMessage("$failurePrefix: ${BackupFailureReason.of(e)}")
             } finally {
                 _uiState.update { it.copy(isBusy = false) }
             }
         }
+    }
+
+    private companion object {
+        const val CONNECT_FAILED = "Connecting to Google Drive failed"
     }
 }

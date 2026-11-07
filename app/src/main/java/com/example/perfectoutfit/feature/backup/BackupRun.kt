@@ -30,7 +30,6 @@ class BackupRun(
     /** [attempt] counts earlier tries of this run, starting at 0. */
     suspend fun run(attempt: Int = 0): BackupRunResult = try {
         service.backup()
-        notifier.clear()
         BackupRunResult.Success
     } catch (e: TimeoutCancellationException) {
         // A timeout inside the backup, not the worker being stopped.
@@ -43,7 +42,7 @@ class BackupRun(
 
     private fun onError(error: Exception, attempt: Int): BackupRunResult {
         if (isTransient(error) && attempt + 1 < MAX_ATTEMPTS) return BackupRunResult.Retry(error)
-        state.lastFailure = BackupFailure(clock.millis(), reasonFor(error))
+        state.lastFailure = BackupFailure(clock.millis(), BackupFailureReason.of(error))
         notifier.showFailure()
         return BackupRunResult.Failed(error)
     }
@@ -57,14 +56,6 @@ class BackupRun(
             is DriveReconnectRequiredException -> false
             is DriveApiException -> error.code >= 500 || error.code == 408 || error.code == 429
             else -> true
-        }
-
-        /** A short, user-readable reason; Drive error bodies are JSON and too long to show. */
-        fun reasonFor(error: Exception): String = when (error) {
-            is DriveApiException -> "Google Drive returned error ${error.code}"
-            is TimeoutCancellationException -> "Google sign-in timed out"
-            is java.io.IOException -> "Network error" + (error.message?.let { ": $it" } ?: "")
-            else -> error.message ?: error::class.simpleName ?: "Unknown error"
         }
     }
 }

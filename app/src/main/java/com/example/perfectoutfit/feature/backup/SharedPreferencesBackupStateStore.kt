@@ -1,8 +1,12 @@
 package com.example.perfectoutfit.feature.backup
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,6 +43,12 @@ class SharedPreferencesBackupStateStore @Inject constructor(
                 putString(KEY_FAILURE_REASON, value.reason)
             }
         }
+
+    override val changes: Flow<Unit> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(Unit) }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
 
     private companion object {
         const val PREFS_NAME = "drive_backup_state"

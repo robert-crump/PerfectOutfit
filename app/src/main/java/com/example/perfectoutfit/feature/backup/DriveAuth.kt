@@ -35,7 +35,7 @@ import kotlin.coroutines.resumeWithException
 sealed interface DriveAuthorization {
     data class Granted(val accessToken: String) : DriveAuthorization
 
-    /** Consent UI is needed: launch [pendingIntent], then pass its result to [DriveAuth.completeAuthorization]. */
+    /** Consent UI is needed: launch [pendingIntent], then pass its result to [DriveSession.completeAuthorization]. */
     data class ResolutionRequired(val pendingIntent: PendingIntent) : DriveAuthorization
 }
 
@@ -55,8 +55,7 @@ class DriveAuth @Inject constructor(
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val _connectedAccount = MutableStateFlow(prefs.getString(KEY_ACCOUNT_EMAIL, null))
 
-    /** The connected account's email, or null while disconnected. */
-    val connectedAccount: StateFlow<String?> = _connectedAccount.asStateFlow()
+    override val connectedAccount: StateFlow<String?> = _connectedAccount.asStateFlow()
 
     val isConnected: Boolean get() = _connectedAccount.value != null
 
@@ -64,7 +63,7 @@ class DriveAuth @Inject constructor(
      * Step 1: shows the Credential Manager account chooser and returns the chosen email, or null
      * if the user cancelled. Throws on any other failure.
      */
-    suspend fun signIn(activity: Activity): String? {
+    override suspend fun signIn(activity: Activity): String? {
         val option = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setAutoSelectEnabled(false)
@@ -86,13 +85,14 @@ class DriveAuth @Inject constructor(
     }
 
     /** Step 2: requests `drive.file` for the signed-in [account] via the Authorization API. */
-    suspend fun authorize(activity: Activity, account: String): DriveAuthorization =
+    override suspend fun authorize(activity: Activity, account: String): DriveAuthorization =
         authorize(Identity.getAuthorizationClient(activity), account)
 
     /** Finishes step 2 after the consent UI returns successfully. Throws if consent was denied. */
-    fun completeAuthorization(data: Intent): String =
+    override fun completeAuthorization(data: Intent) {
         Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(data).accessToken
             ?: throw DriveReconnectRequiredException()
+    }
 
     /**
      * Silently re-authorizes the granted scope for a fresh access token, for background work with

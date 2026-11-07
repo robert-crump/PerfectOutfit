@@ -32,6 +32,7 @@ class BackupRunTest {
             outfitLoggingOver(), Json { ignoreUnknownKeys = true }
         ),
         state,
+        notifier,
         clock
     )
     private val run = BackupRun(service, notifier, state, clock)
@@ -134,9 +135,9 @@ class BackupRunTest {
 
     @Test
     fun `reasons are short and readable`() {
-        assertEquals("Google Drive returned error 503", BackupRun.reasonFor(DriveApiException(503, "{ long json }")))
-        assertEquals("Network error: timeout", BackupRun.reasonFor(IOException("timeout")))
-        assertEquals("Network error", BackupRun.reasonFor(IOException()))
+        assertEquals("Google Drive returned error 503", BackupFailureReason.of(DriveApiException(503, "{ long json }")))
+        assertEquals("Network error: timeout", BackupFailureReason.of(IOException("timeout")))
+        assertEquals("Network error", BackupFailureReason.of(IOException()))
     }
 
     private suspend fun timeoutException(): Exception = try {
