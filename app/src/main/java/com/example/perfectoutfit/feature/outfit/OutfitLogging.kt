@@ -117,6 +117,18 @@ class OutfitLogging @Inject constructor(
         widgetUpdater.redraw()
     }
 
+    /**
+     * The one path that replaces every stored outfit entry (file import, Drive restore). [replace]
+     * does the delete-then-insert and runs in one transaction; afterwards the rating reminder of
+     * every entry that existed before is cancelled and the widget is redrawn once.
+     */
+    suspend fun replaceAllData(replace: suspend () -> Unit) {
+        val replacedIds = outfitEntryDao.getAll().map { it.id }
+        transactionRunner.runInTransaction { replace() }
+        replacedIds.forEach { ratingReminder.cancel(it) }
+        widgetUpdater.redraw()
+    }
+
     suspend fun getEntryWithDetails(entryId: Long): OutfitEntryWithDetails? =
         outfitEntryDao.getWithDetailsById(entryId)
 

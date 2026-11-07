@@ -2,7 +2,7 @@ package com.example.perfectoutfit.feature.backup
 
 import com.example.perfectoutfit.feature.settings.ExportImportManager
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
-import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
+import com.example.perfectoutfit.testutil.outfitLoggingOver
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import com.example.perfectoutfit.testutil.FakeOutfitItemDao
 import com.example.perfectoutfit.testutil.FakeWeatherSnapshotDao
@@ -58,7 +58,7 @@ class DriveConnectionTest {
         drive,
         ExportImportManager(
             FakeClothingItemDao(), FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao(),
-            FakeDatabaseTransactionRunner(), Json { ignoreUnknownKeys = true }
+            outfitLoggingOver(), Json { ignoreUnknownKeys = true }
         ),
         state,
         TickingClock()

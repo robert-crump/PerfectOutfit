@@ -1,6 +1,5 @@
 package com.example.perfectoutfit.feature.settings
 
-import com.example.perfectoutfit.core.database.DatabaseTransactionRunner
 import com.example.perfectoutfit.core.database.dao.ClothingItemDao
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
@@ -10,6 +9,7 @@ import com.example.perfectoutfit.core.model.ClothingItemActivityType
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
 import com.example.perfectoutfit.core.model.WeatherSnapshot
+import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -66,7 +66,7 @@ class ExportImportManager @Inject constructor(
     private val weatherSnapshotDao: WeatherSnapshotDao,
     private val outfitEntryDao: OutfitEntryDao,
     private val outfitItemDao: OutfitItemDao,
-    private val transactionRunner: DatabaseTransactionRunner,
+    private val outfitLogging: OutfitLogging,
     private val json: Json
 ) {
     suspend fun exportToJson(): String {
@@ -93,8 +93,9 @@ class ExportImportManager @Inject constructor(
      * versions decode via field defaults, v1 files after [upgradeFromV1]. Decodes and
      * validates the whole file before touching the database, so a malformed file (bad JSON,
      * wrong types, unknown enum constants) leaves existing data untouched.
-     * The delete-then-insert itself runs in one transaction so a failure partway through
-     * can't leave the database partially emptied either.
+     * The delete-then-insert itself runs in one transaction (via [OutfitLogging.replaceAllData],
+     * which also cancels the replaced entries' reminders and redraws the widget) so a failure
+     * partway through can't leave the database partially emptied either.
      */
     suspend fun importFromJson(jsonString: String) {
         val version = fileVersion(jsonString)
@@ -105,7 +106,7 @@ class ExportImportManager @Inject constructor(
         val upgraded = if ((version ?: 1) < 2) upgradeFromV1(root) else root
         val data = json.decodeFromJsonElement(ExportData.serializer(), upgraded)
 
-        transactionRunner.runInTransaction {
+        outfitLogging.replaceAllData {
             outfitItemDao.deleteAll()
             outfitEntryDao.deleteAll()
             weatherSnapshotDao.deleteAll()

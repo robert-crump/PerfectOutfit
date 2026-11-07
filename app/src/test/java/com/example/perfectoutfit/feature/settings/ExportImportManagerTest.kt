@@ -8,7 +8,9 @@ import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
-import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
+import com.example.perfectoutfit.testutil.outfitLoggingOver
+import com.example.perfectoutfit.core.notification.FakeRatingReminder
+import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import com.example.perfectoutfit.testutil.FakeOutfitItemDao
 import com.example.perfectoutfit.testutil.FakeWeatherSnapshotDao
@@ -31,13 +33,15 @@ class ExportImportManagerTest {
         clothingItemDao: FakeClothingItemDao,
         weatherSnapshotDao: FakeWeatherSnapshotDao,
         outfitEntryDao: FakeOutfitEntryDao,
-        outfitItemDao: FakeOutfitItemDao
+        outfitItemDao: FakeOutfitItemDao,
+        reminder: FakeRatingReminder = FakeRatingReminder(),
+        widget: FakeWidgetUpdater = FakeWidgetUpdater()
     ) = ExportImportManager(
         clothingItemDao,
         weatherSnapshotDao,
         outfitEntryDao,
         outfitItemDao,
-        FakeDatabaseTransactionRunner(),
+        outfitLoggingOver(outfitEntryDao, outfitItemDao, weatherSnapshotDao, reminder, widget),
         json
     )
 
@@ -104,6 +108,45 @@ class ExportImportManagerTest {
 
         assertTrue(exported.contains("\"activityType\":\"RUNNING\""))
         assertTrue(!exported.contains("sport"))
+    }
+
+    @Test
+    fun `import cancels the reminders of the replaced entries and redraws the widget once`() = runTest {
+        val exported = seededSource().exportToJson()
+        val reminder = FakeRatingReminder()
+        val widget = FakeWidgetUpdater()
+        val targetEntryDao = FakeOutfitEntryDao().apply {
+            insert(OutfitEntry(id = 7, weatherSnapshotId = 1, activityType = ActivityType.RUNNING, createdAt = 1L))
+            insert(OutfitEntry(id = 9, weatherSnapshotId = 1, activityType = ActivityType.RUNNING, createdAt = 2L))
+        }
+        val target = managerFor(
+            FakeClothingItemDao(), FakeWeatherSnapshotDao(), targetEntryDao, FakeOutfitItemDao(), reminder, widget
+        )
+
+        target.importFromJson(exported)
+
+        assertEquals(listOf(7L, 9L), reminder.cancelledEntryIds)
+        assertEquals(1, widget.redraws)
+    }
+
+    @Test
+    fun `a rejected file cancels no reminder and redraws nothing`() = runTest {
+        val reminder = FakeRatingReminder()
+        val widget = FakeWidgetUpdater()
+        val manager = managerFor(
+            FakeClothingItemDao(), FakeWeatherSnapshotDao(),
+            FakeOutfitEntryDao().apply { insert(entry) }, FakeOutfitItemDao(), reminder, widget
+        )
+
+        try {
+            manager.importFromJson("{ not valid json")
+            fail("expected a SerializationException")
+        } catch (e: SerializationException) {
+            // expected
+        }
+
+        assertTrue(reminder.cancelledEntryIds.isEmpty())
+        assertEquals(0, widget.redraws)
     }
 
     @Test

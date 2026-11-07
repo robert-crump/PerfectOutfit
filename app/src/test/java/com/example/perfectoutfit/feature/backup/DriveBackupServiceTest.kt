@@ -5,10 +5,14 @@ import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.feature.settings.CURRENT_EXPORT_VERSION
 import com.example.perfectoutfit.feature.settings.ExportImportManager
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
-import com.example.perfectoutfit.testutil.FakeDatabaseTransactionRunner
+import com.example.perfectoutfit.testutil.outfitLoggingOver
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import com.example.perfectoutfit.testutil.FakeOutfitItemDao
 import com.example.perfectoutfit.testutil.FakeWeatherSnapshotDao
+import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.OutfitEntry
+import com.example.perfectoutfit.core.notification.FakeRatingReminder
+import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -35,9 +39,12 @@ class DriveBackupServiceTest {
 
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
     private val clothingDao = FakeClothingItemDao()
+    private val entryDao = FakeOutfitEntryDao()
+    private val reminder = FakeRatingReminder()
+    private val widget = FakeWidgetUpdater()
     private val exportImport = ExportImportManager(
-        clothingDao, FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao(),
-        FakeDatabaseTransactionRunner(), json
+        clothingDao, FakeWeatherSnapshotDao(), entryDao, FakeOutfitItemDao(),
+        outfitLoggingOver(entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), reminder, widget), json
     )
     private val drive = FakeDriveClient()
     private val state = FakeBackupStateStore()
@@ -168,6 +175,19 @@ class DriveBackupServiceTest {
         service.restore(snapshot.id)
 
         assertEquals(listOf(item(1), item(2)), clothingDao.getAll())
+    }
+
+    @Test
+    fun `restore cancels the replaced entries' reminders and redraws the widget`() = runTest {
+        addItem(1)
+        service.backup()
+        val snapshot = service.listSnapshots().single()
+        entryDao.insert(OutfitEntry(id = 5, weatherSnapshotId = 1, activityType = ActivityType.CYCLING, createdAt = 1L))
+
+        service.restore(snapshot.id)
+
+        assertEquals(listOf(5L), reminder.cancelledEntryIds)
+        assertEquals(1, widget.redraws)
     }
 
     private suspend fun plantFile(name: String, content: String) {

@@ -101,7 +101,9 @@ in exactly one place. `ExportData.version` is a schema version the app can branc
 future format changes; it defaults to `CURRENT_EXPORT_VERSION`, so files written before
 the field existed still decode. Version 2 renamed `sport` to `activityType` and added the
 item ↔ activity-type rows; a v1 file (or one without a version) is rewritten on import, each
-item's single `sport` becoming one row. Files newer than the app are rejected.
+item's single `sport` becoming one row. Files newer than the app are rejected. The
+replacement runs through `OutfitLogging.replaceAllData` (see [Outfit logging](#outfit-logging)),
+so import and Drive restore alike cancel the replaced entries' reminders and redraw the widget.
 Import decodes and validates the whole file before any
 delete runs, and the delete-then-insert itself runs inside one `DatabaseTransactionRunner`
 transaction, so neither a malformed file nor a failure partway through import can leave
@@ -180,7 +182,8 @@ sorts by when the workout happened.
 The act of recording an outfit entry, owned entirely by `OutfitLogging`
 (`feature/outfit/OutfitLogging.kt`): save the snapshot from the hour, create the entry with
 its items (one transaction), then decide on the [rating reminder](#rating-reminder). Also
-owns rate, update (items + notes + rating atomically), delete and restore (original id).
+owns rate, update (items + notes + rating atomically), delete and replace-all
+(`replaceAllData`, below).
 Callers (Home accept, the wizard, History, notification rating action) never build snapshots
 or touch the reminder themselves.
 
@@ -188,7 +191,10 @@ or touch the reminder themselves.
 entry is still unrated; a past log that already carries a rating gets none. Rating an entry
 cancels its reminder; rating an entry that no longer exists writes nothing and reports
 `RateResult.ENTRY_MISSING`, so the notification action says so instead of "Rated". Deleting
-entries (one or a batch) cancels each one's reminder. A blank location name is stored as "Current Location".
+entries (one or a batch) cancels each one's reminder.
+**Replace all data** is the single path for file import and Drive restore: the caller's
+delete-then-insert runs in one transaction, then every replaced entry's reminder is cancelled
+and the widget redrawn once. A blank location name is stored as "Current Location".
 
 ### Forecast
 The set of known hours for the current location, owned by `Forecast`
