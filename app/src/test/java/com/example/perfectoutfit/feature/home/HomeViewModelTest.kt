@@ -58,7 +58,9 @@ class HomeViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel(location: LocationResult): HomeViewModel {
+    private fun viewModel(location: LocationResult) = viewModel { location }
+
+    private fun viewModel(location: () -> LocationResult): HomeViewModel {
         val entryDao = FakeOutfitEntryDao()
         val logging = OutfitLogging(
             entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeDatabaseTransactionRunner(), reminder,
@@ -66,7 +68,7 @@ class HomeViewModelTest {
         )
         return HomeViewModel(
             locationSource = object : LocationSource {
-                override suspend fun current() = location
+                override suspend fun current() = location()
             },
             forecast = Forecast(api, clock),
             liveOutfitHandoffStore = LiveOutfitHandoffStore(),
@@ -96,6 +98,48 @@ class HomeViewModelTest {
 
         assertEquals(AcceptState.FAILED, viewModel.uiState.value.acceptState)
         assertTrue(reminder.showCalls.isEmpty())
+    }
+
+    @Test
+    fun `a denied permission is a typed error that resuming retries once granted`() {
+        var result: LocationResult = LocationResult.PermissionDenied
+        val viewModel = viewModel { result }
+        assertEquals(HomeError.PermissionDenied, viewModel.uiState.value.error)
+
+        result = LocationResult.Found(50.8, 6.1, "Aachen")
+        viewModel.onLocationPermissionMaybeGranted()
+
+        assertNull(viewModel.uiState.value.error)
+        assertEquals("Aachen", viewModel.uiState.value.selectedLocationName)
+    }
+
+    @Test
+    fun `resuming does not retry an unrelated error`() {
+        val viewModel = viewModel(LocationResult.Unavailable("No GPS"))
+
+        viewModel.onLocationPermissionMaybeGranted()
+
+        assertEquals(HomeError.LocationUnavailable("No GPS"), viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a cancelled weather request shows no error`() {
+        val hold = CompletableDeferred<Unit>()
+        api.holdForecast = hold
+        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        hold.completeExceptionally(kotlinx.coroutines.CancellationException("superseded"))
+
+        viewModel.refreshWeather()
+
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a failed weather fetch is a typed error`() {
+        api.failNext = true
+        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+
+        assertEquals(HomeError.WeatherFailed("offline"), viewModel.uiState.value.error)
     }
 
     @Test

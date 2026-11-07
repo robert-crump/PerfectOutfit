@@ -166,7 +166,7 @@ fun HomeScreen(
     }
 
     LaunchedEffect(uiState.error) {
-        if (uiState.error?.contains("permission", ignoreCase = true) == true) {
+        if (uiState.error == HomeError.PermissionDenied) {
             permissionRequestedOnce = true
             permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
@@ -177,7 +177,7 @@ fun HomeScreen(
         viewModel.catchUpWithClock()
     }
 
-    val isPermissionError = uiState.error?.contains("permission", ignoreCase = true) == true
+    val isPermissionError = uiState.error == HomeError.PermissionDenied
     val activity = context.findActivity()
     val showOpenSettings = isPermissionError && permissionRequestedOnce && activity != null &&
         !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -472,7 +472,7 @@ private fun ResultStep(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = uiState.error,
+                            text = uiState.error.message,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Spacer(modifier = Modifier.height(8.dp))

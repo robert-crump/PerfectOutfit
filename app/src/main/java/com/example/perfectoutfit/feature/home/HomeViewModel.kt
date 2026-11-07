@@ -33,6 +33,22 @@ enum class WorkoutTab { COLDEST, WARMEST }
 /** Where accepting a recommendation stands; Home leaves the result step on [SAVED]. */
 enum class AcceptState { IDLE, SAVING, SAVED, FAILED }
 
+/** Why Home has no weather to show; the screen renders [message] and reacts to the type. */
+sealed interface HomeError {
+    val message: String
+
+    /** Location permission is missing: the screen asks for it, and resuming retries. */
+    data object PermissionDenied : HomeError {
+        override val message = "Location permission required. Please grant location access."
+    }
+
+    data class LocationUnavailable(override val message: String) : HomeError
+
+    data class WeatherFailed(val reason: String?) : HomeError {
+        override val message = "Failed to load weather: $reason"
+    }
+}
+
 data class HomeUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
@@ -45,7 +61,7 @@ data class HomeUiState(
     val selectedLocationName: String = "Current location",
     val recommendation: OutfitEntryWithDetails? = null,
     val useApparentTemperature: Boolean = true,
-    val error: String? = null,
+    val error: HomeError? = null,
     val workoutDurationHours: Int = 1,
     val activeWorkoutTab: WorkoutTab = WorkoutTab.COLDEST,
     val coldestHourIndex: Int = 0,
@@ -219,17 +235,17 @@ class HomeViewModel @Inject constructor(
                 is LocationResult.Found ->
                     fetchWeather(result.lat, result.lon, result.name.ifEmpty { "Current location" })
                 LocationResult.PermissionDenied ->
-                    failWithError("Location permission required. Please grant location access.")
-                is LocationResult.Unavailable -> failWithError(result.message)
+                    failWithError(HomeError.PermissionDenied)
+                is LocationResult.Unavailable -> failWithError(HomeError.LocationUnavailable(result.message))
             }
         }
     }
 
-    private fun failWithError(message: String) {
+    private fun failWithError(error: HomeError) {
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             isRefreshing = false,
-            error = message
+            error = error
         )
     }
 
@@ -256,11 +272,13 @@ class HomeViewModel @Inject constructor(
                 error = null
             )
             refreshRecommendation()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 isRefreshing = false,
-                error = "Failed to load weather: ${e.message}"
+                error = HomeError.WeatherFailed(e.message)
             )
         }
     }
@@ -313,7 +331,7 @@ class HomeViewModel @Inject constructor(
 
     /** Called when the screen resumes; retries weather load if a permission error is showing. */
     fun onLocationPermissionMaybeGranted() {
-        if (_uiState.value.error?.contains("permission", ignoreCase = true) == true) {
+        if (_uiState.value.error == HomeError.PermissionDenied) {
             refreshWeather()
         }
     }

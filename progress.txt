@@ -1,5 +1,14 @@
 PerfectOutfit � Progress Log
 
+2026-11-07 (7)
+- Implemented issue #42 (Home: typed error state; cancelled location requests aren't failures).
+  Changes:
+    * HomeError (PermissionDenied / LocationUnavailable / WeatherFailed) replaces the error String;
+      the ViewModel and screen compare the type, no code inspects error text. Messages unchanged.
+    * fetchWeather rethrows CancellationException instead of showing "Failed to load weather".
+    * HomeViewModelTest: permission retry on resume, unrelated errors not retried, cancel shows no error.
+  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
+
 2026-11-07 (6)
 - Implemented issue #46 (One rounding rule, one current clock hour, workout hour via the Clock).
   Changes:
@@ -41,17 +50,3 @@ PerfectOutfit � Progress Log
       -1/0/1 interpretation remains outside the type (and its tests).
     * ComfortRatingTest pins order and priority; CONTEXT.md gains "Comfort rating".
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
-
-2026-11-07 (2)
-- Implemented issue #34 (Replacing all data goes through Outfit logging).
-  Changes:
-    * OutfitLogging.replaceAllData(replace): runs the caller's delete-then-insert in one
-      transaction, then cancels the reminder of every entry that existed before and redraws
-      the widget once. ExportImportManager.importFromJson uses it (replacing its own
-      DatabaseTransactionRunner), so file import and Drive restore share the path; validation
-      still happens before any delete.
-    * CONTEXT.md: removed the nonexistent "restore (original id)"; documented replace-all.
-    * Tests: import and Drive restore cancel old reminders + redraw once; rejected file does
-      neither. New testutil outfitLoggingOver() helper for the existing backup tests.
-  Verification: ./gradlew testDebugUnitTest passes.
-
