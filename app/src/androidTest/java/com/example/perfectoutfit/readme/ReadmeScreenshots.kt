@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.readme
 
+import com.example.perfectoutfit.core.model.Place
+
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -81,7 +83,7 @@ class ReadmeScreenshots {
 
     @BindValue @JvmField
     val location: LocationSource = object : LocationSource {
-        override suspend fun current() = LocationResult.Found(DemoForecast.LAT, DemoForecast.LON, DemoForecast.PLACE)
+        override suspend fun current() = LocationResult.Found(Place(DemoForecast.LAT, DemoForecast.LON, DemoForecast.PLACE))
     }
 
     @Inject lateinit var clothingItemDao: ClothingItemDao

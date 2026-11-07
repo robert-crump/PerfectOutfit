@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.feature.forecast
 
+import com.example.perfectoutfit.core.model.Place
+
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.testutil.FakeOpenMeteoApi
 import com.example.perfectoutfit.testutil.MutableClock
@@ -43,7 +45,7 @@ class ForecastTest {
         assertTrue(f.displayWindow().isEmpty())
 
         f.refresh(48.1, 11.5, "Munich")
-        assertEquals(ForecastLocation(48.1, 11.5, "Munich"), f.location)
+        assertEquals(Place(48.1, 11.5, "Munich"), f.location)
         assertEquals(window.size, f.hours.first().size)
     }
 
@@ -203,7 +205,7 @@ class ForecastTest {
         assertEquals(fullDay(old), hours.map { it.time })
         assertEquals(52.5 to 13.4, api.dateRangeCoordinates.single())
         assertEquals(before, f.hours.first())
-        assertEquals(ForecastLocation(48.1, 11.5, "Munich"), f.location)
+        assertEquals(Place(48.1, 11.5, "Munich"), f.location)
     }
 
     @Test

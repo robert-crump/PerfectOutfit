@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.feature.rate
 
+import com.example.perfectoutfit.core.model.Place
+
 import android.app.DatePickerDialog
 import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import com.example.perfectoutfit.core.model.roundedTemp
@@ -40,7 +42,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import com.example.perfectoutfit.feature.outfit.LogLocation
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -630,7 +631,7 @@ private fun WizardDateTimeLocationStep(
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(uiState.logLocationName.ifBlank { LogLocation.DEFAULT_NAME })
+                    Text(uiState.logLocationName.ifBlank { Place.DEFAULT_NAME })
                 }
                 if (uiState.isLoadingLocationWeather) {
                     Row(
@@ -780,7 +781,7 @@ private fun LocationSheet(uiState: RateOutfitUiState, viewModel: RateOutfitViewM
                 FilterChip(
                     selected = uiState.chosenLocation == null,
                     onClick = { viewModel.selectLocation(null) },
-                    label = { Text("Current location") },
+                    label = { Text(Place.DEFAULT_NAME) },
                     leadingIcon = { Icon(Icons.Default.MyLocation, contentDescription = null, Modifier.size(18.dp)) }
                 )
                 uiState.recentPlaces.forEach { place ->

@@ -1,12 +1,13 @@
 package com.example.perfectoutfit.feature.widget
 
+import com.example.perfectoutfit.core.model.Place
+
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ThemeMode
 import com.example.perfectoutfit.core.model.WeatherSnapshot
-import com.example.perfectoutfit.feature.forecast.ForecastLocation
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.recommendation.Recommendations
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
@@ -29,7 +30,7 @@ class OutfitWidgetTest {
     private val day = LocalDate.of(2026, 10, 21)
     private val now = day.atTime(14, 35)
     private val clock = Clock.fixed(now.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
-    private val hamburg = ForecastLocation(53.55, 9.99, "Hamburg")
+    private val hamburg = Place(53.55, 9.99, "Hamburg")
 
     private val entryDao = FakeOutfitEntryDao()
     private val preferences = PreferencesManager(FakePreferencesDataStore())
@@ -230,7 +231,7 @@ class OutfitWidgetTest {
     @Test
     fun `a refetch for an old place never overwrites a newer one`() = runTest {
         store.save(hamburg, listOf(hour(day.atTime(14, 0), 10.0)))
-        val berlin = ForecastLocation(52.5, 13.4, "Berlin")
+        val berlin = Place(52.5, 13.4, "Berlin")
         store.save(berlin, listOf(hour(day.atTime(14, 0), 5.0)))
 
         store.saveIfStillAt(hamburg, listOf(hour(day.atTime(14, 0), 30.0)))

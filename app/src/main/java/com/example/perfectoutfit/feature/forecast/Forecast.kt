@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.feature.forecast
 
+import com.example.perfectoutfit.core.model.Place
+
 import com.example.perfectoutfit.core.network.OpenMeteoApi
 import com.example.perfectoutfit.core.time.currentHour
 import com.example.perfectoutfit.feature.home.HourlyWeather
@@ -17,7 +19,7 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
-data class ForecastLocation(val lat: Double, val lon: Double, val name: String)
+data class Place(val lat: Double, val lon: Double, val name: String)
 
 /**
  * The known hours for the current location. Owns the hour cache, the display window, per-date
@@ -30,7 +32,7 @@ class Forecast @Inject constructor(
     private val clock: Clock
 ) {
     private data class State(
-        val location: ForecastLocation? = null,
+        val location: Place? = null,
         val hours: List<HourlyWeather> = emptyList(),
         val fetchedAt: Instant? = null
     )
@@ -38,9 +40,9 @@ class Forecast @Inject constructor(
     private val state = MutableStateFlow(State())
 
     /** The current location, or null while none has been resolved yet. */
-    val location: ForecastLocation? get() = state.value.location
+    val location: Place? get() = state.value.location
 
-    val locationFlow: Flow<ForecastLocation?> = state.map { it.location }.distinctUntilChanged()
+    val locationFlow: Flow<Place?> = state.map { it.location }.distinctUntilChanged()
 
     /** Every known hour, sorted by time. */
     val hours: Flow<List<HourlyWeather>> = state.map { it.hours }.distinctUntilChanged()
@@ -50,7 +52,7 @@ class Forecast @Inject constructor(
     /** Replaces the forecast with a fresh fetch (past 2 days + today + tomorrow). Throws on failure. */
     suspend fun refresh(lat: Double, lon: Double, name: String) {
         val fetched = WeatherMapper.extractAllHours(api.getForecast(lat, lon))
-        state.value = State(ForecastLocation(lat, lon, name), fetched, clock.instant())
+        state.value = State(Place(lat, lon, name), fetched, clock.instant())
     }
 
     /** True when nothing was fetched yet or the last [refresh] is older than [STALE_AFTER]. */

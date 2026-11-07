@@ -1,5 +1,16 @@
 PerfectOutfit � Progress Log
 
+2026-11-07 (9)
+- Implemented issue #38 (One place type with one default name).
+  Changes:
+    * core/model/Place.kt: Place(lat, lon, name) replaces ForecastLocation, LogLocation, the
+      fields of LocationResult.Found (now Found(place)) and the widget's stored place; the
+      hand conversions in Home, recent places and the widget worker are gone.
+    * Place.DEFAULT_NAME = "Current location" is the only spelling (Home, Rate, logging).
+      Recent places still skips rows saved as "Current Location" (case-insensitive; test added).
+    * Widget cache JSON layout unchanged, so existing caches and snapshot columns still read.
+  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
+
 2026-11-07 (8)
 - Implemented issue #43 (Home: one "dressed-for hour" concept).
   Changes:
@@ -40,13 +51,3 @@ PerfectOutfit � Progress Log
     * New LiveHandoffActivityTypeTest: live mode logs the handed-off type, not the stored one.
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 
-2026-11-07 (4)
-- Implemented issue #36 (One head-to-toe rule for ordering clothing items).
-  Changes:
-    * core/model/BodyPart.kt: BODY_PART_DISPLAY_ORDER is private; headToToeGroups(includeEmpty)
-      and inHeadToToeOrder() (body part, then name) are the only places the order is applied.
-    * Rate (selected items, items sheet, summary), OutfitCard, Wardrobe and the temperature
-      chart use them; the LOG_OUTFIT_CATEGORY_ORDER alias and itemsToOffer's alphabetical
-      body-part sort are gone (itemsToOffer now returns head-to-toe).
-    * Tests: ItemsToOfferTest pins head-to-toe; new BodyPartOrderTest.
-  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).

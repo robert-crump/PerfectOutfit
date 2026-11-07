@@ -1,7 +1,8 @@
 package com.example.perfectoutfit.feature.outfit
 
+import com.example.perfectoutfit.core.model.Place
+
 import com.example.perfectoutfit.core.model.WeatherSnapshot
-import com.example.perfectoutfit.feature.forecast.ForecastLocation
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -12,7 +13,7 @@ import kotlin.math.sqrt
  * A place an earlier outfit was logged at. [distanceLabel] ("840 km", from the current location)
  * is set only when another listed place shares its name, to tell the two apart.
  */
-data class RecentPlace(val location: LogLocation, val distanceLabel: String? = null)
+data class RecentPlace(val location: Place, val distanceLabel: String? = null)
 
 /** Entries of one name closer than this are the same place (a searched city center vs. a GPS log). */
 const val SAME_PLACE_KM = 25.0
@@ -26,18 +27,18 @@ const val MAX_RECENT_PLACES = 5
  */
 fun recentPlaces(
     snapshotsNewestFirst: List<WeatherSnapshot>,
-    current: ForecastLocation?,
+    current: Place?,
     limit: Int = MAX_RECENT_PLACES
 ): List<RecentPlace> {
-    val places = mutableListOf<LogLocation>()
+    val places = mutableListOf<Place>()
     for (s in snapshotsNewestFirst) {
         val name = s.locationName.trim()
-        if (name.isEmpty() || name == LogLocation.DEFAULT_NAME) continue
+        if (name.isEmpty() || name.equals(Place.DEFAULT_NAME, ignoreCase = true)) continue
         if (s.latitude == 0.0 && s.longitude == 0.0) continue
-        val place = LogLocation(name, s.latitude, s.longitude)
+        val place = Place(s.latitude, s.longitude, name)
         if (places.none { it.isSamePlaceAs(place) }) places += place
     }
-    val hereNow = current?.let { LogLocation(it.name, it.lat, it.lon) }
+    val hereNow = current
     val shown = places.filterNot { hereNow != null && it.isSamePlaceAs(hereNow) }.take(limit)
 
     return shown.map { place ->
@@ -49,7 +50,7 @@ fun recentPlaces(
     }
 }
 
-private fun LogLocation.isSamePlaceAs(other: LogLocation): Boolean =
+private fun Place.isSamePlaceAs(other: Place): Boolean =
     name.equals(other.name, ignoreCase = true) && distanceKm(lat, lon, other.lat, other.lon) < SAME_PLACE_KM
 
 /** Great-circle distance in km (haversine). */

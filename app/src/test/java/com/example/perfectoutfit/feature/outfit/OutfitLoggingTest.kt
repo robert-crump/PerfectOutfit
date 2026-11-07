@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.feature.outfit
 
+import com.example.perfectoutfit.core.model.Place
+
 import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.notification.FakeRatingReminder
@@ -40,7 +42,7 @@ class OutfitLoggingTest {
         precipitationProbabilityPercent = 20
     )
     private val hourMs = hour.time.atZone(ZoneId.systemDefault()).toEpochSecond() * 1000
-    private val location = LogLocation("Berlin", 52.5, 13.4)
+    private val location = Place(52.5, 13.4, "Berlin")
 
     private suspend fun log(rating: ComfortRating? = null, mode: LogMode) = logging.log(
         hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L, 2L),
@@ -129,13 +131,13 @@ class OutfitLoggingTest {
     }
 
     @Test
-    fun `blank location name falls back to Current Location`() = runTest {
+    fun `blank location name falls back to Current location`() = runTest {
         val id = logging.log(
-            hour = hour, location = LogLocation("", 1.0, 2.0), activityType = ActivityType.CYCLING,
+            hour = hour, location = Place(1.0, 2.0, ""), activityType = ActivityType.CYCLING,
             clothingItemIds = listOf(1L), mode = LogMode.LIVE
         )
 
-        assertEquals("Current Location", snapshotDao.getById(entryDao.getById(id)!!.weatherSnapshotId)!!.locationName)
+        assertEquals("Current location", snapshotDao.getById(entryDao.getById(id)!!.weatherSnapshotId)!!.locationName)
     }
 
     @Test

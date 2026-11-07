@@ -1,9 +1,10 @@
 package com.example.perfectoutfit.feature.widget
 
+import com.example.perfectoutfit.core.model.Place
+
 import com.example.perfectoutfit.core.location.LocationPermissions
 import com.example.perfectoutfit.core.location.LocationResult
 import com.example.perfectoutfit.core.location.LocationSource
-import com.example.perfectoutfit.feature.forecast.ForecastLocation
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.testutil.FakeOpenMeteoApi
 import com.example.perfectoutfit.testutil.FakePreferencesDataStore
@@ -21,8 +22,8 @@ class WidgetForecastRefreshTest {
     private val day = LocalDate.of(2026, 10, 25)
     private val clock = Clock.fixed(day.atTime(9, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
     private val hours = (0..23).map { day.atTime(it, 0) }
-    private val aachen = ForecastLocation(50.78, 6.08, "Aachen")
-    private val cologne = ForecastLocation(50.94, 6.96, "Köln")
+    private val aachen = Place(50.78, 6.08, "Aachen")
+    private val cologne = Place(50.94, 6.96, "Köln")
 
     private val api = FakeOpenMeteoApi(hours)
     private val store = WidgetForecastStore(FakePreferencesDataStore(), Json, clock)
@@ -39,9 +40,9 @@ class WidgetForecastRefreshTest {
         }
     )
 
-    private fun found(location: ForecastLocation) = LocationResult.Found(location.lat, location.lon, location.name)
+    private fun found(location: Place) = LocationResult.Found(Place(location.lat, location.lon, location.name))
 
-    private suspend fun saveAt(location: ForecastLocation) = store.save(location, emptyList<HourlyWeather>())
+    private suspend fun saveAt(location: Place) = store.save(location, emptyList<HourlyWeather>())
 
     @Test
     fun `with background location the widget follows the device`() = runTest {

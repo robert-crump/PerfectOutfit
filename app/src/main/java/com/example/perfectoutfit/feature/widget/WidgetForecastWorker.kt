@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.feature.widget
 
+import com.example.perfectoutfit.core.model.Place
+
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
@@ -13,7 +15,6 @@ import com.example.perfectoutfit.core.location.LocationPermissions
 import com.example.perfectoutfit.core.location.LocationResult
 import com.example.perfectoutfit.core.location.LocationSource
 import com.example.perfectoutfit.core.network.OpenMeteoApi
-import com.example.perfectoutfit.feature.forecast.ForecastLocation
 import com.example.perfectoutfit.feature.home.WeatherMapper
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -70,10 +71,10 @@ class WidgetForecastRefresh @Inject constructor(
         widgetUpdater.redraw()
     }
 
-    private suspend fun deviceLocation(): ForecastLocation? {
+    private suspend fun deviceLocation(): Place? {
         if (!locationPermissions.hasBackground()) return null
         val found = locationSource.current() as? LocationResult.Found ?: return null
-        return ForecastLocation(found.lat, found.lon, found.name)
+        return found.place
     }
 }
 

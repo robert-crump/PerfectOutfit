@@ -86,6 +86,12 @@ recording fake under `app/src/test`). `OutfitLogging` depends on the interface, 
 this is the app's first hand-written DI seam (`@Binds` in `core/di/NotificationModule.kt`)
 and the reason those ViewModels can be constructed in a plain JVM test.
 
+### Place
+Coordinates plus a name: the one `Place(lat, lon, name)` type (`core/model/Place.kt`) used by
+Forecast, Outfit logging, recent places, `LocationResult.Found` and the widget forecast. A blank
+name displays (and is stored) as `Place.DEFAULT_NAME`, "Current location" — the only spelling;
+older rows saved as "Current Location" are still treated as the default (matched case-insensitively).
+
 ### Location source
 Where the user is now, as Home's forecast needs it: coordinates plus a place name, or why
 there are none (permission denied, location unavailable). Defined by the `LocationSource`
@@ -205,7 +211,7 @@ cancels its reminder; rating an entry that no longer exists writes nothing and r
 entries (one or a batch) cancels each one's reminder.
 **Replace all data** is the single path for file import and Drive restore: the caller's
 delete-then-insert runs in one transaction, then every replaced entry's reminder is cancelled
-and the widget redrawn once. A blank location name is stored as "Current Location".
+and the widget redrawn once. A blank location name is stored as "Current location".
 
 ### Forecast
 The set of known hours for the current location, owned by `Forecast`

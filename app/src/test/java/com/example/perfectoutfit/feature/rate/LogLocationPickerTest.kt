@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.feature.rate
 
+import com.example.perfectoutfit.core.model.Place
+
 import androidx.lifecycle.SavedStateHandle
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.ActivityType
@@ -13,7 +15,6 @@ import com.example.perfectoutfit.core.notification.FakeRatingReminder
 import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
-import com.example.perfectoutfit.feature.outfit.LogLocation
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import com.example.perfectoutfit.feature.recommendation.Recommendations
 import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
@@ -54,7 +55,7 @@ class LogLocationPickerTest {
     private val snapshotDao = FakeWeatherSnapshotDao()
     private val dispatcher = UnconfinedTestDispatcher()
 
-    private val cologne = LogLocation("Cologne", 50.94, 6.96)
+    private val cologne = Place(50.94, 6.96, "Cologne")
 
     private val geocoding = object : GeocodingApi {
         val queries = mutableListOf<String>()

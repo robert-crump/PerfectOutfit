@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.feature.home
 
+import com.example.perfectoutfit.core.model.Place
+
 import androidx.lifecycle.ViewModel
 import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import androidx.lifecycle.viewModelScope
@@ -11,7 +13,6 @@ import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.recommendation.Recommendations
-import com.example.perfectoutfit.feature.outfit.LogLocation
 import com.example.perfectoutfit.feature.outfit.LogMode
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import com.example.perfectoutfit.feature.widget.WidgetForecastStore
@@ -56,7 +57,7 @@ data class HomeUiState(
     /** Hours shown in the home screen (current hour → +24 h). */
     val hourlyWeather: List<HourlyWeather> = emptyList(),
     val selectedActivityType: ActivityType = ActivityType.CYCLING,
-    val selectedLocationName: String = "Current location",
+    val selectedLocationName: String = Place.DEFAULT_NAME,
     val useApparentTemperature: Boolean = true,
     val error: HomeError? = null,
     val workoutDurationHours: Int = HomeViewModel.SINGLE_HOUR,
@@ -187,7 +188,7 @@ class HomeViewModel @Inject constructor(
             val saved = try {
                 outfitLogging.log(
                     hour = weather,
-                    location = LogLocation(location.name, location.lat, location.lon),
+                    location = location,
                     activityType = state.selectedActivityType,
                     clothingItemIds = recommendation.clothingItems.map { it.id },
                     workoutDurationHours = state.workoutDurationHours,
@@ -236,7 +237,7 @@ class HomeViewModel @Inject constructor(
             )
             when (val result = locationSource.current()) {
                 is LocationResult.Found ->
-                    fetchWeather(result.lat, result.lon, result.name.ifEmpty { "Current location" })
+                    fetchWeather(result.place.lat, result.place.lon, result.place.displayName)
                 LocationResult.PermissionDenied ->
                     failWithError(HomeError.PermissionDenied)
                 is LocationResult.Unavailable -> failWithError(HomeError.LocationUnavailable(result.message))

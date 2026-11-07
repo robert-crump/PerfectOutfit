@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.feature.outfit
 
+import com.example.perfectoutfit.core.model.Place
+
 import com.example.perfectoutfit.core.database.DatabaseTransactionRunner
 import java.time.Clock
 import com.example.perfectoutfit.core.time.epochMillisOf
@@ -25,15 +27,6 @@ enum class LogMode { LIVE, PAST }
 /** Outcome of [OutfitLogging.rate]: the entry may have been deleted since the reminder was shown. */
 enum class RateResult { SAVED, ENTRY_MISSING }
 
-/** Where the logged workout took place. A blank [name] falls back to "Current Location". */
-data class LogLocation(val name: String, val lat: Double, val lon: Double) {
-    val displayName: String get() = name.ifBlank { DEFAULT_NAME }
-
-    companion object {
-        const val DEFAULT_NAME = "Current Location"
-    }
-}
-
 /**
  * Outfit logging: the one path that writes outfit entries. It owns the snapshot -> entry ->
  * reminder sequence, the `createdAt` rule (an entry is stamped with the workout hour, so
@@ -54,7 +47,7 @@ class OutfitLogging @Inject constructor(
     /** Logs an outfit worn during [hour]; returns the new entry id. */
     suspend fun log(
         hour: HourlyWeather,
-        location: LogLocation,
+        location: Place,
         activityType: ActivityType,
         clothingItemIds: Collection<Long>,
         rating: ComfortRating? = null,

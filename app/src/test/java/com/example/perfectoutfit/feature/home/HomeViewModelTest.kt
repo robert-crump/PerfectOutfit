@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.feature.home
 
+import com.example.perfectoutfit.core.model.Place
+
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.location.LocationResult
 import com.example.perfectoutfit.core.location.LocationSource
@@ -85,7 +87,7 @@ class HomeViewModelTest {
 
     @Test
     fun `accepting saves a live entry and reports SAVED`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
 
         viewModel.acceptRecommendation(recommendation)
 
@@ -109,7 +111,7 @@ class HomeViewModelTest {
         val viewModel = viewModel { result }
         assertEquals(HomeError.PermissionDenied, viewModel.uiState.value.error)
 
-        result = LocationResult.Found(50.8, 6.1, "Aachen")
+        result = LocationResult.Found(Place(50.8, 6.1, "Aachen"))
         viewModel.onLocationPermissionMaybeGranted()
 
         assertNull(viewModel.uiState.value.error)
@@ -129,7 +131,7 @@ class HomeViewModelTest {
     fun `a cancelled weather request shows no error`() {
         val hold = CompletableDeferred<Unit>()
         api.holdForecast = hold
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
         hold.completeExceptionally(kotlinx.coroutines.CancellationException("superseded"))
 
         viewModel.refreshWeather()
@@ -140,14 +142,14 @@ class HomeViewModelTest {
     @Test
     fun `a failed weather fetch is a typed error`() {
         api.failNext = true
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
 
         assertEquals(HomeError.WeatherFailed("offline"), viewModel.uiState.value.error)
     }
 
     @Test
     fun `a handled outcome goes back to IDLE`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
         viewModel.acceptRecommendation(recommendation)
 
         viewModel.onAcceptHandled()
@@ -157,7 +159,7 @@ class HomeViewModelTest {
 
     @Test
     fun `resuming in a later hour shows that hour without refetching a fresh forecast`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
         clock.advance(Duration.ofMinutes(14))
 
         viewModel.catchUpWithClock()
@@ -168,7 +170,7 @@ class HomeViewModelTest {
 
     @Test
     fun `resuming within the same hour changes nothing`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
         clock.advance(Duration.ofMinutes(5))
 
         viewModel.catchUpWithClock()
@@ -179,7 +181,7 @@ class HomeViewModelTest {
 
     @Test
     fun `resuming with a stale forecast fetches a new one`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
         clock.advance(Forecast.STALE_AFTER)
 
         viewModel.catchUpWithClock()
@@ -190,7 +192,7 @@ class HomeViewModelTest {
 
     @Test
     fun `a stale forecast keeps the outfit hidden until the new fetch is in`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
         clock.advance(Forecast.STALE_AFTER)
         val fetch = CompletableDeferred<Unit>()
         api.holdForecast = fetch
@@ -208,7 +210,7 @@ class HomeViewModelTest {
 
     @Test
     fun `a failed fetch on resume falls back to the known forecast`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
         clock.advance(Forecast.STALE_AFTER)
         api.failNext = true
 
@@ -221,7 +223,7 @@ class HomeViewModelTest {
 
     @Test
     fun `picking an activity shows the outfit once it is worked out`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
 
         viewModel.selectActivityType(ActivityType.RUNNING)
 
@@ -230,7 +232,7 @@ class HomeViewModelTest {
 
     @Test
     fun `picking an activity in a later hour uses that hour`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
         clock.advance(Duration.ofMinutes(14))
 
         viewModel.selectActivityType(ActivityType.RUNNING)
@@ -240,7 +242,7 @@ class HomeViewModelTest {
 
     @Test
     fun `Explorer from the activity grid gets the current hour's temperature, not the long workout's`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
         assertEquals(10, viewModel.uiState.value.currentDisplayTemp)
 
         viewModel.selectActivityType(ActivityType.RUNNING, workoutDurationHours = 3)
@@ -259,7 +261,7 @@ class HomeViewModelTest {
 
     @Test
     fun `the result step dresses for the coldest or warmest hour of a long workout`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
 
         viewModel.selectActivityType(ActivityType.RUNNING, workoutDurationHours = 3)
         assertEquals(day.atTime(13, 0), viewModel.uiState.value.activeHour?.time)
@@ -272,7 +274,7 @@ class HomeViewModelTest {
 
     @Test
     fun `a workout duration stays within the long-workout bounds`() {
-        val viewModel = viewModel(LocationResult.Found(50.8, 6.1, "Aachen"))
+        val viewModel = viewModel(LocationResult.Found(Place(50.8, 6.1, "Aachen")))
 
         viewModel.selectActivityType(ActivityType.RUNNING, workoutDurationHours = 99)
         assertEquals(HomeViewModel.MAX_LONG_WORKOUT_HOURS, viewModel.uiState.value.workoutDurationHours)

@@ -1,11 +1,12 @@
 package com.example.perfectoutfit.feature.widget
 
+import com.example.perfectoutfit.core.model.Place
+
 import androidx.datastore.core.DataStore
 import com.example.perfectoutfit.core.time.currentHour
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.example.perfectoutfit.feature.forecast.ForecastLocation
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
@@ -26,7 +27,7 @@ annotation class WidgetForecastData
 
 /** The last place the app resolved, and its hours, as the widget reads them (see "Widget" in CONTEXT.md). */
 data class WidgetForecast(
-    val location: ForecastLocation,
+    val location: Place,
     val hours: List<HourlyWeather>,
     val fetchedAtMs: Long
 ) {
@@ -48,7 +49,7 @@ class WidgetForecastStore @Inject constructor(
     private val clock: Clock
 ) {
     /** Saves [location] and its [hours], replacing whatever was saved. */
-    suspend fun save(location: ForecastLocation, hours: List<HourlyWeather>) {
+    suspend fun save(location: Place, hours: List<HourlyWeather>) {
         dataStore.edit { it[KEY] = encode(location, hours) }
     }
 
@@ -56,7 +57,7 @@ class WidgetForecastStore @Inject constructor(
      * Saves [hours] only if [location] is still the saved place, so a background refetch never
      * overwrites a newer place that Home saved meanwhile.
      */
-    suspend fun saveIfStillAt(location: ForecastLocation, hours: List<HourlyWeather>) {
+    suspend fun saveIfStillAt(location: Place, hours: List<HourlyWeather>) {
         dataStore.edit { prefs ->
             if (prefs[KEY]?.let(::decode)?.location == location) prefs[KEY] = encode(location, hours)
         }
@@ -65,7 +66,7 @@ class WidgetForecastStore @Inject constructor(
     /** The saved forecast, or null when none was saved (or it can't be read). */
     suspend fun load(): WidgetForecast? = dataStore.data.first()[KEY]?.let(::decode)
 
-    private fun encode(location: ForecastLocation, hours: List<HourlyWeather>): String {
+    private fun encode(location: Place, hours: List<HourlyWeather>): String {
         val currentHour = clock.currentHour()
         val stored = StoredForecast(
             lat = location.lat,
@@ -87,7 +88,7 @@ class WidgetForecastStore @Inject constructor(
         }
         return try {
             WidgetForecast(
-                location = ForecastLocation(stored.lat, stored.lon, stored.name),
+                location = Place(stored.lat, stored.lon, stored.name),
                 hours = stored.hours.map(StoredHour::toHourlyWeather),
                 fetchedAtMs = stored.fetchedAtMs
             )

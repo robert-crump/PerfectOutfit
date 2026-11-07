@@ -1,5 +1,7 @@
 package com.example.perfectoutfit.core.location
 
+import com.example.perfectoutfit.core.model.Place
+
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -53,7 +55,7 @@ class AndroidLocationSource @Inject constructor(
     }
 
     private suspend fun found(location: Location) = LocationResult.Found(
-        location.latitude, location.longitude, reverseGeocode(location.latitude, location.longitude)
+        Place(location.latitude, location.longitude, reverseGeocode(location.latitude, location.longitude))
     )
 
     @Suppress("DEPRECATION")

@@ -1,7 +1,8 @@
 package com.example.perfectoutfit.feature.outfit
 
+import com.example.perfectoutfit.core.model.Place
+
 import com.example.perfectoutfit.core.model.WeatherSnapshot
-import com.example.perfectoutfit.feature.forecast.ForecastLocation
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -13,7 +14,7 @@ class RecentPlacesTest {
         windDirectionDegrees = 0, uvIndex = 0, cloudCoverPercent = 0, precipitationProbabilityPercent = 0
     )
 
-    private val home = ForecastLocation(50.78, 6.08, "Aachen")
+    private val home = Place(50.78, 6.08, "Aachen")
 
     private fun names(places: List<RecentPlace>) = places.map { it.location.name }
 
@@ -36,7 +37,7 @@ class RecentPlacesTest {
             listOf(snapshot("Cologne", 50.94, 6.96), snapshot("Cologne", 50.90, 6.90)),
             home
         )
-        assertEquals(LogLocation("Cologne", 50.94, 6.96), places.single().location)
+        assertEquals(Place(50.94, 6.96, "Cologne"), places.single().location)
     }
 
     @Test
@@ -44,13 +45,19 @@ class RecentPlacesTest {
         val places = recentPlaces(
             listOf(
                 snapshot("", 50.94, 6.96),
-                snapshot(LogLocation.DEFAULT_NAME, 50.94, 6.96),
+                snapshot(Place.DEFAULT_NAME, 50.94, 6.96),
                 snapshot("Nowhere", 0.0, 0.0),
                 snapshot("Bonn", 50.73, 7.10)
             ),
             home
         )
         assertEquals(listOf("Bonn"), names(places))
+    }
+
+    @Test
+    fun `entries stored with the old default spelling are skipped`() {
+        val places = recentPlaces(listOf(snapshot("Current Location", 50.94, 6.96)), home)
+        assertEquals(emptyList<String>(), names(places))
     }
 
     @Test
