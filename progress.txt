@@ -55,16 +55,3 @@ PerfectOutfit � Progress Log
       neither. New testutil outfitLoggingOver() helper for the existing backup tests.
   Verification: ./gradlew testDebugUnitTest passes.
 
-2026-11-07
-- Implemented issue #33 (Outfit logging: deleting an entry cancels its reminder; rating a
-  deleted entry says so).
-  Changes:
-    * OutfitLogging.delete cancels the rating reminder of every deleted entry (single or batch)
-      after the transaction.
-    * OutfitLogging.rate returns RateResult (SAVED / ENTRY_MISSING); a missing entry writes
-      nothing and doesn't redraw the widget, but its reminder is still cancelled.
-    * RatingActionHandler toasts "This outfit no longer exists" (rating_entry_missing_toast)
-      instead of "Rated: ..." for a missing entry.
-    * CONTEXT.md reminder rule covers delete and the missing-entry outcome.
-  Verification: ./gradlew testDebugUnitTest passes (new OutfitLogging delete/rate tests,
-  RatingActionHandler toast tests via ShadowToast).
