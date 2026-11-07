@@ -117,10 +117,16 @@ fun RateOutfitScreen(
     val availableItems by viewModel.availableItems.collectAsStateWithLifecycle()
 
     if (uiState.isLoading) {
-        // Nothing entered yet, so a tab switch needs no confirmation.
-        LaunchedEffect(externalCancelRequested) {
-            if (externalCancelRequested) onExternalCancelConfirmed()
-        }
+        // Nothing entered yet, so leaving needs no confirmation.
+        rememberDiscardGuard(
+            hasUnsavedWork = false,
+            title = "",
+            text = "",
+            onLeave = onNavigateBack,
+            externalCancelRequested = externalCancelRequested,
+            onExternalCancelConfirmed = onExternalCancelConfirmed,
+            onExternalCancelDismissed = onExternalCancelDismissed
+        )
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -190,40 +196,16 @@ private fun RateExistingOutfitContent(
         if (uiState.isSaved) onNavigateBack()
     }
 
-    val coroutineScope = rememberCoroutineScope()
-
-    LaunchedEffect(externalCancelRequested) {
-        if (externalCancelRequested) {
-            if (uiState.hasUnsavedEdits) viewModel.showDismissDialog() else onExternalCancelConfirmed()
-        }
-    }
-
-    if (uiState.showDismissDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                viewModel.hideDismissDialog()
-                onExternalCancelDismissed()
-            },
-            title = { Text("Discard changes?") },
-            text = { Text("Your changes to this outfit will be lost. Are you sure?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    // Same as the log wizard: let the dialog's exit animation finish first.
-                    viewModel.hideDismissDialog()
-                    coroutineScope.launch {
-                        delay(300)
-                        onExternalCancelConfirmed()
-                    }
-                }) { Text("Discard") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    viewModel.hideDismissDialog()
-                    onExternalCancelDismissed()
-                }) { Text("Keep editing") }
-            }
-        )
-    }
+    val requestLeave = rememberDiscardGuard(
+        hasUnsavedWork = uiState.hasUnsavedEdits,
+        title = "Discard changes?",
+        text = "Your changes to this outfit will be lost. Are you sure?",
+        onLeave = onNavigateBack,
+        externalCancelRequested = externalCancelRequested,
+        onExternalCancelConfirmed = onExternalCancelConfirmed,
+        onExternalCancelDismissed = onExternalCancelDismissed
+    )
+    BackHandler(onBack = requestLeave)
 
     val scrollState = rememberScrollState()
     var flashAlpha by remember { mutableStateOf(0f) }
@@ -248,7 +230,7 @@ private fun RateExistingOutfitContent(
             TopAppBar(
                 title = { Text("Rate Outfit", style = MaterialTheme.typography.headlineMedium) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = requestLeave) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -434,13 +416,6 @@ private fun ItemsWornSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val colors = outfitChipColorSet()
-    val chipBorder = FilterChipDefaults.filterChipBorder(
-        enabled = true,
-        selected = false,
-        borderColor = MaterialTheme.colorScheme.outline,
-        selectedBorderColor = Color.Transparent
-    )
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
@@ -459,25 +434,7 @@ private fun ItemsWornSheet(
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items.forEach { item ->
-                                val isSelected = item.id in selectedItemIds
-                                val bg = if (isSelected) colors.activeBg else colors.inactiveBg
-                                val label = if (isSelected) colors.activeLabel else colors.inactiveLabel
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { onToggle(item.id) },
-                                    label = { Text(item.name) },
-                                    border = chipBorder,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        containerColor = bg,
-                                        selectedContainerColor = bg,
-                                        labelColor = label,
-                                        selectedLabelColor = label
-                                    )
-                                )
-                            }
-                        }
+                        ItemChipGroup(items, selectedItemIds, onToggle)
                     }
                 }
             }
@@ -841,25 +798,6 @@ private fun WeatherInfoRow(label: String, value: String) {
     }
 }
 
-// ─── Chip colors ──────────────────────────────────────────────────────────────
-//   • Inactive (deselected): transparent bg → onSurface label (matches header)
-//   • Active   (selected):   primaryContainer → onPrimaryContainer label
-
-private data class ChipColorSet(
-    val inactiveBg: Color,
-    val inactiveLabel: Color,
-    val activeBg: Color,
-    val activeLabel: Color
-)
-
-@Composable
-private fun outfitChipColorSet(): ChipColorSet = ChipColorSet(
-    inactiveBg    = Color.Transparent,
-    inactiveLabel = MaterialTheme.colorScheme.onSurface,
-    activeBg      = MaterialTheme.colorScheme.primaryContainer,
-    activeLabel   = MaterialTheme.colorScheme.onPrimaryContainer
-)
-
 // ─── Step 2: All outfit categories on one scrollable screen ──────────────────
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -893,12 +831,12 @@ private fun WizardAllCategoriesStep(
             Text("Likely Items", style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
             ))
-            OutfitItemChipGroup(likelyItems, uiState.selectedItemIds, viewModel)
+            ItemChipGroup(likelyItems, uiState.selectedItemIds, viewModel::toggleItem)
             Text("Unlikely Items", style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
             ))
         }
-        OutfitItemChipGroup(unlikelyItems, uiState.selectedItemIds, viewModel)
+        ItemChipGroup(unlikelyItems, uiState.selectedItemIds, viewModel::toggleItem)
 
         // Navigation at the bottom of the scrollable content
         Row(
@@ -915,44 +853,6 @@ private fun WizardAllCategoriesStep(
                 onClick = viewModel::advanceToSummary,
                 modifier = Modifier.weight(1f)
             ) { Text("Next") }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun OutfitItemChipGroup(
-    items: List<ClothingItem>,
-    selectedItemIds: Set<Long>,
-    viewModel: RateOutfitViewModel
-) {
-    val colors = outfitChipColorSet()
-    val chipBorder = FilterChipDefaults.filterChipBorder(
-        enabled = true,
-        selected = false,
-        borderColor = MaterialTheme.colorScheme.outline,
-        selectedBorderColor = Color.Transparent
-    )
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        items.forEach { item ->
-            val isSelected = item.id in selectedItemIds
-            val chipBg    = if (isSelected) colors.activeBg    else colors.inactiveBg
-            val chipLabel = if (isSelected) colors.activeLabel else colors.inactiveLabel
-            FilterChip(
-                selected = isSelected,
-                onClick = { viewModel.toggleItem(item.id) },
-                label = { Text(item.name, style = MaterialTheme.typography.bodySmall) },
-                border = chipBorder,
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = chipBg,
-                    selectedContainerColor = chipBg,
-                    labelColor = chipLabel,
-                    selectedLabelColor = chipLabel,
-                )
-            )
         }
     }
 }
