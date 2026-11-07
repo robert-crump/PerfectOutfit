@@ -132,6 +132,25 @@ class OutfitLoggingTest {
     }
 
     @Test
+    fun `rate reports saved for an existing entry`() = runTest {
+        val id = log(mode = LogMode.LIVE)
+
+        assertEquals(RateResult.SAVED, logging.rate(id, 0))
+    }
+
+    @Test
+    fun `rate reports a missing entry, writes nothing and still cancels the reminder`() = runTest {
+        val id = log(mode = LogMode.LIVE)
+        logging.delete(listOf(id))
+        val redraws = widget.redraws
+
+        assertEquals(RateResult.ENTRY_MISSING, logging.rate(id, 1))
+        assertNull(entryDao.getById(id))
+        assertEquals(redraws, widget.redraws)
+        assertTrue(reminder.cancelledEntryIds.contains(id))
+    }
+
+    @Test
     fun `update replaces items and notes and rates in one call`() = runTest {
         val id = log(mode = LogMode.PAST)
 
@@ -161,6 +180,27 @@ class OutfitLoggingTest {
         logging.delete(listOf(first, second))
 
         assertEquals(listOf(kept), entryDao.getAll().map { it.id })
+    }
+
+    @Test
+    fun `delete cancels the reminder of every deleted entry`() = runTest {
+        val first = log(mode = LogMode.LIVE)
+        val second = log(mode = LogMode.LIVE)
+        val kept = log(mode = LogMode.LIVE)
+
+        logging.delete(listOf(first, second))
+
+        assertEquals(listOf(first, second), reminder.cancelledEntryIds)
+        assertTrue(kept !in reminder.cancelledEntryIds)
+    }
+
+    @Test
+    fun `deleting a single entry cancels its reminder`() = runTest {
+        val id = log(mode = LogMode.LIVE)
+
+        logging.delete(listOf(id))
+
+        assertEquals(listOf(id), reminder.cancelledEntryIds)
     }
 
     @Test

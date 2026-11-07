@@ -186,7 +186,9 @@ or touch the reminder themselves.
 
 **Reminder rule:** a reminder is scheduled only if the log is live (`LogMode.LIVE`) or the
 entry is still unrated; a past log that already carries a rating gets none. Rating an entry
-cancels its reminder. A blank location name is stored as "Current Location".
+cancels its reminder; rating an entry that no longer exists writes nothing and reports
+`RateResult.ENTRY_MISSING`, so the notification action says so instead of "Rated". Deleting
+entries (one or a batch) cancels each one's reminder. A blank location name is stored as "Current Location".
 
 ### Forecast
 The set of known hours for the current location, owned by `Forecast`

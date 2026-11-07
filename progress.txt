@@ -1,5 +1,19 @@
 PerfectOutfit — Progress Log
 
+2026-11-07
+- Implemented issue #33 (Outfit logging: deleting an entry cancels its reminder; rating a
+  deleted entry says so).
+  Changes:
+    * OutfitLogging.delete cancels the rating reminder of every deleted entry (single or batch)
+      after the transaction.
+    * OutfitLogging.rate returns RateResult (SAVED / ENTRY_MISSING); a missing entry writes
+      nothing and doesn't redraw the widget, but its reminder is still cancelled.
+    * RatingActionHandler toasts "This outfit no longer exists" (rating_entry_missing_toast)
+      instead of "Rated: ..." for a missing entry.
+    * CONTEXT.md reminder rule covers delete and the missing-entry outcome.
+  Verification: ./gradlew testDebugUnitTest passes (new OutfitLogging delete/rate tests,
+  RatingActionHandler toast tests via ShadowToast).
+
 2026-10-24
 - Implemented issue #25 (History: neutral cards).
   Cards sit on surfaceContainerHigh like Home's; selected cards keep secondaryContainer plus
@@ -50,55 +64,3 @@ PerfectOutfit — Progress Log
       Unrated keeps the bold "–" and secondaryContainer.
   Verification: ./gradlew testDebugUnitTest passes; androidTest compiles; ./gradlew
   readmeScreenshots passes, history.png committed (the other five only re-rendered, left as is).
-
-2026-10-19 (2)
-- Implemented issue #19 (Shared ActivityTypeSelector and Home activity grid).
-  Changes:
-    * `ActivityTypeSelector` (ui/components, replaces ActivityTypeToggle, the segmented
-      buttons): horizontally scrolling row of single-select FilterChips with icon + label,
-      built from `ActivityType.entries`. Optional `onDeselect` is the History flag: tapping the
-      selected chip then shows all entries; without it (Wardrobe, Explorer) a chip stays
-      selected. History's hand-built chip row is gone.
-    * Home: activity tiles in a 2-column grid (`entries.chunked(2)`, a lone last tile keeps
-      half width); tile size and Long-workout behaviour unchanged.
-    * `@Preview(widthDp = 320)` of the selector with entries repeated to stand in for four
-      chips (first Compose preview in the project; check it scrolls in Android Studio).
-  Verification: ./gradlew testDebugUnitTest passes; androidTest compiles; ./gradlew
-  readmeScreenshots passes and all six screenshots were regenerated (settings.png is now
-  current too). Emulator: Home activity step shows the two tiles in one grid row.
-
-2026-10-19
-- Implemented issue #18 (Rename Sport to ActivityType; clothing items belong to a set of
-  activity types).
-  Changes:
-    * `ActivityType` enum (was `Sport`) carries `displayName` and `iconRes`; the `when (sport)`
-      icon blocks and the lowercase/replaceFirstChar label trick are gone (Home header + tiles,
-      History chips, `ActivityTypeToggle` (was SportToggle), Explorer hint, reminder title).
-    * DB v5 (MIGRATION_4_5): new join table `clothing_item_activity_types` (item id, activity
-      type; cascade on item delete), each item's sport -> one row; `clothing_items` and
-      `outfit_entries` rebuilt (no RENAME COLUMN on minSdk 26) with `sport` dropped/renamed to
-      `activityType`. Room turns foreign keys on only after migrating, so the drops cascade
-      nowhere. Fresh-install seeding writes join rows via last_insert_rowid().
-    * DataStore: reads `selected_activity_type`, falls back to `selected_sport`, writes only the
-      new key.
-    * Wardrobe: Add dialog has multi-select activity chips, pre-ticking the viewed one; Rename
-      became Edit (name + chips); Save/Add disabled with nothing ticked. Delete removes items
-      everywhere and the dialog reads e.g. "“Jersey” is also used for Running, and appears in
-      37 outfit entries. Delete it everywhere?" (`deleteConfirmationMessage`). Edits clear the
-      selection, so an item that left the list can't stay selected unseen.
-    * Rate/Edit outfit: `itemsToOffer` adds the entry's own items to the activity type's catalog,
-      so untagged items stay visible and selected.
-    * Export v2: `activityType` plus `clothingItemActivityTypes`; v1/unversioned files are
-      rewritten on import (`upgradeFromV1`), one row per item; a v1 item without sport is rejected.
-    * Tests: AppDatabaseMigrationTest (Robolectric, real Room: 4->5 data kept, cascades still
-      work, seeding), PreferencesManagerTest, CatalogViewModelTest, DeleteConfirmationMessageTest,
-      ItemsToOfferTest, export v2 round trip / v1 import. CONTEXT.md: new "Activity type" entry.
-  Gotcha: the migration test must not share the SDK 34 Robolectric sandbox with the
-  notification tests (RatingActionHandlerTest's Toast then fails intermittently); it runs on
-  sdk = 35.
-  Verification: ./gradlew testDebugUnitTest passes (3 consecutive runs); androidTest compiles.
-  Emulator: installed the previous build, picked Running and logged a Running outfit, upgraded
-  in place: Running still selected, entry intact; Edit dialog moved "Shirt" to Cycling only and
-  the Running entry still shows Shirt selected. README screenshots not regenerated: settings.png still shows
-  the old "Add, rename and organise items" subtitle (now "Add, edit and organise items").
-

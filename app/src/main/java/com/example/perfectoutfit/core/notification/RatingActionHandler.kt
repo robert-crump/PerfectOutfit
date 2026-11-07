@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.Toast
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
+import com.example.perfectoutfit.feature.outfit.RateResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -14,13 +15,12 @@ class RatingActionHandler @Inject constructor(
     private val outfitLogging: OutfitLogging
 ) {
     suspend fun handle(context: Context, entryId: Long, rating: Int) {
-        outfitLogging.rate(entryId, rating)
+        val message = when (outfitLogging.rate(entryId, rating)) {
+            RateResult.SAVED -> context.getString(R.string.rating_saved_toast, ratingLabel(context, rating))
+            RateResult.ENTRY_MISSING -> context.getString(R.string.rating_entry_missing_toast)
+        }
         withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                context.getString(R.string.rating_saved_toast, ratingLabel(context, rating)),
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 

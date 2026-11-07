@@ -22,6 +22,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowToast
+import com.example.perfectoutfit.R
 import com.example.perfectoutfit.feature.widget.FakeWidgetUpdater
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -92,5 +94,27 @@ class RatingActionHandlerTest {
         handler.handle(context, entryId = 999L, rating = 0)
 
         assertTrue(fakeRatingReminder.cancelledEntryIds.contains(999L))
+    }
+
+    @Test
+    fun `handle for an existing entry says the rating was saved`() = runTest {
+        fakeDao.seed(entryId = 42L)
+
+        handler.handle(context, entryId = 42L, rating = 0)
+
+        assertEquals(
+            context.getString(R.string.rating_saved_toast, context.getString(R.string.rating_perfect)),
+            ShadowToast.getTextOfLatestToast()
+        )
+    }
+
+    @Test
+    fun `handle for a deleted entry says it no longer exists instead of Rated`() = runTest {
+        handler.handle(context, entryId = 999L, rating = 0)
+
+        assertEquals(
+            context.getString(R.string.rating_entry_missing_toast),
+            ShadowToast.getTextOfLatestToast()
+        )
     }
 }

@@ -20,6 +20,9 @@ import javax.inject.Singleton
 /** Whether an outfit is logged as it happens (live) or after the fact (past). */
 enum class LogMode { LIVE, PAST }
 
+/** Outcome of [OutfitLogging.rate]: the entry may have been deleted since the reminder was shown. */
+enum class RateResult { SAVED, ENTRY_MISSING }
+
 /** Where the logged workout took place. A blank [name] falls back to "Current Location". */
 data class LogLocation(val name: String, val lat: Double, val lon: Double) {
     val displayName: String get() = name.ifBlank { DEFAULT_NAME }
@@ -81,10 +84,14 @@ class OutfitLogging @Inject constructor(
         return entryId
     }
 
-    /** Sets the rating and stamps `ratedAt`; the pending reminder (if any) is cancelled. */
-    suspend fun rate(entryId: Long, rating: Int) {
-        applyRating(entryId, rating)
+    /**
+     * Sets the rating and stamps `ratedAt`; the pending reminder (if any) is cancelled. Returns
+     * [RateResult.ENTRY_MISSING] (and writes nothing) if the entry no longer exists.
+     */
+    suspend fun rate(entryId: Long, rating: Int): RateResult {
+        if (!applyRating(entryId, rating)) return RateResult.ENTRY_MISSING
         widgetUpdater.redraw()
+        return RateResult.SAVED
     }
 
     /** Replaces items and notes of an existing entry, and rates it if [rating] is given, atomically. */
@@ -98,11 +105,15 @@ class OutfitLogging @Inject constructor(
         widgetUpdater.redraw()
     }
 
-    /** Deletes all [entryIds] in one transaction, so History never shows half a batch gone. */
+    /**
+     * Deletes all [entryIds] in one transaction, so History never shows half a batch gone, and
+     * cancels each one's rating reminder so the user is never asked to rate a deleted entry.
+     */
     suspend fun delete(entryIds: Collection<Long>) {
         transactionRunner.runInTransaction {
             entryIds.forEach { outfitEntryDao.deleteById(it) }
         }
+        entryIds.forEach { ratingReminder.cancel(it) }
         widgetUpdater.redraw()
     }
 
@@ -114,10 +125,12 @@ class OutfitLogging @Inject constructor(
     fun entriesByActivityType(activityType: ActivityType): Flow<List<OutfitEntryWithDetails>> =
         outfitEntryDao.getAllWithDetailsByActivityType(activityType)
 
-    private suspend fun applyRating(entryId: Long, rating: Int) {
+    /** Returns false if the entry no longer exists; the reminder is cancelled either way. */
+    private suspend fun applyRating(entryId: Long, rating: Int): Boolean {
         ratingReminder.cancel(entryId)
-        val entry = outfitEntryDao.getById(entryId) ?: return
+        val entry = outfitEntryDao.getById(entryId) ?: return false
         outfitEntryDao.update(entry.copy(comfortRating = rating, ratedAt = System.currentTimeMillis()))
+        return true
     }
 
     private suspend fun insertItems(entryId: Long, clothingItemIds: Collection<Long>) {
