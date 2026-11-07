@@ -73,6 +73,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.Place
+import com.example.perfectoutfit.core.model.headToToeGroups
 import com.example.perfectoutfit.core.model.inHeadToToeOrder
 import com.example.perfectoutfit.core.model.roundedTemp
 import com.example.perfectoutfit.feature.home.HourlyWeather
@@ -381,7 +382,7 @@ private fun ItemsStep(
     onBack: () -> Unit
 ) {
     val hasLikely = likelyItemIds.isNotEmpty()
-    val (likelyItems, otherItems) = availableItems.sortedBy { it.name }.partition { hasLikely && it.id in likelyItemIds }
+    val (likelyItems, otherItems) = availableItems.inHeadToToeOrder().partition { hasLikely && it.id in likelyItemIds }
 
     val selectedCount = wizard.itemIds.size
     val selectedLabel = if (selectedCount == 1) "1 item selected" else "$selectedCount items selected"
@@ -400,10 +401,10 @@ private fun ItemsStep(
 
         if (hasLikely) {
             Text("Likely Items", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-            ItemChipGroup(likelyItems, wizard.itemIds, viewModel::toggleItem)
+            BodyPartChipGroups(likelyItems, wizard.itemIds, viewModel::toggleItem)
             Text("Unlikely Items", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
         }
-        ItemChipGroup(otherItems, wizard.itemIds, viewModel::toggleItem)
+        BodyPartChipGroups(otherItems, wizard.itemIds, viewModel::toggleItem)
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -412,6 +413,23 @@ private fun ItemsStep(
             OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Previous") }
             Button(onClick = viewModel::next, modifier = Modifier.weight(1f), enabled = wizard.canGoNext) {
                 Text("Next")
+            }
+        }
+    }
+}
+
+/** Chips grouped under a body-part label, head to toe; items arrive already in display order. */
+@Composable
+private fun BodyPartChipGroups(items: List<ClothingItem>, selectedItemIds: Set<Long>, onToggle: (Long) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        items.headToToeGroups { it.bodyPart }.forEach { (bodyPart, group) ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    bodyPart.displayName,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ItemChipGroup(group, selectedItemIds, onToggle)
             }
         }
     }
