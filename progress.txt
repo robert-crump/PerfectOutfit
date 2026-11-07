@@ -1,5 +1,16 @@
 PerfectOutfit � Progress Log
 
+2026-11-07 (12)
+- Implemented issue #48 (RateOutfitActionReceiverTest leaked real Room work into later tests).
+  Changes:
+    * RatingBroadcastHandler (plain class): validation + launch of the rating on an injectable
+      scope; the Hilt receiver is thin glue that passes ratingActionHandler::handle and goAsync.
+    * RateOutfitActionReceiverTest replaced by RatingBroadcastHandlerTest (fake handler, TestScope,
+      never touches the database; also covers finish-on-exception).
+    * GoogleDriveBackupTest and DriveBackupViewModelTest back on SDK 34; full suite passed
+      repeatedly (including cleaned reruns) without the Illegal connection pointer failure.
+  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
+
 2026-11-07 (11)
 - Implemented issue #44 (Export/import schema moves to core; Drive backup ViewModel moves to backup).
   Changes:
@@ -14,6 +25,7 @@ PerfectOutfit � Progress Log
       unreadable file, newer-version file. CONTEXT.md Export/import schema section updated.
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 
+
 2026-11-07 (10)
 - Implemented issue #47 (Widget refresh reuses Forecast's fetch; widget hours aren't hand-mirrored).
   Changes:
@@ -25,6 +37,7 @@ PerfectOutfit � Progress Log
     * Cache layout changed: an old-format or unreadable cache loads as null (tests added) and
       is replaced on the next save. Removed a stray duplicate Place class in Forecast.kt.
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
+
 
 
 2026-11-07 (9)
@@ -39,6 +52,7 @@ PerfectOutfit � Progress Log
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 
 
+
 2026-11-07 (8)
 - Implemented issue #43 (Home: one "dressed-for hour" concept).
   Changes:
@@ -51,13 +65,4 @@ PerfectOutfit � Progress Log
       FakeOpenMeteoApi takes an apparent-temperature function. CONTEXT.md Weather card updated.
   Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 
-
-2026-11-07 (7)
-- Implemented issue #42 (Home: typed error state; cancelled location requests aren't failures).
-  Changes:
-    * HomeError (PermissionDenied / LocationUnavailable / WeatherFailed) replaces the error String;
-      the ViewModel and screen compare the type, no code inspects error text. Messages unchanged.
-    * fetchWeather rethrows CancellationException instead of showing "Failed to load weather".
-    * HomeViewModelTest: permission retry on resume, unrelated errors not retried, cancel shows no error.
-  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
 

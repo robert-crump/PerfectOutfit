@@ -27,7 +27,7 @@ import java.io.IOException
 // which fails whichever runTest starts next there.
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [34])
 class DriveBackupViewModelTest {
 
     private val backup = FakeDriveBackup()
