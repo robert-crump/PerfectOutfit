@@ -13,19 +13,19 @@ class ItemsToOfferTest {
     private val fleece = ClothingItem(id = 4, bodyPart = BodyPart.UPPER_BODY, name = "Fleece")
 
     @Test
-    fun `new outfits offer the catalog as is`() {
-        assertEquals(listOf(socks, jersey, vest), itemsToOffer(listOf(socks, jersey, vest), emptyList()))
+    fun `new outfits offer the catalog head to toe`() {
+        assertEquals(listOf(jersey, vest, socks), itemsToOffer(listOf(socks, jersey, vest), emptyList()))
     }
 
     @Test
     fun `items on the entry are offered once, even when also in the catalog`() {
-        assertEquals(listOf(socks, jersey, vest), itemsToOffer(listOf(socks, jersey, vest), listOf(jersey)))
+        assertEquals(listOf(jersey, vest, socks), itemsToOffer(listOf(socks, jersey, vest), listOf(jersey)))
     }
 
     @Test
     fun `an entry item no longer tagged with the activity type sits among its body part peers`() {
         assertEquals(
-            listOf(socks, fleece, jersey, vest),
+            listOf(fleece, jersey, vest, socks),
             itemsToOffer(listOf(socks, jersey, vest), listOf(jersey, fleece))
         )
     }

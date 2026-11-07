@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.model.ClothingItem
+import com.example.perfectoutfit.core.model.inHeadToToeOrder
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.WeatherSnapshot
@@ -44,9 +45,6 @@ import java.time.ZoneId
 import javax.inject.Inject
 
 enum class LogOutfitStep { DATE_TIME_LOCATION, OUTFIT_CATEGORIES, SUMMARY, RATING }
-
-/** Alias to the single source of truth defined in BodyPart.kt. */
-val LOG_OUTFIT_CATEGORY_ORDER = com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
 
 /** A city search hit: where it is, plus "Region, Country" to tell same-named towns apart. */
 data class PlaceSearchResult(val location: LogLocation, val region: String)
@@ -119,9 +117,8 @@ data class RateOutfitUiState(
 internal fun itemsToOffer(catalogItems: List<ClothingItem>, entryItems: List<ClothingItem>): List<ClothingItem> {
     val catalogIds = catalogItems.mapTo(HashSet()) { it.id }
     val extra = entryItems.filter { it.id !in catalogIds }
-    if (extra.isEmpty()) return catalogItems
-    // Same order as the catalog query (body part, then name), so extras sit among their peers.
-    return (catalogItems + extra).sortedWith(compareBy({ it.bodyPart.name }, { it.name }))
+    // Head to toe, so extras sit among their peers.
+    return (catalogItems + extra).inHeadToToeOrder()
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

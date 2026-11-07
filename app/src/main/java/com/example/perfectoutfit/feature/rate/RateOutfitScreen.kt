@@ -83,7 +83,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.compositeOver
-import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
+import com.example.perfectoutfit.core.model.headToToeGroups
+import com.example.perfectoutfit.core.model.inHeadToToeOrder
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.ui.components.CardTitleRow
 import com.example.perfectoutfit.ui.components.WeatherCard
@@ -265,7 +266,7 @@ private fun RateExistingOutfitContent(
         var showItemsSheet by rememberSaveable { mutableStateOf(false) }
         val selectedItems = availableItems
             .filter { it.id in uiState.selectedItemIds }
-            .sortedBy { BODY_PART_DISPLAY_ORDER.indexOf(it.bodyPart) }
+            .inHeadToToeOrder()
 
         Column(
             modifier = Modifier
@@ -448,9 +449,8 @@ private fun ItemsWornSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Items worn", style = MaterialTheme.typography.titleLarge)
-            BODY_PART_DISPLAY_ORDER.forEach { bodyPart ->
-                val items = availableItems.filter { it.bodyPart == bodyPart }
-                if (items.isNotEmpty()) {
+            availableItems.headToToeGroups { it.bodyPart }.forEach { (bodyPart, items) ->
+                run {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             bodyPart.displayName,
@@ -972,7 +972,7 @@ private fun WizardSummaryStep(
     val hour = uiState.selectedHour
     val selectedItems = availableItems
         .filter { it.id in uiState.selectedItemIds }
-        .sortedBy { item -> LOG_OUTFIT_CATEGORY_ORDER.indexOf(item.bodyPart).takeIf { it >= 0 } ?: Int.MAX_VALUE }
+        .inHeadToToeOrder()
 
     val scrollState = rememberScrollState()
     Box(modifier = Modifier.fillMaxSize()) {

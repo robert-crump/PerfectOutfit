@@ -1,5 +1,16 @@
 PerfectOutfit — Progress Log
 
+2026-11-07 (4)
+- Implemented issue #36 (One head-to-toe rule for ordering clothing items).
+  Changes:
+    * core/model/BodyPart.kt: BODY_PART_DISPLAY_ORDER is private; headToToeGroups(includeEmpty)
+      and inHeadToToeOrder() (body part, then name) are the only places the order is applied.
+    * Rate (selected items, items sheet, summary), OutfitCard, Wardrobe and the temperature
+      chart use them; the LOG_OUTFIT_CATEGORY_ORDER alias and itemsToOffer's alphabetical
+      body-part sort are gone (itemsToOffer now returns head-to-toe).
+    * Tests: ItemsToOfferTest pins head-to-toe; new BodyPartOrderTest.
+  Verification: ./gradlew testDebugUnitTest and compileDebugAndroidTestKotlin pass (no emulator).
+
 2026-11-07 (3)
 - Implemented issue #35 (Comfort rating becomes a domain type).
   Changes:
@@ -46,10 +57,3 @@ PerfectOutfit — Progress Log
   and the old hyphen.
   Verification: ./gradlew testDebugUnitTest and readmeScreenshots pass; history.png
   regenerated (explorer.png only re-rendered, left as is).
-
-2026-10-19 (5)
-- Closed parent issue #17 (all slices #18-#21 done).
-- History card shows the city the entry was logged for (WeatherSnapshot.locationName), left
-  of the temperature: the date is now natural width, the city takes the remaining space,
-  end-aligned, one line with ellipsis; blank names (old imports) show nothing.
-  Verification: ./gradlew testDebugUnitTest and readmeScreenshots pass; history.png regenerated.

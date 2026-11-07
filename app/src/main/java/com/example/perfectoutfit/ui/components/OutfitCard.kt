@@ -18,7 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
-import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
+import com.example.perfectoutfit.core.model.headToToeGroups
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.referenceTemp
 import java.time.Instant
@@ -39,7 +39,7 @@ fun OutfitCard(
     modifier: Modifier = Modifier,
     onEditOutfit: (() -> Unit)? = null
 ) {
-    val itemsByBodyPart = outfit.clothingItems.groupBy { it.bodyPart }
+    val itemGroups = outfit.clothingItems.headToToeGroups { it.bodyPart }
     val ratingText = ratingLabel(outfit.entry.rating)
     val wornOn = Instant.ofEpochMilli(outfit.entry.createdAt).atZone(ZoneId.systemDefault()).toLocalDate()
     val wornAt = outfit.weatherSnapshot.referenceTemp(useApparentTemperature).roundToInt()
@@ -76,9 +76,8 @@ fun OutfitCard(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
 
-            BODY_PART_DISPLAY_ORDER.forEach { part ->
-                val items = itemsByBodyPart[part]
-                if (!items.isNullOrEmpty()) {
+            itemGroups.forEach { (part, items) ->
+                run {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             text = part.displayName,

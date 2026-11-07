@@ -53,7 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.core.model.ActivityType
-import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
+import com.example.perfectoutfit.core.model.ALL_BODY_PARTS_HEAD_TO_TOE
+import com.example.perfectoutfit.core.model.headToToeGroups
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.ui.components.BodyPartSection
 import com.example.perfectoutfit.ui.components.ActivityTypeSelector
@@ -154,8 +155,7 @@ fun CatalogScreen(
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
             )
 
-            BODY_PART_DISPLAY_ORDER.forEach { bodyPart ->
-                val bodyPartItems = items.filter { it.bodyPart == bodyPart }
+            items.headToToeGroups(includeEmpty = true) { it.bodyPart }.forEach { (bodyPart, bodyPartItems) ->
                 val isExpanded = bodyPart in expandedCategories
 
                 Column {
@@ -246,7 +246,7 @@ fun CatalogScreen(
                                     expanded = bodyPartExpanded,
                                     onDismissRequest = { bodyPartExpanded = false }
                                 ) {
-                                    BODY_PART_DISPLAY_ORDER.forEach { bp ->
+                                    ALL_BODY_PARTS_HEAD_TO_TOE.forEach { bp ->
                                         DropdownMenuItem(
                                             text = { Text(bp.displayName) },
                                             onClick = {

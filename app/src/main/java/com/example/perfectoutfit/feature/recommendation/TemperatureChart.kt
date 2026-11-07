@@ -1,6 +1,6 @@
 package com.example.perfectoutfit.feature.recommendation
 
-import com.example.perfectoutfit.core.model.BODY_PART_DISPLAY_ORDER
+import com.example.perfectoutfit.core.model.headToToeGroups
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.ComfortRating
@@ -84,12 +84,10 @@ internal object TemperatureChartPolicy {
         val ranges = tagged.mapNotNull { item ->
             perfectTempsById[item.id]?.let { ItemRange(item, it.sorted()) }
         }
-        val groups = BODY_PART_DISPLAY_ORDER.mapNotNull { part ->
-            ranges.filter { it.item.bodyPart == part }
-                .sortedWith(compareBy<ItemRange>({ it.minTemp }, { it.maxTemp }, { it.item.name }))
-                .takeIf { it.isNotEmpty() }
-                ?.let { BodyPartRanges(part, it) }
-        }
+        val groups = ranges
+            .sortedWith(compareBy<ItemRange>({ it.minTemp }, { it.maxTemp }, { it.item.name }))
+            .headToToeGroups { it.item.bodyPart }
+            .map { (part, group) -> BodyPartRanges(part, group) }
         return TemperatureChart(degrees, groups)
     }
 
