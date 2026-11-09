@@ -117,24 +117,209 @@ class RecommendationsTest {
     }
 
     @Test
-    fun `exact match ignores rating when choosing newest`() {
+    fun `exact match prefers perfect over a newer too-cold`() {
         val candidates = listOf(
-            entry(1, rating = 0, apparent = 10.0, time = older),   // perfect but older
-            entry(2, rating = -1, apparent = 10.0, time = newest)  // too cold but newer
+            entry(1, rating = 0, apparent = 10.0, time = older, items = listOf(item(101))),
+            entry(2, rating = -1, apparent = 10.0, time = newest, items = listOf(item(102)))
         )
-        val result = findRecommendation(candidates, 10, true)
-        assertEquals(2L, result?.entry?.id)
+        assertEquals(1L, findRecommendation(candidates, 10, true)?.entry?.id)
     }
 
     @Test
-    fun `falls through to plus-minus-1 when no exact match`() {
+    fun `perfect within plus-minus-2 beats a non-perfect exact match`() {
+        val candidates = listOf(
+            entry(1, rating = 1, apparent = 10.0, time = newest),
+            entry(2, rating = 0, apparent = 12.0, time = older)
+        )
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `closest perfect beats a newer perfect farther away`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 11.0, time = older),
+            entry(2, rating = 0, apparent = 12.0, time = newest)
+        )
+        assertEquals(1L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    // ── Repeated combinations ────────────────────────────────────────────────
+
+    @Test
+    fun `repeated perfect combination beats a single newer perfect at the same distance`() {
+        val x = listOf(item(101), item(102))
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 10.0, time = older.minusHours(1), items = x),
+            entry(2, rating = 0, apparent = 10.0, time = older, items = x),
+            entry(3, rating = 0, apparent = 10.0, time = newest, items = listOf(item(103)))
+        )
+        // the newest entry of the winning combination is shown
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `repeat count counts the combination across the whole window`() {
+        val x = listOf(item(101))
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 12.0, time = older, items = x),
+            entry(2, rating = 0, apparent = 9.0, time = older.minusHours(1), items = x),
+            entry(3, rating = 0, apparent = 11.0, time = newest, items = listOf(item(103)))
+        )
+        // x's closest perfect (9°) ties with item 103 on distance; x wins on count, shown via its closest entry
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `repeat count does not outweigh closeness`() {
+        val x = listOf(item(101))
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 12.0, time = older, items = x),
+            entry(2, rating = 0, apparent = 12.0, time = older, items = x),
+            entry(3, rating = 0, apparent = 10.0, time = older.minusHours(5), items = listOf(item(103)))
+        )
+        assertEquals(3L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `subset of items is a different combination`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 10.0, time = older, items = listOf(item(101))),
+            entry(2, rating = 0, apparent = 10.0, time = older, items = listOf(item(101), item(102))),
+            entry(3, rating = 0, apparent = 10.0, time = newest, items = listOf(item(103)))
+        )
+        assertEquals(3L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `entries without items never count as a repeated combination`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 10.0, time = older),
+            entry(2, rating = 0, apparent = 10.0, time = older),
+            entry(3, rating = 0, apparent = 10.0, time = newest, items = listOf(item(103)))
+        )
+        assertEquals(3L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    // ── Cancelling ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `newer known-wrong rating cancels the combination's perfect entries`() {
+        val x = listOf(item(101))
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 10.0, time = older, items = x),
+            entry(2, rating = -1, apparent = 11.0, time = newest, items = x),   // too cold above target
+            entry(3, rating = 0, apparent = 12.0, time = older, items = listOf(item(103)))
+        )
+        assertEquals(3L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `cancelled combination can still be the fallback`() {
+        val x = listOf(item(101))
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 10.0, time = older, items = x),
+            entry(2, rating = 1, apparent = 9.0, time = newest, items = x)      // too hot below target
+        )
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `newer rating pointing toward today does not cancel`() {
+        val x = listOf(item(101))
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 10.0, time = older, items = x),
+            entry(2, rating = 1, apparent = 12.0, time = newest, items = x),    // too hot when warmer: agrees
+            entry(3, rating = 0, apparent = 11.0, time = newest, items = listOf(item(103)))
+        )
+        assertEquals(1L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `older known-wrong rating does not cancel`() {
+        val x = listOf(item(101))
+        val candidates = listOf(
+            entry(1, rating = -1, apparent = 10.0, time = older, items = x),
+            entry(2, rating = 0, apparent = 10.0, time = newest, items = x)
+        )
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `known-wrong rating of another combination does not cancel`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 10.0, time = older, items = listOf(item(101))),
+            entry(2, rating = -1, apparent = 10.0, time = newest, items = listOf(item(101), item(102)))
+        )
+        assertEquals(1L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `known-wrong rating outside the window does not cancel`() {
+        val x = listOf(item(101))
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 10.0, time = older, items = x),
+            entry(2, rating = -1, apparent = 15.0, time = newest, items = x)
+        )
+        assertEquals(1L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    // ── Fallback (no perfect) ─────────────────────────────────────────────────
+
+    @Test
+    fun `fallback prefers too-hot worn warmer over an exact too-cold`() {
+        val candidates = listOf(
+            entry(1, rating = -1, apparent = 10.0, time = newest),
+            entry(2, rating = 1, apparent = 12.0, time = older)
+        )
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `fallback prefers too-cold worn colder over a closer too-hot worn colder`() {
+        val candidates = listOf(
+            entry(1, rating = 1, apparent = 9.0, time = newest),
+            entry(2, rating = -1, apparent = 8.0, time = older)
+        )
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `fallback treats a non-perfect exact match as known wrong`() {
+        val candidates = listOf(
+            entry(1, rating = 1, apparent = 10.0, time = newest),
+            entry(2, rating = 1, apparent = 12.0, time = older)
+        )
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `fallback within a group prefers closest`() {
+        val candidates = listOf(
+            entry(1, rating = 1, apparent = 12.0, time = newest),
+            entry(2, rating = -1, apparent = 9.0, time = older)
+        )
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `fallback with only known-wrong entries still returns the best of them`() {
+        val candidates = listOf(
+            entry(1, rating = -1, apparent = 11.0, time = newest),
+            entry(2, rating = 1, apparent = 9.0, time = older)
+        )
+        // both 1° away and known wrong: too hot beats too cold
+        assertEquals(2L, findRecommendation(candidates, 10, true)?.entry?.id)
+    }
+
+    @Test
+    fun `matches within plus-minus-1`() {
         val candidates = listOf(entry(1, rating = 0, apparent = 9.0))
         val result = findRecommendation(candidates, 10, true)
         assertEquals(1L, result?.entry?.id)
     }
 
     @Test
-    fun `plus-minus-1 prefers perfect over too-hot`() {
+    fun `perfect beats a newer too-hot`() {
         val candidates = listOf(
             entry(1, rating = 1, apparent = 9.0, time = newest),  // too hot, newer
             entry(2, rating = 0, apparent = 11.0, time = older)   // perfect, older
@@ -144,7 +329,7 @@ class RecommendationsTest {
     }
 
     @Test
-    fun `plus-minus-1 prefers too-hot over too-cold`() {
+    fun `fallback at equal distance prefers too-hot over too-cold`() {
         val candidates = listOf(
             entry(1, rating = -1, apparent = 9.0, time = newest), // too cold, newer
             entry(2, rating = 1, apparent = 11.0, time = older)   // too hot, older
@@ -154,7 +339,7 @@ class RecommendationsTest {
     }
 
     @Test
-    fun `plus-minus-1 breaks rating ties by newest timestamp`() {
+    fun `perfect at equal distance breaks ties by newest`() {
         val candidates = listOf(
             entry(1, rating = 0, apparent = 9.0, time = older),
             entry(2, rating = 0, apparent = 11.0, time = newest)
@@ -164,7 +349,7 @@ class RecommendationsTest {
     }
 
     @Test
-    fun `falls through to plus-minus-2 when no match in plus-minus-1`() {
+    fun `matches within plus-minus-2`() {
         val candidates = listOf(entry(1, rating = 0, apparent = 8.0))
         val result = findRecommendation(candidates, 10, true)
         assertEquals(1L, result?.entry?.id)
@@ -241,6 +426,17 @@ class RecommendationsTest {
             entry(2, rating = 0, apparent = 11.0, items = listOf(item(101), item(102)))
         )
         assertEquals(setOf(101L, 102L), likelyItemIds(candidates, 10, true))
+    }
+
+    @Test
+    fun `likelyItemIds excludes cancelled combinations`() {
+        val x = listOf(item(101), item(102))
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 10.0, time = older, items = x),
+            entry(2, rating = -1, apparent = 10.0, time = newest, items = x),
+            entry(3, rating = 0, apparent = 11.0, time = older, items = listOf(item(102), item(103)))
+        )
+        assertEquals(setOf(102L, 103L), likelyItemIds(candidates, 10, true))
     }
 
     @Test

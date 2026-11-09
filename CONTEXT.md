@@ -136,10 +136,24 @@ owned by `Recommendations` (`feature/recommendation/`) — the single entry poin
 Explorer, and the Rate screen's "likely items". Callers pass the activity type, a raw reference
 temperature and the apparent-vs-real preference; the module loads rated history
 (`OutfitEntryDao.getRatedEntriesWithDetails(activityType)` — one query, matching happens in
-memory), rounds, and matches in three tiers over rated entries: (1) exact rounded
-temperature, newest wins regardless of rating; (2) within ±1 °C, best rating
-(0 > 1 > -1) then newest; (3) within ±2 °C, same. `RecommendationPolicy` is `internal` to
-the module. `likelyItemIds` are the items of perfect-rated (0) entries within ±2 °C.
+memory), rounds, and matches (issue #50). `RecommendationPolicy` is `internal` to the module.
+
+Only rated entries within ±2 °C of the rounded target count. A **combination** is an entry's
+exact, non-empty item set (as in [mode comparison](#mode-comparison); a subset is a different
+combination, an entry without items is none). An entry is **known wrong** for the target when
+it was *too cold* at or above it, or *too hot* at or below it.
+
+1. **Perfect first:** any surviving perfect entry beats every non-perfect one. Order: closest
+   degree, then how many perfect entries its combination has in the window, then newest.
+2. **Cancelling:** a combination's perfect entries don't survive when the same combination has
+   a newer (snapshot timestamp) known-wrong entry in the window. A newer rating that agrees
+   (e.g. *too hot* at a warmer degree) cancels nothing.
+3. **Fallback** (no surviving perfect): non-perfect entries pointing toward the target (*too
+   hot* worn warmer, *too cold* worn colder) before known-wrong ones; within each, closest,
+   then too hot over too cold, then newest. A cancelled combination's negative entry may win.
+
+`likelyItemIds` are the items of the surviving perfect entries. A result exists exactly when
+any rated entry lies within ±2 °C, which is all the widget's lit state needs.
 
 **Workout window:** for a workout of N hours, the first N forecast hours are the window;
 the *coldest* and *warmest* hours (by reference temperature, ties going to the later hour)

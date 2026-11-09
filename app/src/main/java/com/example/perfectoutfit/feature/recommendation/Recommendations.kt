@@ -24,7 +24,7 @@ data class WorkoutWindowRecommendation(
 
 /**
  * The one entry point for outfit recommendations (see "Recommendation" in CONTEXT.md).
- * Owns loading rated history, rounding the reference temperature, the tiered matching,
+ * Owns loading rated history, rounding the reference temperature, the matching,
  * likely-item lookup, Explorer's temperature chart and the workout-window extremes.
  *
  * Callers pass the apparent-vs-real preference in and observe it themselves.
@@ -63,7 +63,7 @@ class Recommendations @Inject constructor(
         return WorkoutWindowRecommendation(coldestIdx, warmestIdx, coldest, warmest)
     }
 
-    /** Ids of clothing items from perfect-rated outfits near [referenceTemp]. */
+    /** Ids of clothing items from surviving perfect-rated outfits near [referenceTemp]. */
     suspend fun likelyItemIds(activityType: ActivityType, referenceTemp: Double, useApparent: Boolean): Set<Long> =
         RecommendationPolicy.likelyItemIds(
             outfitEntryDao.getRatedEntriesWithDetails(activityType),
