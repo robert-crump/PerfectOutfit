@@ -93,15 +93,16 @@ class Forecast @Inject constructor(
         val fetched = WeatherMapper.extractAllHours(
             api.getWeatherForDateRange(location.lat, location.lon, day, day)
         )
+        val fetchedDay = PlacedHours(location, fetched.filter { it.time.toLocalDate() == date })
         state.value = state.value.let { current ->
             // A refresh may have swapped the location while we were fetching; drop stale data.
-            if (current.location != location) return PlacedHours(location, fetched.filter { it.time.toLocalDate() == date })
+            if (current.location != location) return fetchedDay
             current.copy(
                 hours = (current.hours.filter { it.time.toLocalDate() != date } + fetched)
                     .sortedBy { it.time }
             )
         }
-        return PlacedHours(location, fetched.filter { it.time.toLocalDate() == date })
+        return fetchedDay
     }
 
     /**
