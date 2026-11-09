@@ -76,3 +76,16 @@ val md_theme_dark_surfaceContainerLow = Color(0xFF191C20)
 val md_theme_dark_surfaceContainer = Color(0xFF1D2024)
 val md_theme_dark_surfaceContainerHigh = Color(0xFF272A2F)
 val md_theme_dark_surfaceContainerHighest = Color(0xFF32353A)
+
+// Custom colours outside the Material scheme (issue #49): the rating band of a recommendation
+// rated too cold or too hot. Kept apart from primaryContainer and errorContainer so a cold band
+// never reads as a selection and a hot band never reads as an error.
+val custom_light_coldContainer = Color(0xFFC2E8FF)
+val custom_light_onColdContainer = Color(0xFF004D66)
+val custom_light_hotContainer = Color(0xFFFFDCC2)
+val custom_light_onHotContainer = Color(0xFF6E3900)
+
+val custom_dark_coldContainer = Color(0xFF004D66)
+val custom_dark_onColdContainer = Color(0xFFC2E8FF)
+val custom_dark_hotContainer = Color(0xFF6E3900)
+val custom_dark_onHotContainer = Color(0xFFFFDCC2)

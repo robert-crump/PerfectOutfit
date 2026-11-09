@@ -513,6 +513,7 @@ private fun ResultStep(
                         title = "Recommended outfit",
                         outfit = recommendation,
                         useApparentTemperature = uiState.useApparentTemperature,
+                        targetTemp = uiState.activeDisplayTemp,
                         onEditOutfit = onEditOutfit
                     )
                 } else {

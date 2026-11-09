@@ -15,11 +15,6 @@ import com.example.perfectoutfit.core.model.ComfortRating
 @Composable
 fun ratingEmoji(rating: ComfortRating?): String? = rating?.let { stringResource(it.emojiRes) }
 
-/** Returns the label + emoji for the given rating (empty string if no rating). */
-@Composable
-fun ratingLabel(rating: ComfortRating?): String =
-    rating?.let { "${stringResource(it.labelRes)} ${stringResource(it.emojiRes)}" } ?: ""
-
 /**
  * Too cold / Perfect / Too hot as one segmented row. Tapping the selected segment again clears
  * the rating, so "no rating" needs no option of its own.
