@@ -18,5 +18,6 @@ data class WeatherSnapshot(
     override val windDirectionDegrees: Int,
     override val uvIndex: Int,
     override val cloudCoverPercent: Int,
-    override val precipitationProbabilityPercent: Int
+    override val precipitationProbabilityPercent: Int,
+    override val precipitationMm: Double? = null
 ) : WeatherReading

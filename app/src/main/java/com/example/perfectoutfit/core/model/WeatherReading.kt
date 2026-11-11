@@ -3,8 +3,8 @@ package com.example.perfectoutfit.core.model
 import kotlin.math.roundToInt
 
 /**
- * The seven measurements shared by a forecast hour and a persisted [WeatherSnapshot].
- * Exists so both are judged by the one reference-temperature rule.
+ * The measurements shared by a forecast hour and a persisted [WeatherSnapshot].
+ * Exists so both are judged by the one reference-temperature rule and the one rain-class rule.
  */
 interface WeatherReading {
     val temperatureCelsius: Double
@@ -14,6 +14,9 @@ interface WeatherReading {
     val uvIndex: Int
     val cloudCoverPercent: Int
     val precipitationProbabilityPercent: Int
+
+    /** Precipitation amount of the hour in mm; null for snapshots stored before it was fetched. */
+    val precipitationMm: Double?
 }
 
 /**

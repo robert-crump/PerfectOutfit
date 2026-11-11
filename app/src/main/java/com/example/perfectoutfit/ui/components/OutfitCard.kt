@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.Umbrella
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -27,7 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
+import com.example.perfectoutfit.core.model.RainClass
 import com.example.perfectoutfit.core.model.headToToeGroups
+import com.example.perfectoutfit.core.model.loggedRainClass
 import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import com.example.perfectoutfit.ui.theme.extendedColors
 import java.time.Instant
@@ -37,9 +40,10 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.absoluteValue
 
 /**
- * A logged outfit recommended for [targetTemp]: a band with how it felt, tinted by the rating;
- * where and when it was worn; the reference temperature it was worn at (in
- * [useApparentTemperature]'s basis), emphasized with its difference when it isn't [targetTemp];
+ * A logged outfit recommended for [targetTemp] in [targetRain] weather: a band with how it felt,
+ * tinted by the rating; where and when it was worn; the reference temperature (in
+ * [useApparentTemperature]'s basis) and rain class it was worn in, emphasized with the
+ * difference when either isn't the target's (see [wornLine]);
  * the items per body part; and the notes. With [onEditOutfit] the title row carries a pencil.
  */
 @Composable
@@ -48,6 +52,7 @@ fun OutfitCard(
     outfit: OutfitEntryWithDetails,
     useApparentTemperature: Boolean,
     targetTemp: Int,
+    targetRain: RainClass,
     modifier: Modifier = Modifier,
     onEditOutfit: (() -> Unit)? = null
 ) {
@@ -82,7 +87,7 @@ fun OutfitCard(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 PlaceLine(locationName = outfit.weatherSnapshot.locationName, timeLabel = whenLabel)
-                WornAtLine(wornAt = wornAt, targetTemp = targetTemp)
+                WornAtLine(wornLine(wornAt, targetTemp, outfit.weatherSnapshot.loggedRainClass(), targetRain))
             }
 
             Column(
@@ -150,31 +155,56 @@ private fun ratingBandColors(rating: ComfortRating): Pair<Color, Color> = when (
         MaterialTheme.extendedColors.hotContainer to MaterialTheme.extendedColors.onHotContainer
 }
 
+/** The worn line's text, and whether it is emphasized (a neighbor temperature or rain class). */
+internal data class WornLine(val text: String, val temperatureDiffers: Boolean, val rainDiffers: Boolean) {
+    val emphasized: Boolean get() = temperatureDiffers || rainDiffers
+}
+
 /**
- * "Worn at 14°C" in the muted place-line style on an exact match; on a neighbor match
- * "Worn at 12°C (2°C colder)", emphasized with a thermometer.
+ * "Worn at 14°C" on an exact match, naming a wet class ("Worn at 9°C in light rain"). When the
+ * temperature or the class differs from the target's, the differences follow in brackets:
+ * "Worn at 12°C (2°C colder)", "Worn at 9°C, dry (light rain expected)",
+ * "Worn at 8°C in light rain (2°C warmer, heavy rain expected)".
+ */
+internal fun wornLine(wornAt: Int, targetTemp: Int, wornRain: RainClass, targetRain: RainClass): WornLine {
+    val diff = wornAt - targetTemp
+    val rainDiffers = wornRain != targetRain
+    val rain = when {
+        wornRain.isWet -> " in ${wornRain.label}"
+        rainDiffers -> ", ${wornRain.label}"
+        else -> ""
+    }
+    val differences = listOfNotNull(
+        diff.takeIf { it != 0 }?.let { "${it.absoluteValue}°C ${if (it < 0) "colder" else "warmer"}" },
+        if (!rainDiffers) null else if (targetRain.isWet) "${targetRain.label} expected" else "no rain expected"
+    )
+    val brackets = if (differences.isEmpty()) "" else " (${differences.joinToString(", ")})"
+    return WornLine("Worn at $wornAt°C$rain$brackets", temperatureDiffers = diff != 0, rainDiffers = rainDiffers)
+}
+
+/**
+ * [line] in the muted place-line style on an exact match; otherwise emphasized with a
+ * thermometer (or an umbrella when only the rain class differs).
  */
 @Composable
-private fun WornAtLine(wornAt: Int, targetTemp: Int) {
-    val diff = wornAt - targetTemp
-    if (diff == 0) {
+private fun WornAtLine(line: WornLine) {
+    if (!line.emphasized) {
         Text(
-            text = "Worn at $wornAt°C",
+            text = line.text,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         return
     }
-    val direction = if (diff < 0) "colder" else "warmer"
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            Icons.Default.Thermostat,
+            if (line.temperatureDiffers) Icons.Default.Thermostat else Icons.Default.Umbrella,
             contentDescription = null,
             modifier = Modifier.size(16.dp),
             tint = MaterialTheme.colorScheme.onSurface
         )
         Text(
-            text = "Worn at $wornAt°C (${diff.absoluteValue}°C $direction)",
+            text = line.text,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,

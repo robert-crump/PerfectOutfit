@@ -514,6 +514,7 @@ private fun ResultStep(
                         outfit = recommendation,
                         useApparentTemperature = uiState.useApparentTemperature,
                         targetTemp = uiState.activeDisplayTemp,
+                        targetRain = uiState.windowRainClass,
                         onEditOutfit = onEditOutfit
                     )
                 } else {

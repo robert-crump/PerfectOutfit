@@ -10,6 +10,7 @@ import com.example.perfectoutfit.core.location.LocationResult
 import com.example.perfectoutfit.core.location.LocationSource
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.RainClass
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.recommendation.Recommendations
@@ -87,6 +88,9 @@ data class HomeUiState(
     }
     val activeDisplayTemp: Int get() =
         activeHour?.roundedReferenceTemp(useApparentTemperature) ?: 0
+
+    /** The workout window's wettest rain class: what both recommendations were matched for. */
+    val windowRainClass: RainClass get() = Recommendations.windowRainClass(hourlyWeather, workoutDurationHours)
 
     /** The current hour's rounded reference temperature: what the activity grid and Explorer show. */
     val currentDisplayTemp: Int? get() = displayTempAt(0)

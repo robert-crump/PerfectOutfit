@@ -8,6 +8,7 @@ import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.Place
+import com.example.perfectoutfit.core.model.loggedRainClass
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.core.network.GeocodingApi
 import com.example.perfectoutfit.core.time.currentHour
@@ -96,7 +97,9 @@ class LogOutfitViewModel @Inject constructor(
             ) { (hour, activityType), useApparent -> Triple(hour, activityType, useApparent) }
                 .collectLatest { (hour, activityType, useApparent) ->
                     val ids = if (hour != null) {
-                        recommendations.likelyItemIds(activityType, hour.referenceTemp(useApparent), useApparent)
+                        recommendations.likelyItemIds(
+                            activityType, hour.referenceTemp(useApparent), hour.loggedRainClass(), useApparent
+                        )
                     } else emptySet()
                     _uiState.update { it.copy(likelyItemIds = ids) }
                 }

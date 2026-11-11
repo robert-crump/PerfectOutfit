@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.feature.recommendation
 
+import com.example.perfectoutfit.core.model.RainClass
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
@@ -20,7 +21,7 @@ class RecommendationsWindowTest {
     private val recommendations = Recommendations(dao, FakeClothingItemDao())
     private val t = LocalDateTime.of(2026, 1, 1, 12, 0)
 
-    private fun hour(real: Double, apparent: Double = real) = HourlyWeather(
+    private fun hour(real: Double, apparent: Double = real, mm: Double? = null) = HourlyWeather(
         time = t,
         temperatureCelsius = real,
         apparentTemperatureCelsius = apparent,
@@ -28,7 +29,8 @@ class RecommendationsWindowTest {
         windDirectionDegrees = 0,
         uvIndex = 0,
         cloudCoverPercent = 0,
-        precipitationProbabilityPercent = 0
+        precipitationProbabilityPercent = 0,
+        precipitationMm = mm
     )
 
     private fun entry(id: Long, rating: Int?, apparent: Double, real: Double = apparent) =
@@ -51,7 +53,7 @@ class RecommendationsWindowTest {
     @Test
     fun `find rounds a fractional reference temperature before matching`() {
         dao.ratedEntries = listOf(entry(1, rating = 0, apparent = 10.0))
-        val result = runBlocking { recommendations.find(ActivityType.CYCLING, 9.5, true) }
+        val result = runBlocking { recommendations.find(ActivityType.CYCLING, 9.5, RainClass.DRY, true) }
         assertEquals(1L, result?.entry?.id)
     }
 
@@ -125,5 +127,15 @@ class RecommendationsWindowTest {
             )
         }
         assertEquals(1L, result?.coldest?.entry?.id)
+    }
+
+    // ── window rain class ────────────────────────────────────────────────────
+
+    @Test
+    fun `windowRainClass is the wettest of the first durationHours hours`() {
+        val hours = listOf(hour(10.0), hour(10.0, mm = 0.3), hour(10.0, mm = 5.0))
+        assertEquals(RainClass.LIGHT, Recommendations.windowRainClass(hours, 2))
+        assertEquals(RainClass.HEAVY, Recommendations.windowRainClass(hours, 3))
+        assertEquals(RainClass.DRY, Recommendations.windowRainClass(emptyList(), 3))
     }
 }

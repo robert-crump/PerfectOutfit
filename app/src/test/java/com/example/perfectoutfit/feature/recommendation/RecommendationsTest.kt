@@ -5,6 +5,7 @@ import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.RainClass
 import com.example.perfectoutfit.core.model.WeatherSnapshot
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
@@ -23,19 +24,21 @@ class RecommendationsTest {
     private fun findRecommendation(
         candidates: List<OutfitEntryWithDetails>,
         target: Int,
-        useApparent: Boolean
+        useApparent: Boolean,
+        rain: RainClass = RainClass.DRY
     ): OutfitEntryWithDetails? {
         dao.ratedEntries = candidates
-        return runBlocking { recommendations.find(ActivityType.CYCLING, target.toDouble(), useApparent) }
+        return runBlocking { recommendations.find(ActivityType.CYCLING, target.toDouble(), rain, useApparent) }
     }
 
     private fun likelyItemIds(
         candidates: List<OutfitEntryWithDetails>,
         target: Int,
-        useApparent: Boolean
+        useApparent: Boolean,
+        rain: RainClass = RainClass.DRY
     ): Set<Long> {
         dao.ratedEntries = candidates
-        return runBlocking { recommendations.likelyItemIds(ActivityType.CYCLING, target.toDouble(), useApparent) }
+        return runBlocking { recommendations.likelyItemIds(ActivityType.CYCLING, target.toDouble(), rain, useApparent) }
     }
 
     // ── Builders ─────────────────────────────────────────────────────────────
@@ -43,7 +46,8 @@ class RecommendationsTest {
     private fun snapshot(
         apparent: Double,
         real: Double = apparent,
-        time: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0)
+        time: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0),
+        mm: Double? = null
     ) = WeatherSnapshot(
         id = 0,
         timestamp = time.atZone(ZoneId.systemDefault()).toEpochSecond() * 1000,
@@ -56,7 +60,8 @@ class RecommendationsTest {
         windDirectionDegrees = 0,
         uvIndex = 0,
         cloudCoverPercent = 0,
-        precipitationProbabilityPercent = 0
+        precipitationProbabilityPercent = 0,
+        precipitationMm = mm
     )
 
     private fun entry(
@@ -65,7 +70,8 @@ class RecommendationsTest {
         apparent: Double,
         real: Double = apparent,
         time: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0),
-        items: List<ClothingItem> = emptyList()
+        items: List<ClothingItem> = emptyList(),
+        mm: Double? = null
     ) = OutfitEntryWithDetails(
         entry = OutfitEntry(
             id = id,
@@ -74,7 +80,7 @@ class RecommendationsTest {
             comfortRating = rating,
             createdAt = 0
         ),
-        weatherSnapshot = snapshot(apparent = apparent, real = real, time = time),
+        weatherSnapshot = snapshot(apparent = apparent, real = real, time = time, mm = mm),
         clothingItems = items
     )
 
@@ -447,5 +453,103 @@ class RecommendationsTest {
         )
         assertEquals(emptySet<Long>(), likelyItemIds(candidates, 10, useApparent = false))
         assertEquals(setOf(101L), likelyItemIds(candidates, 20, useApparent = false))
+    }
+
+    // ── rain class (issue #51) ────────────────────────────────────────────────
+
+    private val light = 0.2
+    private val heavy = 6.0
+
+    @Test
+    fun `a perfect entry in the target's rain class beats a closer-degree perfect one in another`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 8.0, items = listOf(item(101))),
+            entry(2, rating = 0, apparent = 10.0, items = listOf(item(102)), mm = light)
+        )
+        assertEquals(2L, findRecommendation(candidates, 8, true, RainClass.LIGHT)?.entry?.id)
+        assertEquals(1L, findRecommendation(candidates, 8, true, RainClass.DRY)?.entry?.id)
+    }
+
+    @Test
+    fun `perfect still beats a non-perfect entry in the target's rain class`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 8.0, items = listOf(item(101))),
+            entry(2, rating = 1, apparent = 8.0, items = listOf(item(102)), mm = light)
+        )
+        assertEquals(1L, findRecommendation(candidates, 8, true, RainClass.LIGHT)?.entry?.id)
+    }
+
+    @Test
+    fun `rain class distance is counted in steps`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 8.0, items = listOf(item(101))),
+            entry(2, rating = 0, apparent = 10.0, items = listOf(item(102)), mm = 1.0)
+        )
+        // Heavy target: moderate (1 step) beats dry (3 steps) despite the 2 °C.
+        assertEquals(2L, findRecommendation(candidates, 8, true, RainClass.HEAVY)?.entry?.id)
+    }
+
+    @Test
+    fun `a known-wrong entry in another rain class does not cancel a perfect one`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 8.0, time = older, items = listOf(item(101))),
+            entry(2, rating = -1, apparent = 8.0, time = newest, items = listOf(item(101)), mm = heavy),
+            entry(3, rating = 0, apparent = 8.0, time = older, items = listOf(item(102)), mm = heavy)
+        )
+        // Dry: the soaked too-cold leaves the dry perfect alone.
+        assertEquals(1L, findRecommendation(candidates, 8, true, RainClass.DRY)?.entry?.id)
+        assertEquals(setOf(101L), likelyItemIds(candidates, 8, true, RainClass.DRY))
+    }
+
+    @Test
+    fun `a known-wrong entry cancels perfect entries of its combination in the same rain class`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 8.0, time = older, items = listOf(item(101)), mm = heavy),
+            entry(2, rating = -1, apparent = 8.0, time = newest, items = listOf(item(101)), mm = heavy),
+            entry(3, rating = 0, apparent = 8.0, time = older, items = listOf(item(102)))
+        )
+        // Heavy target: 101's heavy perfect is cancelled, so the dry perfect 102 is all that's left.
+        assertEquals(3L, findRecommendation(candidates, 8, true, RainClass.HEAVY)?.entry?.id)
+    }
+
+    @Test
+    fun `combination count only counts perfect entries in the same rain class`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 8.0, time = older, items = listOf(item(101)), mm = light),
+            entry(2, rating = 0, apparent = 8.0, time = older, items = listOf(item(101))),
+            entry(3, rating = 0, apparent = 8.0, time = older, items = listOf(item(101))),
+            entry(4, rating = 0, apparent = 8.0, time = newest, items = listOf(item(102)), mm = light)
+        )
+        // Light target: 101 has one light perfect, as does 102, so the newer 102 wins.
+        assertEquals(4L, findRecommendation(candidates, 8, true, RainClass.LIGHT)?.entry?.id)
+    }
+
+    @Test
+    fun `fallback keeps pointing-toward before known-wrong, then the closer rain class`() {
+        val candidates = listOf(
+            entry(1, rating = 1, apparent = 9.0, items = listOf(item(101))), // too hot warmer: pointing, dry
+            entry(2, rating = 1, apparent = 10.0, items = listOf(item(102)), mm = light), // pointing, light
+            entry(3, rating = -1, apparent = 8.0, items = listOf(item(103)), mm = light) // known wrong, light
+        )
+        assertEquals(2L, findRecommendation(candidates, 8, true, RainClass.LIGHT)?.entry?.id)
+        assertEquals(1L, findRecommendation(candidates, 8, true, RainClass.DRY)?.entry?.id)
+    }
+
+    @Test
+    fun `an old snapshot without an amount counts as light when rain was likely`() {
+        val wet = entry(1, rating = 0, apparent = 10.0, items = listOf(item(101)))
+            .let { it.copy(weatherSnapshot = it.weatherSnapshot.copy(precipitationProbabilityPercent = 70)) }
+        val candidates = listOf(wet, entry(2, rating = 0, apparent = 8.0, items = listOf(item(102))))
+        assertEquals(1L, findRecommendation(candidates, 8, true, RainClass.LIGHT)?.entry?.id)
+    }
+
+    @Test
+    fun `likelyItemIds takes the closest rain class that has perfect entries`() {
+        val candidates = listOf(
+            entry(1, rating = 0, apparent = 8.0, items = listOf(item(101))),
+            entry(2, rating = 0, apparent = 8.0, items = listOf(item(102)), mm = 1.0)
+        )
+        assertEquals(setOf(102L), likelyItemIds(candidates, 8, true, RainClass.HEAVY))
+        assertEquals(setOf(101L), likelyItemIds(candidates, 8, true, RainClass.DRY))
     }
 }

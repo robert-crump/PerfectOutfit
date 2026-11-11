@@ -5,7 +5,9 @@ import com.example.perfectoutfit.core.model.roundedTemp
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.RainClass
 import com.example.perfectoutfit.core.model.WeatherReading
+import com.example.perfectoutfit.core.model.expectedRainClass
 import com.example.perfectoutfit.core.model.referenceTemp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -34,17 +36,23 @@ class Recommendations @Inject constructor(
     private val outfitEntryDao: OutfitEntryDao,
     private val clothingItemDao: ClothingItemDao
 ) {
-    /** Best rated outfit for [referenceTemp] (rounded here), or null. */
-    suspend fun find(activityType: ActivityType, referenceTemp: Double, useApparent: Boolean): OutfitEntryWithDetails? =
+    /** Best rated outfit for [referenceTemp] (rounded here) in [rainClass] weather, or null. */
+    suspend fun find(
+        activityType: ActivityType,
+        referenceTemp: Double,
+        rainClass: RainClass,
+        useApparent: Boolean
+    ): OutfitEntryWithDetails? =
         RecommendationPolicy.findRecommendation(
             outfitEntryDao.getRatedEntriesWithDetails(activityType),
             roundedTemp(referenceTemp),
+            rainClass,
             useApparent
         )
 
     /**
-     * Coldest/warmest recommendations over the first [durationHours] of [hours]; a
-     * one-hour window has coldest == warmest. Returns null when [hours] is empty, or when
+     * Coldest/warmest recommendations over the first [durationHours] of [hours], both for
+     * the window's wettest rain class ([windowRainClass]); a one-hour window has coldest == warmest. Returns null when [hours] is empty, or when
      * [isCurrent] turned false while the queries ran (the caller's activityType or duration
      * changed, so the result is stale and must be discarded).
      */
@@ -57,17 +65,27 @@ class Recommendations @Inject constructor(
     ): WorkoutWindowRecommendation? {
         if (hours.isEmpty()) return null
         val (coldestIdx, warmestIdx) = workoutExtremes(hours, durationHours, useApparent)
-        val coldest = find(activityType, hours[coldestIdx].referenceTemp(useApparent), useApparent)
-        val warmest = find(activityType, hours[warmestIdx].referenceTemp(useApparent), useApparent)
+        val rain = windowRainClass(hours, durationHours)
+        val coldest = find(activityType, hours[coldestIdx].referenceTemp(useApparent), rain, useApparent)
+        val warmest = find(activityType, hours[warmestIdx].referenceTemp(useApparent), rain, useApparent)
         if (!isCurrent()) return null
         return WorkoutWindowRecommendation(coldestIdx, warmestIdx, coldest, warmest)
     }
 
-    /** Ids of clothing items from surviving perfect-rated outfits near [referenceTemp]. */
-    suspend fun likelyItemIds(activityType: ActivityType, referenceTemp: Double, useApparent: Boolean): Set<Long> =
+    /**
+     * Ids of clothing items from surviving perfect-rated outfits near [referenceTemp], from the
+     * rain class closest to [rainClass] that has any.
+     */
+    suspend fun likelyItemIds(
+        activityType: ActivityType,
+        referenceTemp: Double,
+        rainClass: RainClass,
+        useApparent: Boolean
+    ): Set<Long> =
         RecommendationPolicy.likelyItemIds(
             outfitEntryDao.getRatedEntriesWithDetails(activityType),
             roundedTemp(referenceTemp),
+            rainClass,
             useApparent
         )
 
@@ -86,6 +104,13 @@ class Recommendations @Inject constructor(
         ) { entries, tagged -> TemperatureChartPolicy.build(entries, tagged, useApparent) }
 
     companion object {
+        /**
+         * The wettest expected rain class among the first [durationHours] of [hours]: you dress
+         * once for the whole workout. Dry for no hours.
+         */
+        fun windowRainClass(hours: List<WeatherReading>, durationHours: Int): RainClass =
+            hours.take(durationHours).maxOfOrNull { it.expectedRainClass() } ?: RainClass.DRY
+
         /**
          * Indices of the coldest and warmest hours within the first [durationHours] of
          * [hours]. Ties go to the later hour for both.

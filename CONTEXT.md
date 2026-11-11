@@ -63,6 +63,20 @@ rain after midnight doesn't count. When the current hour itself is likely, the h
 "Rain likely now" instead of a start time. The hint names its own time because the card's Rain
 value above it is the dressed-for hour's probability, not today's.
 
+### Rain class
+How wet an hour is (`RainClass`, `core/model/RainClass.kt`, issue #51), from its precipitation
+amount in mm (Open-Meteo's hourly `precipitation`, stored as `precipitationMm` on forecast hours
+and snapshots): **dry** < 0.1, **light** 0.1 to < 0.5, **moderate** 0.5 to 4, **heavy** > 4.
+Classes are ordered; their distance is the number of steps between them (dry ↔ heavy is 3).
+
+- **As worn** (`loggedRainClass`: a logged snapshot, or the hour being logged): its amount.
+  Snapshots stored before amounts existed (null) count as light when their probability was
+  ≥ 50 %, else dry.
+- **As expected** (`expectedRainClass`: an hour being dressed for): its amount, raised to at
+  least light by a probability ≥ 50 %. Probability never raises it further.
+
+A log's rain class is its snapshot's, i.e. its first hour's, even for a long workout.
+
 ### Weather card
 Home's view of an hour. On the result step it is the hour being dressed for (the first hour,
 or a long workout's coldest/warmest): its [reference temperature](#reference-temperature),
@@ -111,7 +125,8 @@ in exactly one place. `ExportData.version` is a schema version the app can branc
 future format changes; it defaults to `CURRENT_EXPORT_VERSION`, so files written before
 the field existed still decode. Version 2 renamed `sport` to `activityType` and added the
 item ↔ activity-type rows; a v1 file (or one without a version) is rewritten on import, each
-item's single `sport` becoming one row. Files newer than the app are rejected. The
+item's single `sport` becoming one row. Version 3 added snapshots' `precipitationMm`; older
+files decode it as null. Files newer than the app are rejected. The
 replacement runs through `OutfitLogging.replaceAllData` (see [Outfit logging](#outfit-logging)),
 so import and Drive restore alike cancel the replaced entries' reminders and redraw the widget.
 Import decodes and validates the whole file before any
@@ -134,7 +149,7 @@ scheduled `BackupRun`.
 The outfit suggested for an [activity type](#activity-type) at a [reference temperature](#reference-temperature),
 owned by `Recommendations` (`feature/recommendation/`) — the single entry point for Home,
 Explorer, and the Rate screen's "likely items". Callers pass the activity type, a raw reference
-temperature and the apparent-vs-real preference; the module loads rated history
+temperature, the target [rain class](#rain-class) and the apparent-vs-real preference; the module loads rated history
 (`OutfitEntryDao.getRatedEntriesWithDetails(activityType)` — one query, matching happens in
 memory), rounds, and matches (issue #50). `RecommendationPolicy` is `internal` to the module.
 
@@ -143,21 +158,34 @@ exact, non-empty item set (as in [mode comparison](#mode-comparison); a subset i
 combination, an entry without items is none). An entry is **known wrong** for the target when
 it was *too cold* at or above it, or *too hot* at or below it.
 
+Rain is matched by weather similarity (issue #51): an entry's [rain class](#rain-class) as worn
+against the target's as expected. Items carry no rain flag.
+
 1. **Perfect first:** any surviving perfect entry beats every non-perfect one. Order: closest
-   degree, then how many perfect entries its combination has in the window, then newest.
+   rain class, then closest degree, then how many perfect entries its combination has in the
+   window *in the same rain class*, then newest.
 2. **Cancelling:** a combination's perfect entries don't survive when the same combination has
-   a newer (snapshot timestamp) known-wrong entry in the window. A newer rating that agrees
+   a newer (snapshot timestamp) known-wrong entry in the window *in the same rain class* — being
+   soaked and cold says nothing about the same outfit on a dry day. A newer rating that agrees
    (e.g. *too hot* at a warmer degree) cancels nothing.
 3. **Fallback** (no surviving perfect): non-perfect entries pointing toward the target (*too
-   hot* worn warmer, *too cold* worn colder) before known-wrong ones; within each, closest,
-   then too hot over too cold, then newest. A cancelled combination's negative entry may win.
+   hot* worn warmer, *too cold* worn colder) before known-wrong ones (judged on temperature
+   only); within each, closest rain class, then closest degree, then too hot over too cold,
+   then newest. A cancelled combination's negative entry may win.
 
-`likelyItemIds` are the items of the surviving perfect entries. A result exists exactly when
+`likelyItemIds` are the items of the surviving perfect entries in the closest rain class that
+has any (the Rate screen passes the logged hour's class as worn). A result exists exactly when
 any rated entry lies within ±2 °C, which is all the widget's lit state needs.
 
 **Workout window:** for a workout of N hours, the first N forecast hours are the window;
 the *coldest* and *warmest* hours (by reference temperature, ties going to the later hour)
-each get their own recommendation. A one-hour window has coldest == warmest. A result is
+each get their own recommendation. A one-hour window has coldest == warmest. Both are matched for the window's
+*wettest* expected rain class (`Recommendations.windowRainClass`): you dress once for the whole
+workout. The widget's lit state doesn't depend on rain, since rain only ranks.
+
+**Card:** the recommendation card's worn line names a wet class ("Worn at 9°C in light rain")
+and, like a neighbor temperature, is emphasized with the difference when the entry's class isn't
+the target's: "Worn at 9°C, dry (light rain expected)". The weather card shows no amounts. A result is
 discarded (`null`) if the caller's activity type or duration changed while the query ran.
 
 ### Temperature chart
@@ -199,7 +227,8 @@ score is (contradictory + ½ tied) ÷ pairs, lower is better; `ModeComparisonLin
 halves so the arithmetic is exact. There is one line per activity type plus an overall line
 pooling their pairs. A verdict needs ≥ 20 pairs and a gap of ≥ 10 points, else "Not enough
 data yet" or "No clear difference". Item sets are read as they are now, so editing an entry
-or deleting an item can change the pairs.
+or deleting an item can change the pairs. Pairs ignore [rain class](#rain-class): a dry entry
+and a soaked one at the same degree are paired as if rain made no difference, a known limitation.
 
 ### Comfort rating
 How the temperature felt for a logged outfit (`ComfortRating`): too cold, perfect or too hot.

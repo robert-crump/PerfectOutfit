@@ -25,7 +25,7 @@ import com.example.perfectoutfit.core.model.WeatherSnapshot
         OutfitEntry::class,
         OutfitItem::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -112,6 +112,13 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS `index_outfit_entries_weatherSnapshotId` " +
                         "ON `outfit_entries` (`weatherSnapshotId`)"
                 )
+            }
+        }
+
+        /** Adds the hour's precipitation amount (issue #51); existing snapshots keep null. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE weather_snapshots ADD COLUMN precipitationMm REAL")
             }
         }
 

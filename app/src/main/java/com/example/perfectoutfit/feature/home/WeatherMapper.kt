@@ -20,7 +20,8 @@ data class HourlyWeather(
     override val windDirectionDegrees: Int,
     override val uvIndex: Int,
     override val cloudCoverPercent: Int,
-    override val precipitationProbabilityPercent: Int
+    override val precipitationProbabilityPercent: Int,
+    override val precipitationMm: Double? = null
 ) : WeatherReading {
     val windDirectionLabel: String
         get() {
@@ -45,7 +46,8 @@ fun HourlyWeather.toWeatherSnapshot(
     windDirectionDegrees = windDirectionDegrees,
     uvIndex = uvIndex,
     cloudCoverPercent = cloudCoverPercent,
-    precipitationProbabilityPercent = precipitationProbabilityPercent
+    precipitationProbabilityPercent = precipitationProbabilityPercent,
+    precipitationMm = precipitationMm
 )
 
 object WeatherMapper {
@@ -63,7 +65,8 @@ object WeatherMapper {
                 windDirectionDegrees = response.hourly.windDirection10m[i],
                 uvIndex = response.hourly.uvIndex[i].roundToInt(),
                 cloudCoverPercent = response.hourly.cloudCover[i],
-                precipitationProbabilityPercent = response.hourly.precipitationProbability[i]
+                precipitationProbabilityPercent = response.hourly.precipitationProbability[i],
+                precipitationMm = response.hourly.precipitation.getOrNull(i)
             )
         }
     }

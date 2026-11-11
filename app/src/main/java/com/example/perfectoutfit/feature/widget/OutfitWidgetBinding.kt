@@ -5,6 +5,7 @@ import com.example.perfectoutfit.core.model.roundedReferenceTemp
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.ThemeMode
 import com.example.perfectoutfit.core.model.WeatherReading
+import com.example.perfectoutfit.core.model.expectedRainClass
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.recommendation.Recommendations
 import kotlinx.coroutines.flow.first
@@ -88,7 +89,9 @@ class OutfitWidgetContent @Inject constructor(
         val hour = forecast?.hourAt(clock)
         return activityTypes.map { activityType ->
             val recommended = hour != null &&
-                recommendations.find(activityType, hour.referenceTemp(useApparent), useApparent) != null
+                recommendations.find(
+                    activityType, hour.referenceTemp(useApparent), hour.expectedRainClass(), useApparent
+                ) != null
             bindOutfitWidget(activityType, forecast?.location?.name, hour, useApparent, recommended)
                 .copy(themeMode = themeMode)
         }

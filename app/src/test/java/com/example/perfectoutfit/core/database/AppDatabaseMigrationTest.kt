@@ -71,7 +71,7 @@ class AppDatabaseMigrationTest {
         Room.databaseBuilder(context, AppDatabase::class.java, dbName)
             .addMigrations(
                 AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3,
-                AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5
+                AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6
             )
             .allowMainThreadQueries()
             .build()
@@ -116,6 +116,17 @@ class AppDatabaseMigrationTest {
         db.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use { cursor ->
             assertEquals(0, cursor.count)
         }
+    }
+
+    @Test
+    fun `migration 5 to 6 leaves existing snapshots without an amount and stores new ones`() = runBlocking {
+        createVersion4()
+        val db = openMigrated()
+
+        assertEquals(listOf(null, null), db.weatherSnapshotDao().getAll().map { it.precipitationMm })
+        val stored = db.weatherSnapshotDao().getAll().first().copy(id = 0, precipitationMm = 1.5)
+        val id = db.weatherSnapshotDao().insert(stored)
+        assertEquals(1.5, db.weatherSnapshotDao().getAll().single { it.id == id }.precipitationMm)
     }
 
     @Test

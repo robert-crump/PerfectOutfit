@@ -20,5 +20,7 @@ data class HourlyData(
     @SerialName("wind_direction_10m") val windDirection10m: List<Int>,
     @SerialName("uv_index") val uvIndex: List<Double>,
     @SerialName("cloud_cover") val cloudCover: List<Int>,
-    @SerialName("precipitation_probability") val precipitationProbability: List<Int>
+    @SerialName("precipitation_probability") val precipitationProbability: List<Int>,
+    /** mm per hour; an hour Open-Meteo has no value for stays null. */
+    val precipitation: List<Double?> = emptyList()
 )

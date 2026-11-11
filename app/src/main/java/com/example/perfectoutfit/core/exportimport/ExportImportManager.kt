@@ -30,8 +30,9 @@ import javax.inject.Singleton
  * Bumped whenever the shape of [ExportData] changes in a way old files won't have.
  * v2: `sport` became `activityType`, and items carry a set of activity types
  * ([ExportData.clothingItemActivityTypes]) instead of one `sport` each.
+ * v3: snapshots carry `precipitationMm`; older files decode it as null.
  */
-const val CURRENT_EXPORT_VERSION = 2
+const val CURRENT_EXPORT_VERSION = 3
 
 /**
  * The full export/import envelope. Each entity is serialized directly (no field-by-field
