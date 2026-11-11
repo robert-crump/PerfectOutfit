@@ -124,6 +124,14 @@ class HomeViewModel @Inject constructor(
         // GPS is now the only source of location; kick off a fetch immediately.
         fetchCurrentLocationWeather()
 
+        // A custom outfit saved in the live log wizard ends Home's flow like an accepted one.
+        viewModelScope.launch {
+            liveOutfitHandoffStore.outfitSaved.collect { saved ->
+                if (saved && liveOutfitHandoffStore.takeSaved()) {
+                    _uiState.value = _uiState.value.copy(acceptState = AcceptState.SAVED)
+                }
+            }
+        }
         viewModelScope.launch {
             forecast.locationFlow.collect { location ->
                 if (location != null) {

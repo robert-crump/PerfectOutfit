@@ -44,7 +44,7 @@ sealed interface WizardMove {
  * picked over in the meantime.
  *
  * Past logs: when and where → items → summary → rating → save. Live logs start at the hour Home
- * handed off: items → summary → save. "Today" is [now]'s date, from the injected Clock when the
+ * handed off and are only items → save ("Use outfit"). "Today" is [now]'s date, from the injected Clock when the
  * wizard opened, so labels, the max pickable date and the forecast never disagree at midnight.
  */
 data class LogWizardState(
@@ -91,7 +91,7 @@ data class LogWizardState(
     private val steps: List<LogStep>
         get() = when (mode) {
             LogMode.PAST -> LogStep.entries
-            LogMode.LIVE -> listOf(LogStep.ITEMS, LogStep.SUMMARY)
+            LogMode.LIVE -> listOf(LogStep.ITEMS)
         }
 
     /** Position in wizard order (for the slide direction). */
@@ -99,11 +99,14 @@ data class LogWizardState(
 
     val isLastStep: Boolean get() = step == steps.last()
 
-    /** Items are required only at the summary; the items step itself can always go on. */
+    /**
+     * Items are required where the outfit is confirmed: the summary of a past log, or the items
+     * step that saves a live log. A past log's items step itself can always go on.
+     */
     val canGoNext: Boolean
         get() = when (step) {
             LogStep.WHEN_WHERE -> !loadingHours && selectedHour != null
-            LogStep.ITEMS -> true
+            LogStep.ITEMS -> mode == LogMode.PAST || itemIds.isNotEmpty()
             LogStep.SUMMARY -> itemIds.isNotEmpty()
             LogStep.RATING -> true
         }

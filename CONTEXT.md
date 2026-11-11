@@ -251,10 +251,13 @@ date); live logs start on the date of the hour Home handed off.
 ### Log wizard
 How a new outfit is logged, owned by the pure `LogWizardState` (`feature/rate/LogWizardState.kt`);
 `LogOutfitViewModel` only fetches weather and logs the result. Past logs go when and where →
-items → summary → rating → save; live logs (handed off from Home) go items → summary → save.
-`next()` / `back()` say whether to move, save, or leave (back on the first step). Next needs a
-picked hour (with no weather loading) on when and where, and at least one item on the summary;
-the items step can always go on. "Today" — for the [wizard rule](#forecast)'s max date, the
+items → summary → rating → save; live logs (handed off from Home) are only items → save
+("Use outfit"), after which Home ends its flow like an accepted recommendation (the wizard reports
+the save through `LiveOutfitHandoffStore`). `next()` / `back()` say whether to move, save, or
+leave (back on the first step). Next needs a picked hour (with no weather loading) on when and
+where, and at least one item where the outfit is confirmed: the summary of a past log, the items
+step of a live one; a past log's items step can always go on. Next is ignored while the outfit
+saves; a failed save stays in the wizard to be tried again. "Today" — for the [wizard rule](#forecast)'s max date, the
 Today/Yesterday labels and the time picker's default hour — is the injected `Clock`'s current
 hour when the wizard opens, never the system clock. Weather that arrives for a date or place
 picked over in the meantime is dropped. Weather always arrives with the `Place` it was fetched

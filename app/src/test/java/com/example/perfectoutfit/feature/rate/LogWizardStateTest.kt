@@ -121,10 +121,9 @@ class LogWizardStateTest {
     }
 
     @Test
-    fun `a live log goes items, summary, then saves`() {
-        var s = live()
+    fun `a live log is only items, which saves`() {
+        val s = live()
         assertEquals(LogStep.ITEMS, s.step)
-        s = s.forward(); assertEquals(LogStep.SUMMARY, s.step)
         assertTrue(s.isLastStep)
         assertTrue(s.next() is WizardMove.Save)
     }
@@ -144,7 +143,6 @@ class LogWizardStateTest {
     @Test
     fun `back from a live log's items leaves`() {
         assertEquals(WizardMove.Leave, live().back())
-        assertEquals(LogStep.ITEMS, live().forward().backward().step)
     }
 
     @Test
@@ -169,7 +167,15 @@ class LogWizardStateTest {
     }
 
     @Test
-    fun `items can always go next, even with none picked`() {
+    fun `a live log's items need at least one item to save`() {
+        val none = live(payload().copy(prefillItemIds = emptyList()))
+        assertFalse(none.canGoNext)
+        assertSame(none, none.forward())
+        assertTrue(none.toggleItem(1).canGoNext)
+    }
+
+    @Test
+    fun `a past log's items can always go next, even with none picked`() {
         val items = past().pickClockHour(9).forward()
         assertTrue(items.itemIds.isEmpty())
         assertTrue(items.canGoNext)
@@ -212,7 +218,7 @@ class LogWizardStateTest {
 
     @Test
     fun `a live log saves unrated, as a live log, with its handed-off duration`() {
-        val request = (live().forward().next() as WizardMove.Save).request
+        val request = (live().next() as WizardMove.Save).request
         assertEquals(today.atTime(9, 0), request.hour.time)
         assertEquals(aachen, request.place)
         assertNull(request.rating)

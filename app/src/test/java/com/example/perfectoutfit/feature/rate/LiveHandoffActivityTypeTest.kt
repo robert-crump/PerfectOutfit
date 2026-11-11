@@ -52,8 +52,7 @@ class LiveHandoffActivityTypeTest {
         val vm = logOutfitViewModel(forecast, clock, isLive = true, entryDao = entryDao, handoff = handoff)
 
         assertEquals(LogStep.ITEMS, vm.uiState.value.wizard?.step)
-        vm.next() // to the summary
-        vm.next() // finish
+        vm.next() // Use outfit
 
         assertEquals(ActivityType.RUNNING, vm.uiState.value.activityType)
         assertEquals(listOf(ActivityType.RUNNING), entryDao.getAll().map { it.activityType })

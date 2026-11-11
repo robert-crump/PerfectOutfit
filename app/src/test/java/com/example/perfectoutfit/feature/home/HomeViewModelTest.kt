@@ -65,7 +65,10 @@ class HomeViewModelTest {
 
     private fun viewModel(location: LocationResult) = viewModel { location }
 
-    private fun viewModel(location: () -> LocationResult): HomeViewModel {
+    private fun viewModel(
+        handoff: LiveOutfitHandoffStore = LiveOutfitHandoffStore(),
+        location: () -> LocationResult
+    ): HomeViewModel {
         val entryDao = FakeOutfitEntryDao()
         val logging = OutfitLogging(
             entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeDatabaseTransactionRunner(), reminder,
@@ -76,7 +79,7 @@ class HomeViewModelTest {
                 override suspend fun current() = location()
             },
             forecast = Forecast(api, clock),
-            liveOutfitHandoffStore = LiveOutfitHandoffStore(),
+            liveOutfitHandoffStore = handoff,
             outfitLogging = logging,
             recommendations = Recommendations(entryDao, FakeClothingItemDao()),
             preferencesManager = PreferencesManager(FakePreferencesDataStore()),
@@ -93,6 +96,18 @@ class HomeViewModelTest {
 
         assertEquals(AcceptState.SAVED, viewModel.uiState.value.acceptState)
         assertEquals(1, reminder.showCalls.size)
+    }
+
+    @Test
+    fun `a custom outfit saved in the log wizard reports SAVED once`() {
+        val handoff = LiveOutfitHandoffStore()
+        val viewModel = viewModel(handoff) { LocationResult.Found(Place(50.8, 6.1, "Aachen")) }
+
+        handoff.reportSaved()
+
+        assertEquals(AcceptState.SAVED, viewModel.uiState.value.acceptState)
+        viewModel.onAcceptHandled()
+        assertEquals(AcceptState.IDLE, viewModel.uiState.value.acceptState)
     }
 
     @Test

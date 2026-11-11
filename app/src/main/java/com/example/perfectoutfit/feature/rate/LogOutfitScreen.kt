@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -46,6 +47,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -80,6 +83,7 @@ import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.outfit.LogMode
 import com.example.perfectoutfit.ui.components.ComfortRatingBar
 import com.example.perfectoutfit.ui.components.entryDateLabel
+import com.example.perfectoutfit.ui.components.neutralCardColors
 import com.example.perfectoutfit.ui.components.verticalScrollbar
 import java.time.LocalDate
 import java.time.ZoneId
@@ -128,6 +132,16 @@ fun LogOutfitScreen(
         if (uiState.isSaved) onNavigateBack()
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.saveState) {
+        if (uiState.saveState == SaveState.FAILED) {
+            viewModel.onSaveFailureShown()
+            snackbarHostState.showSnackbar("Couldn't save the outfit — try again")
+        }
+    }
+    // Next (and the final save) waits while an outfit is being saved.
+    val canGoNext = wizard.canGoNext && uiState.saveState != SaveState.SAVING
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -141,6 +155,7 @@ fun LogOutfitScreen(
                 windowInsets = WindowInsets(0)
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0)
     ) { innerPadding ->
         AnimatedContent(
@@ -160,10 +175,10 @@ fun LogOutfitScreen(
             label = "wizard_step"
         ) { step ->
             when (step) {
-                LogStep.WHEN_WHERE -> WhenWhereStep(wizard, viewModel)
-                LogStep.ITEMS -> ItemsStep(wizard, uiState.likelyItemIds, availableItems, viewModel, onBack = back)
-                LogStep.SUMMARY -> SummaryStep(wizard, availableItems, viewModel, onBack = back)
-                LogStep.RATING -> RatingStep(wizard, viewModel)
+                LogStep.WHEN_WHERE -> WhenWhereStep(wizard, canGoNext, viewModel)
+                LogStep.ITEMS -> ItemsStep(wizard, canGoNext, uiState.likelyItemIds, availableItems, viewModel, onBack = back)
+                LogStep.SUMMARY -> SummaryStep(wizard, canGoNext, availableItems, viewModel, onBack = back)
+                LogStep.RATING -> RatingStep(wizard, canGoNext, viewModel)
             }
         }
     }
@@ -174,7 +189,7 @@ fun LogOutfitScreen(
 // ─── When and where ───────────────────────────────────────────────────────────
 
 @Composable
-private fun WhenWhereStep(wizard: LogWizardState, viewModel: LogOutfitViewModel) {
+private fun WhenWhereStep(wizard: LogWizardState, canGoNext: Boolean, viewModel: LogOutfitViewModel) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     Box(modifier = Modifier.fillMaxSize()) {
@@ -264,7 +279,7 @@ private fun WhenWhereStep(wizard: LogWizardState, viewModel: LogOutfitViewModel)
             Button(
                 onClick = viewModel::next,
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                enabled = wizard.canGoNext
+                enabled = canGoNext
             ) { Text("Next") }
         }
     }
@@ -376,6 +391,7 @@ private fun PlaceSheet(wizard: LogWizardState, search: PlaceSearchState, viewMod
 @Composable
 private fun ItemsStep(
     wizard: LogWizardState,
+    canGoNext: Boolean,
     likelyItemIds: Set<Long>,
     availableItems: List<ClothingItem>,
     viewModel: LogOutfitViewModel,
@@ -388,32 +404,68 @@ private fun ItemsStep(
     val selectedLabel = if (selectedCount == 1) "1 item selected" else "$selectedCount items selected"
 
     val scrollState = rememberScrollState()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = 24.dp, bottom = 16.dp)
-            .verticalScrollbar(scrollState)
-            .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(selectedLabel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-        if (hasLikely) {
-            Text("Likely Items", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-            BodyPartChipGroups(likelyItems, wizard.itemIds, viewModel::toggleItem)
-            Text("Unlikely Items", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-        }
-        BodyPartChipGroups(otherItems, wizard.itemIds, viewModel::toggleItem)
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp)
+                .verticalScrollbar(scrollState)
+                .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Previous") }
-            Button(onClick = viewModel::next, modifier = Modifier.weight(1f), enabled = wizard.canGoNext) {
-                Text("Next")
+            Text(selectedLabel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // Without likely items there is nothing to split: one card holds them all.
+            if (hasLikely) {
+                ItemsCard("Likely Items", likelyItems, wizard.itemIds, viewModel::toggleItem)
+                ItemsCard("Unlikely Items", otherItems, wizard.itemIds, viewModel::toggleItem)
+            } else {
+                ItemsCard("All Items", otherItems, wizard.itemIds, viewModel::toggleItem)
             }
+        }
+
+        Surface(
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+            shadowElevation = 4.dp
+        ) {
+            if (wizard.mode == LogMode.LIVE) {
+                // A live log is only this step: the outfit is used right away.
+                Button(
+                    onClick = viewModel::next,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    enabled = canGoNext
+                ) { Text(finishLabel(wizard)) }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Previous") }
+                    Button(onClick = viewModel::next, modifier = Modifier.weight(1f), enabled = canGoNext) {
+                        Text("Next")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A titled card of [items] chips, grouped by body part; nothing at all when [items] is empty. */
+@Composable
+private fun ItemsCard(
+    title: String,
+    items: List<ClothingItem>,
+    selectedItemIds: Set<Long>,
+    onToggle: (Long) -> Unit
+) {
+    if (items.isEmpty()) return
+    Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+            BodyPartChipGroups(items, selectedItemIds, onToggle)
         }
     }
 }
@@ -440,6 +492,7 @@ private fun BodyPartChipGroups(items: List<ClothingItem>, selectedItemIds: Set<L
 @Composable
 private fun SummaryStep(
     wizard: LogWizardState,
+    canGoNext: Boolean,
     availableItems: List<ClothingItem>,
     viewModel: LogOutfitViewModel,
     onBack: () -> Unit
@@ -510,7 +563,7 @@ private fun SummaryStep(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Previous") }
-                Button(onClick = viewModel::next, modifier = Modifier.weight(1f), enabled = wizard.canGoNext) {
+                Button(onClick = viewModel::next, modifier = Modifier.weight(1f), enabled = canGoNext) {
                     Text(if (wizard.isLastStep) finishLabel(wizard) else "Next")
                 }
             }
@@ -518,13 +571,13 @@ private fun SummaryStep(
     }
 }
 
-/** The last step's button: a live log finishes, a past log saves. */
-private fun finishLabel(wizard: LogWizardState) = if (wizard.mode == LogMode.LIVE) "Finish" else "Save"
+/** The last step's button: a live log uses the outfit, a past log saves. */
+private fun finishLabel(wizard: LogWizardState) = if (wizard.mode == LogMode.LIVE) "Use outfit" else "Save"
 
 // ─── Rating ───────────────────────────────────────────────────────────────────
 
 @Composable
-private fun RatingStep(wizard: LogWizardState, viewModel: LogOutfitViewModel) {
+private fun RatingStep(wizard: LogWizardState, canGoNext: Boolean, viewModel: LogOutfitViewModel) {
     val scrollState = rememberScrollState()
     Box(modifier = Modifier.fillMaxSize().imePadding()) {
         Column(
@@ -557,7 +610,7 @@ private fun RatingStep(wizard: LogWizardState, viewModel: LogOutfitViewModel) {
             Button(
                 onClick = viewModel::next,
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                enabled = wizard.canGoNext
+                enabled = canGoNext
             ) { Text(finishLabel(wizard)) }
         }
     }

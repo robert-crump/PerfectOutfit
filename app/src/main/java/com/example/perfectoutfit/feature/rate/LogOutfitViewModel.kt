@@ -15,6 +15,7 @@ import com.example.perfectoutfit.feature.catalog.CatalogRepository
 import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.forecast.PlacedHours
 import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
+import com.example.perfectoutfit.feature.outfit.LogMode
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import com.example.perfectoutfit.feature.outfit.recentPlaces
 import com.example.perfectoutfit.feature.recommendation.Recommendations
@@ -44,8 +45,13 @@ data class LogOutfitUiState(
     val activityType: ActivityType = ActivityType.CYCLING,
     /** Items the recommendation expects at the picked hour (a hint for the items step). */
     val likelyItemIds: Set<Long> = emptySet(),
-    val isSaved: Boolean = false
-)
+    val saveState: SaveState = SaveState.IDLE
+) {
+    val isSaved: Boolean get() = saveState == SaveState.SAVED
+}
+
+/** Where logging the wizard's outfit stands; Next is ignored while saving and once saved. */
+enum class SaveState { IDLE, SAVING, SAVED, FAILED }
 
 /**
  * Logging a new outfit, live (handed off from Home) or after the fact, through [LogWizardState].
@@ -172,7 +178,9 @@ class LogOutfitViewModel @Inject constructor(
 
     /** Next: moves on, or on the last step logs the outfit. */
     fun next() {
-        val wizard = _uiState.value.wizard ?: return
+        val state = _uiState.value
+        if (state.saveState == SaveState.SAVING || state.saveState == SaveState.SAVED) return
+        val wizard = state.wizard ?: return
         when (val move = wizard.next()) {
             is WizardMove.To -> updateWizard { move.state }
             is WizardMove.Save -> save(move.request)
@@ -190,20 +198,34 @@ class LogOutfitViewModel @Inject constructor(
         }
     }
 
+    /** Called once the screen has shown a [SaveState.FAILED] save; Next can try again. */
+    fun onSaveFailureShown() {
+        _uiState.update { if (it.saveState == SaveState.FAILED) it.copy(saveState = SaveState.IDLE) else it }
+    }
+
     private fun save(request: LogRequest) {
         val activityType = _uiState.value.activityType
+        _uiState.update { it.copy(saveState = SaveState.SAVING) }
         viewModelScope.launch {
-            outfitLogging.log(
-                hour = request.hour,
-                location = request.place,
-                activityType = activityType,
-                clothingItemIds = request.itemIds,
-                rating = request.rating,
-                notes = request.notes,
-                workoutDurationHours = request.durationHours,
-                mode = request.mode
-            )
-            _uiState.update { it.copy(isSaved = true) }
+            val saved = try {
+                outfitLogging.log(
+                    hour = request.hour,
+                    location = request.place,
+                    activityType = activityType,
+                    clothingItemIds = request.itemIds,
+                    rating = request.rating,
+                    notes = request.notes,
+                    workoutDurationHours = request.durationHours,
+                    mode = request.mode
+                )
+                true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false
+            }
+            if (saved && request.mode == LogMode.LIVE) liveOutfitHandoffStore.reportSaved()
+            _uiState.update { it.copy(saveState = if (saved) SaveState.SAVED else SaveState.FAILED) }
         }
     }
 }

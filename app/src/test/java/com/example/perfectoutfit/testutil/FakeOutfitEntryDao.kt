@@ -26,7 +26,14 @@ class FakeOutfitEntryDao : OutfitEntryDao {
         )
     }
 
+    /** When set, the next [insert] throws (a failed save), then inserts work again. */
+    var failNextInsert = false
+
     override suspend fun insert(entry: OutfitEntry): Long {
+        if (failNextInsert) {
+            failNextInsert = false
+            throw IllegalStateException("disk full")
+        }
         val id = if (entry.id != 0L) entry.id else nextId++
         entries[id] = entry.copy(id = id)
         return id
