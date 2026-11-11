@@ -21,15 +21,18 @@ enum class RainClass(
     fun distanceTo(other: RainClass): Int = abs(ordinal - other.ordinal)
 
     companion object {
-        /** Precipitation probability (%) from which rain counts as likely. */
-        const val LIKELY_PERCENT = 50
-
-        /** Dry < 0.1 mm, light < 0.5 mm, moderate up to 4 mm, heavy above 4 mm (per hour). */
-        fun ofAmount(mm: Double): RainClass = when {
-            mm < 0.1 -> DRY
-            mm < 0.5 -> LIGHT
-            mm <= 4.0 -> MODERATE
-            else -> HEAVY
+        /**
+         * Dry < 0.1 mm, light < 0.5 mm, moderate up to 4 mm, heavy above 4 mm (per hour), judged
+         * on the amount as displayed ([roundedMm]), so "0.1 mm" is never dry.
+         */
+        fun ofAmount(mm: Double): RainClass {
+            val shown = roundedMm(mm)
+            return when {
+                shown < 0.1 -> DRY
+                shown < 0.5 -> LIGHT
+                shown <= 4.0 -> MODERATE
+                else -> HEAVY
+            }
         }
     }
 }
@@ -37,17 +40,16 @@ enum class RainClass(
 /**
  * The class of an hour as worn (a logged snapshot, or the hour being logged): its amount; only
  * when no amount is known (snapshots from before amounts were stored) a likely probability
- * counts as [RainClass.LIGHT].
+ * ([isRainLikely]) counts as [RainClass.LIGHT].
  */
 fun WeatherReading.loggedRainClass(): RainClass = precipitationMm?.let(RainClass::ofAmount)
-    ?: if (precipitationProbabilityPercent >= RainClass.LIKELY_PERCENT) RainClass.LIGHT else RainClass.DRY
+    ?: if (isRainLikely) RainClass.LIGHT else RainClass.DRY
 
 /**
  * The class of an hour being dressed for: its forecast amount, raised to at least
- * [RainClass.LIGHT] by a likely probability. Probability never raises it further.
+ * [RainClass.LIGHT] by a likely probability ([isRainLikely]). Probability never raises it further.
  */
 fun WeatherReading.expectedRainClass(): RainClass {
     val byAmount = precipitationMm?.let(RainClass::ofAmount) ?: RainClass.DRY
-    val likely = precipitationProbabilityPercent >= RainClass.LIKELY_PERCENT
-    return if (likely && byAmount == RainClass.DRY) RainClass.LIGHT else byAmount
+    return if (isRainLikely && byAmount == RainClass.DRY) RainClass.LIGHT else byAmount
 }

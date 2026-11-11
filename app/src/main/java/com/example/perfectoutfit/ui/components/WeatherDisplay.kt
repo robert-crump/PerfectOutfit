@@ -34,7 +34,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.perfectoutfit.R
+import com.example.perfectoutfit.core.model.RainClass
 import com.example.perfectoutfit.core.model.WeatherReading
+import com.example.perfectoutfit.core.model.formatPercent
+import com.example.perfectoutfit.core.model.formatWindKmh
+import com.example.perfectoutfit.core.model.rainAmountLine
 import com.example.perfectoutfit.feature.home.WeatherThresholds
 import kotlin.math.roundToInt
 
@@ -49,6 +53,7 @@ data class WeatherHint(val icon: ImageVector, val text: String)
 /**
  * One hour's weather: its reference temperature, basis, place and time, then UV, wind and rain,
  * then any [hints]. Shared by Home's recommendation and the history entry's Rate screen.
+ * With [rainAmountClass] the Rain metric adds the amount and that class ("1.3 mm · light rain").
  */
 @Composable
 fun WeatherCard(
@@ -57,7 +62,8 @@ fun WeatherCard(
     useApparentTemperature: Boolean,
     locationName: String,
     timeLabel: String?,
-    hints: List<WeatherHint> = emptyList()
+    hints: List<WeatherHint> = emptyList(),
+    rainAmountClass: RainClass? = null
 ) {
     Card(modifier = Modifier.fillMaxWidth(), colors = neutralCardColors()) {
         Column(
@@ -73,7 +79,11 @@ fun WeatherCard(
                 PlaceLine(locationName = locationName, timeLabel = timeLabel)
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            WeatherMetricsRow(weather = weather, uvHigh = WeatherThresholds.isUvHigh(weather.uvIndex))
+            WeatherMetricsRow(
+                weather = weather,
+                uvHigh = WeatherThresholds.isUvHigh(weather.uvIndex),
+                rainAmountClass = rainAmountClass
+            )
             if (hints.isNotEmpty()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -160,15 +170,22 @@ fun BasisLine(weather: WeatherReading, useApparentTemperature: Boolean) {
     )
 }
 
-/** UV, wind and rain side by side; the UV icon is highlighted when [uvHigh]. */
+/**
+ * UV, wind and rain side by side; the UV icon is highlighted when [uvHigh]. With
+ * [rainAmountClass], the rain column adds a small line with the amount and that class.
+ */
 @Composable
-fun WeatherMetricsRow(weather: WeatherReading, uvHigh: Boolean, modifier: Modifier = Modifier) {
+fun WeatherMetricsRow(
+    weather: WeatherReading,
+    uvHigh: Boolean,
+    modifier: Modifier = Modifier,
+    rainAmountClass: RainClass? = null
+) {
     Row(modifier = modifier.fillMaxWidth()) {
         WeatherMetric(
             icon = Icons.Default.WbSunny,
             label = "UV",
             value = "${weather.uvIndex}",
-            unit = "",
             iconTint = if (uvHigh) MaterialTheme.colorScheme.tertiary
             else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
@@ -176,28 +193,27 @@ fun WeatherMetricsRow(weather: WeatherReading, uvHigh: Boolean, modifier: Modifi
         WeatherMetric(
             icon = Icons.Default.Air,
             label = "Wind",
-            value = "${weather.windSpeedKmh.toInt()}",
-            unit = " km/h",
+            value = formatWindKmh(weather.windSpeedKmh),
             modifier = Modifier.weight(1f)
         )
         WeatherMetric(
             icon = Icons.Default.WaterDrop,
             label = "Rain",
-            value = "${weather.precipitationProbabilityPercent}",
-            unit = " %",
+            value = formatPercent(weather.precipitationProbabilityPercent),
+            detail = rainAmountClass?.let { rainAmountLine(weather.precipitationMm, it) },
             modifier = Modifier.weight(1f)
         )
     }
 }
 
-/** One centred column: icon and label above, the value and its unit below. */
+/** One centred column: icon and label above, the value below, then an optional small [detail]. */
 @Composable
 private fun WeatherMetric(
     icon: ImageVector,
     label: String,
     value: String,
-    unit: String,
     modifier: Modifier = Modifier,
+    detail: String? = null,
     iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
     Column(
@@ -214,10 +230,18 @@ private fun WeatherMetric(
             )
         }
         Text(
-            text = value + unit,
+            text = value,
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
             maxLines = 1
         )
+        if (detail != null) {
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }

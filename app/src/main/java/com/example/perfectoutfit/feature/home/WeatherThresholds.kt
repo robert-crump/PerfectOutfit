@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.feature.home
 
+import com.example.perfectoutfit.core.model.isRainLikely
 import java.time.LocalDateTime
 
 /**
@@ -15,19 +16,17 @@ data class RainAhead(val from: LocalDateTime, val startsNow: Boolean, val peakPe
  * already saw on the Home screen (issue #1); see CONTEXT.md.
  */
 object WeatherThresholds {
-    const val RAIN_LIKELY_PERCENT = 50
-
     fun isUvHigh(uvIndex: Int): Boolean = uvIndex >= 5
 
     /**
      * The first hour, from the first of [hours] (the current hour) to the end of its day, whose
-     * precipitation probability is at least [RAIN_LIKELY_PERCENT], with the day's remaining
+     * rain is likely ([isRainLikely]: at least 50% as displayed), with the day's remaining
      * peak; null if none.
      */
     fun rainAhead(hours: List<HourlyWeather>): RainAhead? {
         val now = hours.firstOrNull() ?: return null
         val restOfDay = hours.takeWhile { it.time.toLocalDate() == now.time.toLocalDate() }
-        val first = restOfDay.firstOrNull { it.precipitationProbabilityPercent >= RAIN_LIKELY_PERCENT }
+        val first = restOfDay.firstOrNull { it.isRainLikely }
             ?: return null
         return RainAhead(
             from = first.time,

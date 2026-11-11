@@ -76,6 +76,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.Place
+import com.example.perfectoutfit.core.model.formatPercent
+import com.example.perfectoutfit.core.model.formatWindKmh
+import com.example.perfectoutfit.core.model.loggedRainClass
+import com.example.perfectoutfit.core.model.rainAmountLine
 import com.example.perfectoutfit.core.model.headToToeGroups
 import com.example.perfectoutfit.core.model.inHeadToToeOrder
 import com.example.perfectoutfit.core.model.roundedTemp
@@ -294,10 +298,14 @@ private fun HourWeather(wizard: LogWizardState, hour: HourlyWeather) {
         )
         WeatherInfoRow(stringResource(R.string.temperature_real), "${roundedTemp(hour.temperatureCelsius)}°C")
         WeatherInfoRow(stringResource(R.string.temperature_apparent), "${roundedTemp(hour.apparentTemperatureCelsius)}°C")
-        WeatherInfoRow("Wind", "${hour.windSpeedKmh.toInt()} km/h ${hour.windDirectionLabel}")
+        WeatherInfoRow("Wind", "${formatWindKmh(hour.windSpeedKmh)} ${hour.windDirectionLabel}")
         WeatherInfoRow("UV index", "${hour.uvIndex}")
-        WeatherInfoRow("Cloud cover", "${hour.cloudCoverPercent}%")
-        WeatherInfoRow("Rain probability", "${hour.precipitationProbabilityPercent}%")
+        WeatherInfoRow("Cloud cover", formatPercent(hour.cloudCoverPercent))
+        WeatherInfoRow("Rain probability", formatPercent(hour.precipitationProbabilityPercent))
+        WeatherInfoRow(
+            "Precipitation",
+            hour.precipitationMm?.let { rainAmountLine(it, hour.loggedRainClass()) } ?: "—"
+        )
     }
 }
 
@@ -532,9 +540,10 @@ private fun SummaryStep(
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        text = "Wind ${hour.windSpeedKmh.toInt()} km/h · " +
+                        text = "Wind ${formatWindKmh(hour.windSpeedKmh)} · " +
                             "UV ${hour.uvIndex} · " +
-                            "Rain ${hour.precipitationProbabilityPercent}%",
+                            "Rain ${formatPercent(hour.precipitationProbabilityPercent)} · " +
+                            rainAmountLine(hour.precipitationMm, hour.loggedRainClass()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

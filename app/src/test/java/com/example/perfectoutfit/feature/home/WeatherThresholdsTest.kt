@@ -38,8 +38,13 @@ class WeatherThresholdsTest {
     }
 
     @Test
-    fun `no rain ahead when every hour today stays below 50 percent`() {
-        assertNull(WeatherThresholds.rainAhead(hours(0, 20, 49, 10)))
+    fun `no rain ahead when every hour today shows below 50 percent`() {
+        assertNull(WeatherThresholds.rainAhead(hours(0, 20, 44, 10)))
+    }
+
+    @Test
+    fun `45 percent is shown as 50 and counts as rain ahead`() {
+        assertEquals(start.plusHours(1), WeatherThresholds.rainAhead(hours(0, 45, 10))?.from)
     }
 
     @Test

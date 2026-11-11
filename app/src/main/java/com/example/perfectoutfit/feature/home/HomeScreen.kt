@@ -73,6 +73,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.perfectoutfit.R
 import com.example.perfectoutfit.core.model.ActivityType
+import com.example.perfectoutfit.core.model.expectedRainClass
+import com.example.perfectoutfit.core.model.formatPercent
 import com.example.perfectoutfit.ui.components.BasisLine
 import com.example.perfectoutfit.ui.components.OutfitCard
 import com.example.perfectoutfit.ui.components.PlaceLine
@@ -503,7 +505,8 @@ private fun ResultStep(
                             WeatherHint(Icons.Default.Warning, "High UV — sunglasses, UV sleeves or sun lotion")
                                 .takeIf { WeatherThresholds.isUvHigh(currentWeather.uvIndex) },
                             rainAhead?.let { WeatherHint(Icons.Default.Umbrella, rainHint(it)) }
-                        )
+                        ),
+                        rainAmountClass = currentWeather.expectedRainClass()
                     )
                 }
 
@@ -579,7 +582,7 @@ private fun WorkoutHourSelector(
 /** The rain-ahead hint names its own time, since the Rain value above is the dressed-for hour's. */
 private fun rainHint(rain: RainAhead): String {
     val start = if (rain.startsNow) "now" else "from ${rain.from.format(HOUR_FORMAT)}"
-    return "Rain likely $start, up to ${rain.peakPercent} % — pack a rain jacket or umbrella"
+    return "Rain likely $start, up to ${formatPercent(rain.peakPercent)} — pack a rain jacket or umbrella"
 }
 
 @Composable

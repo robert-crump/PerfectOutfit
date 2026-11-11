@@ -56,7 +56,8 @@ values plainly.
 
 ### Rain ahead
 When Home's weather card shows its rain hint: `WeatherThresholds.rainAhead`, the first
-hour from now to the end of today whose precipitation probability is `>= 50 %`, with the
+hour from now to the end of today where rain is likely (`isRainLikely`: probability `>= 50%`
+as displayed, so a raw 45% counts; see [weather formatting](#weather-formatting)), with the
 day's remaining peak. It is judged from the current hour, not the hour being dressed for
 (a long workout's coldest/warmest hour), because it answers what to pack, not what to wear;
 rain after midnight doesn't count. When the current hour itself is likely, the hint says
@@ -66,22 +67,42 @@ value above it is the dressed-for hour's probability, not today's.
 ### Rain class
 How wet an hour is (`RainClass`, `core/model/RainClass.kt`, issue #51), from its precipitation
 amount in mm (Open-Meteo's hourly `precipitation`, stored as `precipitationMm` on forecast hours
-and snapshots): **dry** < 0.1, **light** 0.1 to < 0.5, **moderate** 0.5 to 4, **heavy** > 4.
+and snapshots), judged on the amount as displayed (rounded to 0.1 mm): **dry** < 0.1, **light**
+0.1 to < 0.5, **moderate** 0.5 to 4, **heavy** > 4.
 Classes are ordered; their distance is the number of steps between them (dry ↔ heavy is 3).
 
 - **As worn** (`loggedRainClass`: a logged snapshot, or the hour being logged): its amount.
-  Snapshots stored before amounts existed (null) count as light when their probability was
-  ≥ 50 %, else dry.
+  Snapshots stored before amounts existed (null) count as light when rain was likely
+  (`isRainLikely`), else dry.
 - **As expected** (`expectedRainClass`: an hour being dressed for): its amount, raised to at
-  least light by a probability ≥ 50 %. Probability never raises it further.
+  least light when rain is likely. Probability never raises it further.
 
 A log's rain class is its snapshot's, i.e. its first hour's, even for a long workout.
+
+### Weather formatting
+How weather values are rounded and written (issue #53), in one place:
+`core/model/WeatherFormat.kt`, beside `roundedTemp`. Stored and fetched values stay raw;
+screens round at the edge through these helpers. Where a rule judges a rounded quantity, it
+judges the displayed value, so a screen never shows one thing while the app acts on another.
+
+- **Percentages** (rain probability, cloud cover): nearest ten, half up, no space: "40%".
+  Rain is likely (`isRainLikely`) when the displayed probability is at least 50%.
+- **Precipitation amount**: one decimal and always a ".", whatever the phone's language:
+  "0.0 mm", "1.3 mm"; "— mm" when unknown. [Rain class](#rain-class) is judged on this
+  rounded value. `rainAmountLine` adds a class ("1.3 mm · light rain"); the caller picks it:
+  expected on Home, logged in the log wizard.
+- **Wind**: nearest whole km/h: "12 km/h".
+
+The amount is shown on Home's [weather card](#weather-card) (under the Rain metric) and in the
+log wizard (its hour details and summary). The history entry's Rate screen shares the card but
+shows no amount.
 
 ### Weather card
 Home's view of an hour. On the result step it is the hour being dressed for (the first hour,
 or a long workout's coldest/warmest): its [reference temperature](#reference-temperature),
 then "Feels like (Actual 7°C)" — the basis, with the other value in brackets — then the place
-and "Now" (the current clock hour) or the hour's time; below, UV, wind and rain; below those,
+and "Now" (the current clock hour) or the hour's time; below, UV, wind and rain (with a small
+line under rain: the amount and the hour's expected rain class, "1.3 mm · light rain"); below those,
 one hint line per active warning ([UV](#uv-warning-threshold), [rain ahead](#rain-ahead)), with
 no section when neither applies. The activity grid shows a compact card of the same top lines,
 always for the current hour. Which hour that is — the dressed-for hour — is owned by the Home
