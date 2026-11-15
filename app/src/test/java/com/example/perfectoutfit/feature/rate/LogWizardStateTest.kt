@@ -6,7 +6,7 @@ import com.example.perfectoutfit.core.model.Place
 import com.example.perfectoutfit.feature.forecast.PlacedHours
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.LiveOutfitPayload
-import com.example.perfectoutfit.feature.outfit.LogMode
+import com.example.perfectoutfit.core.model.LogMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

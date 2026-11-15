@@ -147,7 +147,8 @@ future format changes; it defaults to `CURRENT_EXPORT_VERSION`, so files written
 the field existed still decode. Version 2 renamed `sport` to `activityType` and added the
 item ↔ activity-type rows; a v1 file (or one without a version) is rewritten on import, each
 item's single `sport` becoming one row. Version 3 added snapshots' `precipitationMm`; older
-files decode it as null. Files newer than the app are rejected. The
+files decode it as null. Version 4 added entries' `loggedAt`, `logMode` and
+`plannedDurationHours`; older files decode them as null. Files newer than the app are rejected. The
 replacement runs through `OutfitLogging.replaceAllData` (see [Outfit logging](#outfit-logging)),
 so import and Drive restore alike cancel the replaced entries' reminders and redraw the widget.
 Import decodes and validates the whole file before any
@@ -263,6 +264,15 @@ and the matching priority perfect > too hot > too cold (used by the
 The persisted record of one outfit worn for one workout (`OutfitEntry`): its
 [activity type](#activity-type), its clothing items, a `WeatherSnapshot` of the workout hour, an optional comfort rating
 (`ratedAt` set when rated) and notes.
+
+**Timing fields (issue #55), stored only:** `loggedAt` is the wall clock at save, `logMode` the
+`LogMode` it was logged with (LIVE/PAST, `core/model/LogMode.kt`), and `plannedDurationHours`
+the duration chosen for a live log (null for past logs, whose 1 h is a default nobody picked,
+until #54 adds a picker). For a live log `loggedAt` is about when the activity started, so
+`ratedAt − loggedAt` hints at how long it really lasted; a past log's `loggedAt` is just when it
+was backfilled. All three are null on entries saved before Room version 7. Nothing reads them yet.
+**`ratedAt` rule:** stamped when the rating is first set or changes value; re-saving the same
+rating (e.g. editing only items or notes on the rate screen) keeps it.
 
 **`createdAt` rule:** `createdAt` is the epoch millis of the workout hour (not the wall
 clock at save time), for live and past logs alike. History sorts by it, so a past-dated log

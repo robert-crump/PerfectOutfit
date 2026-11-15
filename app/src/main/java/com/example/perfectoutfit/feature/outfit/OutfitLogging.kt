@@ -9,6 +9,7 @@ import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
 import com.example.perfectoutfit.core.model.ComfortRating
+import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.OutfitItem
@@ -20,9 +21,6 @@ import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
-
-/** Whether an outfit is logged as it happens (live) or after the fact (past). */
-enum class LogMode { LIVE, PAST }
 
 /** Outcome of [OutfitLogging.rate]: the entry may have been deleted since the reminder was shown. */
 enum class RateResult { SAVED, ENTRY_MISSING }
@@ -67,7 +65,11 @@ class OutfitLogging @Inject constructor(
                     comfortRating = rating?.value,
                     createdAt = workoutMs,
                     ratedAt = rating?.let { clock.millis() },
-                    notes = notes
+                    notes = notes,
+                    loggedAt = clock.millis(),
+                    logMode = mode,
+                    // A past log's duration is a default nobody picked (until #54 adds a picker).
+                    plannedDurationHours = workoutDurationHours.takeIf { mode == LogMode.LIVE }
                 )
             )
             insertItems(id, clothingItemIds)
@@ -81,7 +83,7 @@ class OutfitLogging @Inject constructor(
     }
 
     /**
-     * Sets the rating and stamps `ratedAt`; the pending reminder (if any) is cancelled. Returns
+     * Sets the rating and stamps `ratedAt` (only if the rating changed); the pending reminder (if any) is cancelled. Returns
      * [RateResult.ENTRY_MISSING] (and writes nothing) if the entry no longer exists.
      */
     suspend fun rate(entryId: Long, rating: ComfortRating): RateResult {
@@ -133,10 +135,14 @@ class OutfitLogging @Inject constructor(
     fun entriesByActivityType(activityType: ActivityType): Flow<List<OutfitEntryWithDetails>> =
         outfitEntryDao.getAllWithDetailsByActivityType(activityType)
 
-    /** Returns false if the entry no longer exists; the reminder is cancelled either way. */
+    /**
+     * Returns false if the entry no longer exists; the reminder is cancelled either way. Re-saving
+     * the same rating writes nothing, so `ratedAt` keeps the moment the user first judged it so.
+     */
     private suspend fun applyRating(entryId: Long, rating: ComfortRating): Boolean {
         ratingReminder.cancel(entryId)
         val entry = outfitEntryDao.getById(entryId) ?: return false
+        if (entry.comfortRating == rating.value) return true
         outfitEntryDao.update(entry.copy(comfortRating = rating.value, ratedAt = clock.millis()))
         return true
     }

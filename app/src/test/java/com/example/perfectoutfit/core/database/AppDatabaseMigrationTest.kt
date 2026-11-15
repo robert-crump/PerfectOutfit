@@ -8,6 +8,7 @@ import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.ClothingItemActivityType
+import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
 import kotlinx.coroutines.flow.first
@@ -71,7 +72,8 @@ class AppDatabaseMigrationTest {
         Room.databaseBuilder(context, AppDatabase::class.java, dbName)
             .addMigrations(
                 AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3,
-                AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6
+                AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6,
+                AppDatabase.MIGRATION_6_7
             )
             .allowMainThreadQueries()
             .build()
@@ -127,6 +129,20 @@ class AppDatabaseMigrationTest {
         val stored = db.weatherSnapshotDao().getAll().first().copy(id = 0, precipitationMm = 1.5)
         val id = db.weatherSnapshotDao().insert(stored)
         assertEquals(1.5, db.weatherSnapshotDao().getAll().single { it.id == id }.precipitationMm)
+    }
+
+    @Test
+    fun `migration 6 to 7 leaves existing entries without logged-at, mode and duration and stores new ones`() = runBlocking {
+        createVersion4()
+        val db = openMigrated()
+
+        val entries = db.outfitEntryDao().getAll()
+        assertEquals(listOf(null, null), entries.map { it.loggedAt })
+        assertEquals(listOf(null, null), entries.map { it.logMode })
+        assertEquals(listOf(null, null), entries.map { it.plannedDurationHours })
+        val stored = entries.first().copy(id = 0, loggedAt = 4000, logMode = LogMode.LIVE, plannedDurationHours = 3)
+        val id = db.outfitEntryDao().insert(stored)
+        assertEquals(stored.copy(id = id), db.outfitEntryDao().getById(id))
     }
 
     @Test

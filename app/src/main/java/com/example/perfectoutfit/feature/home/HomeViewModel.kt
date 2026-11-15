@@ -14,7 +14,7 @@ import com.example.perfectoutfit.core.model.RainClass
 import com.example.perfectoutfit.core.model.referenceTemp
 import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.recommendation.Recommendations
-import com.example.perfectoutfit.feature.outfit.LogMode
+import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import com.example.perfectoutfit.feature.widget.WidgetForecastStore
 import com.example.perfectoutfit.feature.widget.WidgetUpdater

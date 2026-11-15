@@ -84,7 +84,7 @@ import com.example.perfectoutfit.core.model.headToToeGroups
 import com.example.perfectoutfit.core.model.inHeadToToeOrder
 import com.example.perfectoutfit.core.model.roundedTemp
 import com.example.perfectoutfit.feature.home.HourlyWeather
-import com.example.perfectoutfit.feature.outfit.LogMode
+import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.ui.components.ComfortRatingBar
 import com.example.perfectoutfit.ui.components.entryDateLabel
 import com.example.perfectoutfit.ui.components.neutralCardColors

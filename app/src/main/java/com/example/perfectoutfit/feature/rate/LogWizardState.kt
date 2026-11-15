@@ -6,7 +6,7 @@ import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.forecast.PlacedHours
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.LiveOutfitPayload
-import com.example.perfectoutfit.feature.outfit.LogMode
+import com.example.perfectoutfit.core.model.LogMode
 import java.time.LocalDate
 import java.time.LocalDateTime
 

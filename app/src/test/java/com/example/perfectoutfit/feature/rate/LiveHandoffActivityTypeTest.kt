@@ -4,7 +4,7 @@ import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.home.LiveOutfitHandoffStore
 import com.example.perfectoutfit.feature.home.LiveOutfitPayload
-import com.example.perfectoutfit.feature.outfit.LogMode
+import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.testutil.FakeOpenMeteoApi
 import com.example.perfectoutfit.testutil.FakeOutfitEntryDao
 import com.example.perfectoutfit.testutil.MutableClock

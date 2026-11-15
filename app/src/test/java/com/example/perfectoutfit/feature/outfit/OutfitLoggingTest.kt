@@ -3,6 +3,7 @@ package com.example.perfectoutfit.feature.outfit
 import com.example.perfectoutfit.core.model.Place
 
 import com.example.perfectoutfit.core.model.ComfortRating
+import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.notification.FakeRatingReminder
 import com.example.perfectoutfit.feature.home.HourlyWeather
@@ -63,6 +64,64 @@ class OutfitLoggingTest {
         val entry = entryDao.getById(id)!!
         assertEquals(hour.time.atZone(zone).toInstant().toEpochMilli(), entry.createdAt)
         assertEquals(fixed.millis(), entry.ratedAt)
+    }
+
+    @Test
+    fun `live log stores when it was saved, its mode and its planned duration`() = runTest {
+        val fixed = Clock.fixed(Instant.parse("2026-09-01T12:40:00Z"), ZoneId.of("UTC"))
+        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
+
+        val id = clocked.log(
+            hour = hour, location = location, activityType = ActivityType.WALKING, clothingItemIds = listOf(1L),
+            workoutDurationHours = 3, mode = LogMode.LIVE
+        )
+
+        val entry = entryDao.getById(id)!!
+        assertEquals(fixed.millis(), entry.loggedAt)
+        assertEquals(LogMode.LIVE, entry.logMode)
+        assertEquals(3, entry.plannedDurationHours)
+    }
+
+    @Test
+    fun `past log stores when it was saved and its mode but no planned duration`() = runTest {
+        val fixed = Clock.fixed(Instant.parse("2026-09-03T08:00:00Z"), ZoneId.of("UTC"))
+        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
+
+        val id = clocked.log(
+            hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L),
+            workoutDurationHours = 1, mode = LogMode.PAST
+        )
+
+        val entry = entryDao.getById(id)!!
+        assertEquals(fixed.millis(), entry.loggedAt)
+        assertEquals(LogMode.PAST, entry.logMode)
+        assertNull(entry.plannedDurationHours)
+    }
+
+    @Test
+    fun `re-saving the same rating keeps ratedAt, a different rating moves it`() = runTest {
+        var now = Instant.parse("2026-09-01T12:30:00Z")
+        val ticking = object : Clock() {
+            override fun getZone(): ZoneId = ZoneId.of("UTC")
+            override fun withZone(zone: ZoneId?): Clock = this
+            override fun instant(): Instant = now
+        }
+        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget, ticking)
+        val id = clocked.log(
+            hour = hour, location = location, activityType = ActivityType.WALKING, clothingItemIds = listOf(1L),
+            mode = LogMode.LIVE
+        )
+        clocked.rate(id, ComfortRating.PERFECT)
+        val firstRatedAt = now.toEpochMilli()
+
+        now = Instant.parse("2026-09-02T09:00:00Z")
+        clocked.update(id, clothingItemIds = listOf(2L), notes = "typo fixed", rating = ComfortRating.PERFECT)
+        clocked.rate(id, ComfortRating.PERFECT)
+        assertEquals(firstRatedAt, entryDao.getById(id)!!.ratedAt)
+
+        clocked.update(id, clothingItemIds = listOf(2L), notes = "typo fixed", rating = ComfortRating.TOO_COLD)
+        assertEquals(now.toEpochMilli(), entryDao.getById(id)!!.ratedAt)
+        assertEquals(-1, entryDao.getById(id)!!.comfortRating)
     }
 
     @Test

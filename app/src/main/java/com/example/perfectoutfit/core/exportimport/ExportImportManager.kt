@@ -31,8 +31,9 @@ import javax.inject.Singleton
  * v2: `sport` became `activityType`, and items carry a set of activity types
  * ([ExportData.clothingItemActivityTypes]) instead of one `sport` each.
  * v3: snapshots carry `precipitationMm`; older files decode it as null.
+ * v4: entries carry `loggedAt`, `logMode` and `plannedDurationHours`; older files decode them as null.
  */
-const val CURRENT_EXPORT_VERSION = 3
+const val CURRENT_EXPORT_VERSION = 4
 
 /**
  * The full export/import envelope. Each entity is serialized directly (no field-by-field

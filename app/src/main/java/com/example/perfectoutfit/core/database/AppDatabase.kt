@@ -25,7 +25,7 @@ import com.example.perfectoutfit.core.model.WeatherSnapshot
         OutfitEntry::class,
         OutfitItem::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -119,6 +119,18 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE weather_snapshots ADD COLUMN precipitationMm REAL")
+            }
+        }
+
+        /**
+         * Adds when an entry was saved, how (live/past) and its planned duration (issue #55);
+         * existing entries keep null for all three.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE outfit_entries ADD COLUMN loggedAt INTEGER")
+                database.execSQL("ALTER TABLE outfit_entries ADD COLUMN logMode TEXT")
+                database.execSQL("ALTER TABLE outfit_entries ADD COLUMN plannedDurationHours INTEGER")
             }
         }
 

@@ -4,6 +4,7 @@ import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.ClothingItemActivityType
+import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
 import com.example.perfectoutfit.core.model.WeatherSnapshot
@@ -60,7 +61,10 @@ class ExportImportManagerTest {
         id = 1, weatherSnapshotId = 1, activityType = ActivityType.CYCLING, comfortRating = 0,
         createdAt = 2_000L, ratedAt = 2_500L, notes = "Good ride"
     )
-    private val walkingEntry = OutfitEntry(id = 2, weatherSnapshotId = 1, activityType = ActivityType.WALKING, createdAt = 3_000L)
+    private val walkingEntry = OutfitEntry(
+        id = 2, weatherSnapshotId = 1, activityType = ActivityType.WALKING, createdAt = 3_000L,
+        loggedAt = 3_100L, logMode = LogMode.LIVE, plannedDurationHours = 1
+    )
     private val outfitItem = OutfitItem(outfitEntryId = 1, clothingItemId = 1)
 
     private suspend fun seededSource(entries: List<OutfitEntry> = listOf(entry)): ExportImportManager {
@@ -93,6 +97,23 @@ class ExportImportManagerTest {
         assertEquals(listOf(snapshot), targetWeatherSnapshotDao.getAll())
         assertEquals(listOf(entry, walkingEntry), targetOutfitEntryDao.getAll())
         assertEquals(listOf(outfitItem), targetOutfitItemDao.getAll())
+    }
+
+    @Test
+    fun `version 3 entry imports without logged-at, mode and planned duration`() = runTest {
+        val outfitEntryDao = FakeOutfitEntryDao()
+        val manager = managerFor(FakeClothingItemDao(), FakeWeatherSnapshotDao(), outfitEntryDao, FakeOutfitItemDao())
+
+        manager.importFromJson(
+            """{"version": 3, "outfitEntries": [{"id": 1, "weatherSnapshotId": 1, "activityType": "CYCLING",
+               "comfortRating": 0, "createdAt": 2000, "ratedAt": 2500, "notes": "Good ride"}]}"""
+        )
+
+        val imported = outfitEntryDao.getAll().single()
+        assertEquals(entry, imported)
+        assertEquals(null, imported.loggedAt)
+        assertEquals(null, imported.logMode)
+        assertEquals(null, imported.plannedDurationHours)
     }
 
     @Test
