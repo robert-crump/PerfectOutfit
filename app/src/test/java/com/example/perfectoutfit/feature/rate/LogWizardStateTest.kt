@@ -35,10 +35,13 @@ class LogWizardStateTest {
     private fun live(handoff: LiveOutfitPayload? = payload()) =
         LogWizardState.live(now, handoff, placed(handoff?.selectedHourTime?.toLocalDate() ?: today), "Aachen")
 
-    private fun payload(at: LocalDateTime? = today.atTime(9, 0)) = LiveOutfitPayload(
+    private fun payload(
+        at: LocalDateTime? = today.atTime(9, 0),
+        window: List<HourlyWeather> = listOfNotNull(at?.let(::hour), at?.plusHours(1)?.let(::hour))
+    ) = LiveOutfitPayload(
         selectedHourTime = at,
         activityType = ActivityType.RUNNING,
-        workoutDurationHours = 2,
+        windowHours = window,
         prefillItemIds = listOf(1L, 2L)
     )
 
@@ -222,8 +225,67 @@ class LogWizardStateTest {
         assertEquals(today.atTime(9, 0), request.hour.time)
         assertEquals(aachen, request.place)
         assertNull(request.rating)
-        assertEquals(2, request.durationHours)
+        assertEquals(listOf(today.atTime(9, 0), today.atTime(10, 0)), request.windowHours.map { it.time })
         assertEquals(LogMode.LIVE, request.mode)
+    }
+
+    @Test
+    fun `a live log saves Home's window in full, even across midnight`() {
+        val window = listOf(yesterday.atTime(22, 0), yesterday.atTime(23, 0), today.atTime(0, 0)).map(::hour)
+        // Dressed for the coldest hour, the middle one.
+        val handoff = payload(at = yesterday.atTime(23, 0), window = window)
+
+        val request = (live(handoff).next() as WizardMove.Save).request
+
+        assertEquals(window, request.windowHours)
+        assertEquals(yesterday.atTime(23, 0), request.hour.time)
+        assertTrue(request.hour in request.windowHours)
+    }
+
+    @Test
+    fun `a live log whose window lacks its hour logs that hour alone`() {
+        val request = (live(payload(window = emptyList())).next() as WizardMove.Save).request
+        assertEquals(listOf(request.hour), request.windowHours)
+    }
+
+    // ─── Past duration ───────────────────────────────────────────────────────
+
+    @Test
+    fun `a past log defaults to one hour and saves the picked hour and the ones after it`() {
+        val picked = past().pickClockHour(7)
+        assertEquals(1, picked.durationHours)
+        assertEquals(listOf(today.atTime(7, 0)), picked.windowHours.map { it.time })
+
+        val rating = picked.pickDuration(3).toggleItem(1).forward().forward().forward()
+        val request = (rating.next() as WizardMove.Save).request
+
+        assertEquals(today.atTime(7, 0), request.hour.time)
+        assertEquals((7..9).map { today.atTime(it, 0) }, request.windowHours.map { it.time })
+    }
+
+    @Test
+    fun `a past duration stays between one hour and the end of the picked day`() {
+        val s = past().pickClockHour(21)
+        assertEquals(3, s.maxDurationHours)
+        assertEquals(3, s.pickDuration(5).durationHours)
+        assertEquals(1, s.pickDuration(0).durationHours)
+        assertEquals(23, past().pickClockHour(0).maxDurationHours)
+    }
+
+    @Test
+    fun `picking a later hour clamps the duration to the end of the day`() {
+        val s = past().pickClockHour(8).pickDuration(6).pickClockHour(22)
+        assertEquals(2, s.durationHours)
+        assertEquals(listOf(today.atTime(22, 0), today.atTime(23, 0)), s.windowHours.map { it.time })
+    }
+
+    @Test
+    fun `a newly picked place keeps the duration within its day`() {
+        val s = past().pickClockHour(20).pickDuration(4)
+            .pickPlace(cologne)
+            .hoursLoaded(today, cologne, placed(today, cologne))
+        assertEquals(today.atTime(20, 0), s.selectedHour?.time)
+        assertEquals(4, s.durationHours)
     }
 
     @Test

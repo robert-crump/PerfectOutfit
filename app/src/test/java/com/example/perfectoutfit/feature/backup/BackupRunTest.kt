@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.feature.backup
 
+import com.example.perfectoutfit.testutil.FakeWorkoutHourDao
 import com.example.perfectoutfit.core.exportimport.ExportImportManager
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.outfitLoggingOver
@@ -28,7 +29,7 @@ class BackupRunTest {
     private val service = DriveBackupService(
         drive,
         ExportImportManager(
-            FakeClothingItemDao(), FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao(),
+            FakeClothingItemDao(), FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao(), FakeWorkoutHourDao(),
             outfitLoggingOver(), Json { ignoreUnknownKeys = true }
         ),
         state,

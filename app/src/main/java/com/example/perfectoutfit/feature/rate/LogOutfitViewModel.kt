@@ -165,6 +165,8 @@ class LogOutfitViewModel @Inject constructor(
 
     fun pickClockHour(hour: Int) = updateWizard { it.pickClockHour(hour) }
 
+    fun pickDuration(hours: Int) = updateWizard { it.pickDuration(hours) }
+
     fun pickDate(date: LocalDate) = updateAndFetch { it.pickDate(date) }
 
     /** Logs at [place] (null = the current location) and closes the place sheet. */
@@ -218,7 +220,7 @@ class LogOutfitViewModel @Inject constructor(
                     clothingItemIds = request.itemIds,
                     rating = request.rating,
                     notes = request.notes,
-                    workoutDurationHours = request.durationHours,
+                    windowHours = request.windowHours,
                     mode = request.mode
                 )
                 true

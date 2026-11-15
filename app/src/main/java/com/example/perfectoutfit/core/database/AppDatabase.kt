@@ -9,6 +9,7 @@ import com.example.perfectoutfit.core.database.dao.ClothingItemDao
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
+import com.example.perfectoutfit.core.database.dao.WorkoutHourDao
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.ClothingItemActivityType
@@ -16,6 +17,7 @@ import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.WeatherSnapshot
+import com.example.perfectoutfit.core.model.WorkoutHour
 
 @Database(
     entities = [
@@ -23,9 +25,10 @@ import com.example.perfectoutfit.core.model.WeatherSnapshot
         ClothingItemActivityType::class,
         WeatherSnapshot::class,
         OutfitEntry::class,
-        OutfitItem::class
+        OutfitItem::class,
+        WorkoutHour::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -34,6 +37,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun weatherSnapshotDao(): WeatherSnapshotDao
     abstract fun outfitEntryDao(): OutfitEntryDao
     abstract fun outfitItemDao(): OutfitItemDao
+    abstract fun workoutHourDao(): WorkoutHourDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -131,6 +135,22 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE outfit_entries ADD COLUMN loggedAt INTEGER")
                 database.execSQL("ALTER TABLE outfit_entries ADD COLUMN logMode TEXT")
                 database.execSQL("ALTER TABLE outfit_entries ADD COLUMN plannedDurationHours INTEGER")
+            }
+        }
+
+        /** Adds every hour of a workout's weather (issue #54); existing entries get none. */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `workout_hours` (`outfitEntryId` INTEGER NOT NULL, " +
+                        "`timestamp` INTEGER NOT NULL, `temperatureCelsius` REAL NOT NULL, " +
+                        "`apparentTemperatureCelsius` REAL NOT NULL, `windSpeedKmh` REAL NOT NULL, " +
+                        "`windDirectionDegrees` INTEGER NOT NULL, `uvIndex` INTEGER NOT NULL, " +
+                        "`cloudCoverPercent` INTEGER NOT NULL, `precipitationProbabilityPercent` INTEGER NOT NULL, " +
+                        "`precipitationMm` REAL, PRIMARY KEY(`outfitEntryId`, `timestamp`), " +
+                        "FOREIGN KEY(`outfitEntryId`) REFERENCES `outfit_entries`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
             }
         }
 

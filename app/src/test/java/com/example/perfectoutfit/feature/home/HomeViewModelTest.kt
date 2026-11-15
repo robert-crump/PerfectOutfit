@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.home
 
 import com.example.perfectoutfit.core.model.Place
+import com.example.perfectoutfit.testutil.FakeWorkoutHourDao
 
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.location.LocationResult
@@ -71,7 +72,7 @@ class HomeViewModelTest {
     ): HomeViewModel {
         val entryDao = FakeOutfitEntryDao()
         val logging = OutfitLogging(
-            entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeDatabaseTransactionRunner(), reminder,
+            entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeWorkoutHourDao(), FakeDatabaseTransactionRunner(), reminder,
             FakeWidgetUpdater()
         )
         return HomeViewModel(
@@ -285,6 +286,20 @@ class HomeViewModelTest {
         viewModel.selectWorkoutTab(WorkoutTab.WARMEST)
         assertEquals(day.atTime(14, 0), viewModel.uiState.value.activeHour?.time)
         assertEquals(20, viewModel.uiState.value.activeDisplayTemp)
+    }
+
+    @Test
+    fun `a long workout hands the wizard every hour of its window and the dressed-for hour`() {
+        val handoff = LiveOutfitHandoffStore()
+        val viewModel = viewModel(handoff) { LocationResult.Found(Place(50.8, 6.1, "Aachen")) }
+
+        viewModel.selectActivityType(ActivityType.RUNNING, workoutDurationHours = 3)
+        viewModel.selectWorkoutTab(WorkoutTab.WARMEST)
+        viewModel.prepareCustomOutfit()
+
+        val payload = handoff.take()!!
+        assertEquals(viewModel.uiState.value.hourlyWeather.take(3), payload.windowHours)
+        assertEquals(day.atTime(14, 0), payload.selectedHourTime)
     }
 
     @Test

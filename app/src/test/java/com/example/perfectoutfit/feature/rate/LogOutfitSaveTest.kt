@@ -41,7 +41,7 @@ class LogOutfitSaveTest {
 
     private suspend fun liveViewModel(): LogOutfitViewModel {
         forecast.refresh(50.78, 6.08, "Aachen")
-        handoff.set(LiveOutfitPayload(day.atTime(9, 0), ActivityType.RUNNING, 1, listOf(1L)))
+        handoff.set(LiveOutfitPayload(day.atTime(9, 0), ActivityType.RUNNING, emptyList(), listOf(1L)))
         return logOutfitViewModel(forecast, clock, isLive = true, entryDao = entryDao, handoff = handoff)
     }
 

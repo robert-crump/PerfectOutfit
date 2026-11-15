@@ -44,7 +44,7 @@ class LiveHandoffActivityTypeTest {
             LiveOutfitPayload(
                 selectedHourTime = day.atTime(9, 0),
                 activityType = ActivityType.RUNNING,
-                workoutDurationHours = 1,
+                windowHours = emptyList(),
                 prefillItemIds = listOf(1L)
             )
         )

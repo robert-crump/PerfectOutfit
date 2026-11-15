@@ -11,6 +11,7 @@ import com.example.perfectoutfit.core.model.ClothingItemActivityType
 import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
+import com.example.perfectoutfit.core.model.WorkoutHour
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -73,7 +74,7 @@ class AppDatabaseMigrationTest {
             .addMigrations(
                 AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6,
-                AppDatabase.MIGRATION_6_7
+                AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8
             )
             .allowMainThreadQueries()
             .build()
@@ -144,6 +145,34 @@ class AppDatabaseMigrationTest {
         val id = db.outfitEntryDao().insert(stored)
         assertEquals(stored.copy(id = id), db.outfitEntryDao().getById(id))
     }
+
+    @Test
+    fun `migration 7 to 8 leaves existing entries without workout hours and stores new ones`() = runBlocking {
+        createVersion4()
+        val db = openMigrated()
+
+        assertTrue(db.workoutHourDao().getAll().isEmpty())
+        val hours = listOf(1000L, 3_601_000L).map { workoutHour(entryId = 1, timestamp = it) }
+        db.workoutHourDao().insertAll(hours)
+        assertEquals(hours, db.workoutHourDao().getByEntryId(1))
+    }
+
+    @Test
+    fun `deleting an entry deletes its workout hours`() = runBlocking {
+        createVersion4()
+        val db = openMigrated()
+        db.workoutHourDao().insertAll(listOf(workoutHour(1, 1000L), workoutHour(2, 2000L)))
+
+        db.outfitEntryDao().deleteById(1)
+
+        assertEquals(listOf(2L), db.workoutHourDao().getAll().map { it.outfitEntryId })
+    }
+
+    private fun workoutHour(entryId: Long, timestamp: Long) = WorkoutHour(
+        outfitEntryId = entryId, timestamp = timestamp, temperatureCelsius = 10.0, apparentTemperatureCelsius = 8.0,
+        windSpeedKmh = 15.0, windDirectionDegrees = 180, uvIndex = 3, cloudCoverPercent = 40,
+        precipitationProbabilityPercent = 20, precipitationMm = 0.2
+    )
 
     @Test
     fun `after the migration deleting an item still cascades to its rows and entries`() = runBlocking {

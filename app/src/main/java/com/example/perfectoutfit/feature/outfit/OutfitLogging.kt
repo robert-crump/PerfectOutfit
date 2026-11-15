@@ -8,6 +8,8 @@ import com.example.perfectoutfit.core.time.epochMillisOf
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
+import com.example.perfectoutfit.core.database.dao.WorkoutHourDao
+import com.example.perfectoutfit.core.model.WorkoutHour
 import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.core.model.OutfitEntry
@@ -17,6 +19,7 @@ import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.notification.RatingReminder
 import com.example.perfectoutfit.feature.home.HourlyWeather
 import com.example.perfectoutfit.feature.home.toWeatherSnapshot
+import com.example.perfectoutfit.feature.home.toWorkoutHour
 import com.example.perfectoutfit.feature.widget.WidgetUpdater
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -37,12 +40,19 @@ class OutfitLogging @Inject constructor(
     private val outfitEntryDao: OutfitEntryDao,
     private val outfitItemDao: OutfitItemDao,
     private val weatherSnapshotDao: WeatherSnapshotDao,
+    private val workoutHourDao: WorkoutHourDao,
     private val transactionRunner: DatabaseTransactionRunner,
     private val ratingReminder: RatingReminder,
     private val widgetUpdater: WidgetUpdater,
     private val clock: Clock = Clock.systemDefaultZone()
 ) {
-    /** Logs an outfit worn during [hour]; returns the new entry id. */
+    /**
+     * Logs an outfit worn during [windowHours], every hour of the workout in order; returns the
+     * new entry id. [hour] is the one the entry is stored under (its snapshot and `createdAt`):
+     * the dressed-for hour of a live log, the start hour of a past one. It must be one of
+     * [windowHours]. Every window hour is stored as a [WorkoutHour], and the window's length is
+     * the entry's `plannedDurationHours` and the reminder's duration.
+     */
     suspend fun log(
         hour: HourlyWeather,
         location: Place,
@@ -50,9 +60,11 @@ class OutfitLogging @Inject constructor(
         clothingItemIds: Collection<Long>,
         rating: ComfortRating? = null,
         notes: String = "",
-        workoutDurationHours: Int = 1,
+        windowHours: List<HourlyWeather> = listOf(hour),
         mode: LogMode
     ): Long {
+        require(hour in windowHours) { "The logged hour ${hour.time} is not in its window" }
+        val durationHours = windowHours.size
         val workoutMs = clock.epochMillisOf(hour.time)
         val entryId = transactionRunner.runInTransaction {
             val snapshotId = weatherSnapshotDao.insert(
@@ -68,15 +80,15 @@ class OutfitLogging @Inject constructor(
                     notes = notes,
                     loggedAt = clock.millis(),
                     logMode = mode,
-                    // A past log's duration is a default nobody picked (until #54 adds a picker).
-                    plannedDurationHours = workoutDurationHours.takeIf { mode == LogMode.LIVE }
+                    plannedDurationHours = durationHours
                 )
             )
+            workoutHourDao.insertAll(windowHours.map { it.toWorkoutHour(id, clock.epochMillisOf(it.time)) })
             insertItems(id, clothingItemIds)
             id
         }
         if (mode == LogMode.LIVE || rating == null) {
-            ratingReminder.show(entryId, activityType, workoutMs, workoutDurationHours)
+            ratingReminder.show(entryId, activityType, workoutMs, durationHours)
         }
         widgetUpdater.redraw()
         return entryId

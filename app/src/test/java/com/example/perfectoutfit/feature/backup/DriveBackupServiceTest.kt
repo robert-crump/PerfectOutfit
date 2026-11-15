@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.feature.backup
 
+import com.example.perfectoutfit.testutil.FakeWorkoutHourDao
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.exportimport.CURRENT_EXPORT_VERSION
@@ -44,7 +45,7 @@ class DriveBackupServiceTest {
     private val reminder = FakeRatingReminder()
     private val widget = FakeWidgetUpdater()
     private val exportImport = ExportImportManager(
-        clothingDao, FakeWeatherSnapshotDao(), entryDao, FakeOutfitItemDao(),
+        clothingDao, FakeWeatherSnapshotDao(), entryDao, FakeOutfitItemDao(), FakeWorkoutHourDao(),
         outfitLoggingOver(entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), reminder, widget), json
     )
     private val drive = FakeDriveClient()

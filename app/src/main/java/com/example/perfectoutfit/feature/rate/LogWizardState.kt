@@ -2,6 +2,7 @@ package com.example.perfectoutfit.feature.rate
 
 import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.Place
+import com.example.perfectoutfit.core.model.WorkoutDuration
 import com.example.perfectoutfit.feature.forecast.Forecast
 import com.example.perfectoutfit.feature.forecast.PlacedHours
 import com.example.perfectoutfit.feature.home.HourlyWeather
@@ -21,7 +22,8 @@ data class LogRequest(
     val itemIds: Set<Long>,
     val rating: ComfortRating?,
     val notes: String,
-    val durationHours: Int,
+    /** Every hour of the workout, in order; [hour] is one of them. */
+    val windowHours: List<HourlyWeather>,
     val mode: LogMode
 )
 
@@ -73,7 +75,10 @@ data class LogWizardState(
     val itemIds: Set<Long> = emptySet(),
     val rating: ComfortRating? = null,
     val notes: String = "",
-    val durationHours: Int = 1
+    /** A past log's picked duration; a live log's comes with [liveWindow]. */
+    val durationHours: Int = 1,
+    /** A live log's workout hours, as Home handed them off; empty for past logs. */
+    val liveWindow: List<HourlyWeather> = emptyList()
 ) {
     val today: LocalDate get() = now.toLocalDate()
 
@@ -84,6 +89,37 @@ data class LogWizardState(
 
     /** The name shown for where it was worn: the picked place, else where the weather came from. */
     val placeName: String get() = place?.name ?: weatherPlace?.name ?: currentPlaceName
+
+    /**
+     * The longest pickable duration: the hours left in the picked day from the picked hour on,
+     * at most [WorkoutDuration.MAX_HOURS] (a past log's window never crosses midnight).
+     */
+    val maxDurationHours: Int
+        get() = if (hourIndex < 0) WorkoutDuration.MAX_HOURS
+        else (hours.size - hourIndex).coerceIn(1, WorkoutDuration.MAX_HOURS)
+
+    /**
+     * The hours that get logged. Live: Home's window when it holds the logged hour, else that
+     * hour alone. Past: the picked hour and the [durationHours] - 1 after it.
+     */
+    val windowHours: List<HourlyWeather>
+        get() {
+            val hour = loggedHour ?: return emptyList()
+            return when (mode) {
+                LogMode.LIVE -> if (hour in liveWindow) liveWindow else listOf(hour)
+                LogMode.PAST -> hours.subList(hourIndex, minOf(hourIndex + durationHours, hours.size))
+            }
+        }
+
+    /**
+     * The hour the entry is stored under: the picked hour, or for a live log the same hour as
+     * Home handed it off (so it is exactly one of [liveWindow]).
+     */
+    private val loggedHour: HourlyWeather?
+        get() {
+            val hour = selectedHour ?: return null
+            return liveWindow.firstOrNull { it.time == hour.time } ?: hour
+        }
 
     /** The hour the time picker opens on. */
     val pickerDefaultHour: Int get() = selectedHour?.time?.hour ?: now.hour
@@ -154,14 +190,20 @@ data class LogWizardState(
             hourIndex = kept?.let(hours::indexOf) ?: -1,
             loadingHours = false,
             keepClockHour = null
-        )
+        ).clampDuration()
     }
 
     /** Picks the known hour nearest [clockHour]; nothing changes if no hours are known. */
     fun pickClockHour(clockHour: Int): LogWizardState {
         val match = Forecast.hourNearest(hours, clockHour) ?: return this
-        return copy(hourIndex = hours.indexOf(match))
+        return copy(hourIndex = hours.indexOf(match)).clampDuration()
     }
+
+    /** Picks a past log's duration, kept within 1 and [maxDurationHours]. */
+    fun pickDuration(hours: Int): LogWizardState = copy(durationHours = hours).clampDuration()
+
+    private fun clampDuration(): LogWizardState =
+        copy(durationHours = durationHours.coerceIn(1, maxDurationHours))
 
     fun toggleItem(itemId: Long): LogWizardState =
         copy(itemIds = if (itemId in itemIds) itemIds - itemId else itemIds + itemId)
@@ -171,10 +213,10 @@ data class LogWizardState(
     fun setNotes(notes: String): LogWizardState = copy(notes = notes)
 
     private fun toLogRequest(): LogRequest? {
-        val hour = selectedHour ?: return null
+        val hour = loggedHour ?: return null
         val at = weatherPlace ?: return null
         if (itemIds.isEmpty()) return null
-        return LogRequest(hour, at, itemIds, rating, notes, durationHours, mode)
+        return LogRequest(hour, at, itemIds, rating, notes, windowHours, mode)
     }
 
     companion object {
@@ -196,7 +238,7 @@ data class LogWizardState(
             handoff?.selectedHourTime?.toLocalDate() ?: now.toLocalDate()
 
         /**
-         * A live log at the handed-off hour (else the first known), with its items and duration;
+         * A live log at the handed-off hour (else the first known), with its items and window;
          * [loaded] are the current location's hours of [liveStartDate].
          */
         fun live(
@@ -215,7 +257,8 @@ data class LogWizardState(
             place = null,
             currentPlaceName = currentPlaceName,
             itemIds = handoff?.prefillItemIds?.toSet().orEmpty(),
-            durationHours = handoff?.workoutDurationHours ?: 1
+            durationHours = handoff?.windowHours?.size?.coerceAtLeast(1) ?: 1,
+            liveWindow = handoff?.windowHours.orEmpty()
         )
     }
 }

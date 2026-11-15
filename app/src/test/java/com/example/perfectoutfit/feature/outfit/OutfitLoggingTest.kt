@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.outfit
 
 import com.example.perfectoutfit.core.model.Place
+import com.example.perfectoutfit.testutil.FakeWorkoutHourDao
 
 import com.example.perfectoutfit.core.model.ComfortRating
 import com.example.perfectoutfit.core.model.LogMode
@@ -16,6 +17,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.time.Clock
 import java.time.Instant
@@ -28,9 +30,10 @@ class OutfitLoggingTest {
     private val entryDao = FakeOutfitEntryDao()
     private val itemDao = FakeOutfitItemDao()
     private val snapshotDao = FakeWeatherSnapshotDao()
+    private val hourDao = FakeWorkoutHourDao()
     private val reminder = FakeRatingReminder()
     private val widget = FakeWidgetUpdater()
-    private val logging = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget)
+    private val logging = OutfitLogging(entryDao, itemDao, snapshotDao, hourDao, FakeDatabaseTransactionRunner(), reminder, widget)
 
     private val hour = HourlyWeather(
         time = LocalDateTime.of(2026, 9, 1, 14, 0),
@@ -43,18 +46,19 @@ class OutfitLoggingTest {
         precipitationProbabilityPercent = 20
     )
     private val hourMs = hour.time.atZone(ZoneId.systemDefault()).toEpochSecond() * 1000
+    private val nextHour = hour.copy(time = hour.time.plusHours(1), temperatureCelsius = 14.0, precipitationMm = 0.6)
     private val location = Place(52.5, 13.4, "Berlin")
 
     private suspend fun log(rating: ComfortRating? = null, mode: LogMode) = logging.log(
         hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L, 2L),
-        rating = rating, notes = "n", workoutDurationHours = 2, mode = mode
+        rating = rating, notes = "n", windowHours = listOf(hour, nextHour), mode = mode
     )
 
     @Test
     fun `workout hour and rated-at come from the injected clock and its zone`() = runTest {
         val zone = ZoneId.of("Asia/Tokyo")
         val fixed = Clock.fixed(Instant.parse("2026-09-01T10:00:00Z"), zone)
-        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
+        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, hourDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
 
         val id = clocked.log(
             hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L),
@@ -69,11 +73,11 @@ class OutfitLoggingTest {
     @Test
     fun `live log stores when it was saved, its mode and its planned duration`() = runTest {
         val fixed = Clock.fixed(Instant.parse("2026-09-01T12:40:00Z"), ZoneId.of("UTC"))
-        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
+        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, hourDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
 
         val id = clocked.log(
             hour = hour, location = location, activityType = ActivityType.WALKING, clothingItemIds = listOf(1L),
-            workoutDurationHours = 3, mode = LogMode.LIVE
+            windowHours = listOf(hour.copy(time = hour.time.minusHours(1)), hour, nextHour), mode = LogMode.LIVE
         )
 
         val entry = entryDao.getById(id)!!
@@ -83,19 +87,70 @@ class OutfitLoggingTest {
     }
 
     @Test
-    fun `past log stores when it was saved and its mode but no planned duration`() = runTest {
+    fun `past log stores when it was saved, its mode and its picked duration`() = runTest {
         val fixed = Clock.fixed(Instant.parse("2026-09-03T08:00:00Z"), ZoneId.of("UTC"))
-        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
+        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, hourDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
 
         val id = clocked.log(
             hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L),
-            workoutDurationHours = 1, mode = LogMode.PAST
+            windowHours = listOf(hour, nextHour), mode = LogMode.PAST
         )
 
         val entry = entryDao.getById(id)!!
         assertEquals(fixed.millis(), entry.loggedAt)
         assertEquals(LogMode.PAST, entry.logMode)
-        assertNull(entry.plannedDurationHours)
+        assertEquals(2, entry.plannedDurationHours)
+    }
+
+    @Test
+    fun `every window hour is stored, the logged hour included, and the snapshot is the logged hour`() = runTest {
+        val zone = ZoneId.of("Europe/Berlin")
+        val fixed = Clock.fixed(Instant.parse("2026-09-01T10:00:00Z"), zone)
+        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, hourDao, FakeDatabaseTransactionRunner(), reminder, widget, fixed)
+        val earlier = hour.copy(time = hour.time.minusHours(1), temperatureCelsius = 9.0)
+
+        // A live long workout dressed for its warmest hour (the last one).
+        val id = clocked.log(
+            hour = nextHour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L),
+            windowHours = listOf(earlier, hour, nextHour), mode = LogMode.LIVE
+        )
+
+        val stored = hourDao.getByEntryId(id)
+        assertEquals(listOf(earlier, hour, nextHour).map { it.time.atZone(zone).toInstant().toEpochMilli() }, stored.map { it.timestamp })
+        assertEquals(listOf(9.0, 12.5, 14.0), stored.map { it.temperatureCelsius })
+        assertEquals(listOf(null, null, 0.6), stored.map { it.precipitationMm })
+        val entry = entryDao.getById(id)!!
+        assertEquals(14.0, snapshotDao.getById(entry.weatherSnapshotId)!!.temperatureCelsius, 0.0)
+        assertEquals(nextHour.time.atZone(zone).toInstant().toEpochMilli(), entry.createdAt)
+        assertEquals(3, reminder.showCalls.single().durationHours)
+    }
+
+    @Test
+    fun `a one-hour log stores its hour`() = runTest {
+        val id = logging.log(
+            hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L),
+            mode = LogMode.LIVE
+        )
+
+        assertEquals(listOf(12.5), hourDao.getByEntryId(id).map { it.temperatureCelsius })
+        assertEquals(1, entryDao.getById(id)!!.plannedDurationHours)
+    }
+
+    @Test
+    fun `a logged hour outside its window is rejected and nothing is stored`() = runTest {
+        try {
+            logging.log(
+                hour = hour, location = location, activityType = ActivityType.CYCLING, clothingItemIds = listOf(1L),
+                windowHours = listOf(nextHour), mode = LogMode.LIVE
+            )
+            fail("Expected the log to be rejected")
+        } catch (e: IllegalArgumentException) {
+            // expected
+        }
+
+        assertTrue(entryDao.getAll().isEmpty())
+        assertTrue(hourDao.getAll().isEmpty())
+        assertTrue(reminder.showCalls.isEmpty())
     }
 
     @Test
@@ -106,7 +161,7 @@ class OutfitLoggingTest {
             override fun withZone(zone: ZoneId?): Clock = this
             override fun instant(): Instant = now
         }
-        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget, ticking)
+        val clocked = OutfitLogging(entryDao, itemDao, snapshotDao, hourDao, FakeDatabaseTransactionRunner(), reminder, widget, ticking)
         val id = clocked.log(
             hour = hour, location = location, activityType = ActivityType.WALKING, clothingItemIds = listOf(1L),
             mode = LogMode.LIVE

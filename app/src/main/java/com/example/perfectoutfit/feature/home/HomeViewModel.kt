@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.home
 
 import com.example.perfectoutfit.core.model.Place
+import com.example.perfectoutfit.core.model.WorkoutDuration
 
 import androidx.lifecycle.ViewModel
 import com.example.perfectoutfit.core.model.roundedReferenceTemp
@@ -81,6 +82,9 @@ data class HomeUiState(
         else -> warmestHourIndex
     }
     val activeHour: HourlyWeather? get() = hourlyWeather.getOrNull(activeHourIndex)
+
+    /** Every hour of the workout, from the current hour on (it may cross midnight): what a log stores. */
+    val workoutWindow: List<HourlyWeather> get() = hourlyWeather.take(workoutDurationHours)
     val activeRecommendation: OutfitEntryWithDetails? get() = when {
         activeWorkoutTab == WorkoutTab.COLDEST || workoutDurationHours <= HomeViewModel.SINGLE_HOUR ->
             coldestRecommendation
@@ -203,7 +207,7 @@ class HomeViewModel @Inject constructor(
                     location = location,
                     activityType = state.selectedActivityType,
                     clothingItemIds = recommendation.clothingItems.map { it.id },
-                    workoutDurationHours = state.workoutDurationHours,
+                    windowHours = state.workoutWindow,
                     mode = LogMode.LIVE
                 )
                 true
@@ -235,7 +239,7 @@ class HomeViewModel @Inject constructor(
     private fun buildHandoffPayload(prefillItemIds: List<Long>) = LiveOutfitPayload(
         selectedHourTime = _uiState.value.activeHour?.time,
         activityType = _uiState.value.selectedActivityType,
-        workoutDurationHours = _uiState.value.workoutDurationHours,
+        windowHours = _uiState.value.workoutWindow,
         prefillItemIds = prefillItemIds
     )
 
@@ -412,7 +416,7 @@ class HomeViewModel @Inject constructor(
         /** A workout of one hour needs no long-workout picker. */
         const val SINGLE_HOUR = 1
         const val MIN_LONG_WORKOUT_HOURS = 2
-        const val MAX_LONG_WORKOUT_HOURS = 23
+        const val MAX_LONG_WORKOUT_HOURS = WorkoutDuration.MAX_HOURS
         const val DEFAULT_LONG_WORKOUT_HOURS = MIN_LONG_WORKOUT_HOURS
 
         private const val PREPARING_MESSAGE = "Finding your outfit..."

@@ -4,11 +4,13 @@ import com.example.perfectoutfit.core.database.dao.ClothingItemDao
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
+import com.example.perfectoutfit.core.database.dao.WorkoutHourDao
 import com.example.perfectoutfit.core.model.ClothingItem
 import com.example.perfectoutfit.core.model.ClothingItemActivityType
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
 import com.example.perfectoutfit.core.model.WeatherSnapshot
+import com.example.perfectoutfit.core.model.WorkoutHour
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -32,8 +34,9 @@ import javax.inject.Singleton
  * ([ExportData.clothingItemActivityTypes]) instead of one `sport` each.
  * v3: snapshots carry `precipitationMm`; older files decode it as null.
  * v4: entries carry `loggedAt`, `logMode` and `plannedDurationHours`; older files decode them as null.
+ * v5: [ExportData.workoutHours], every hour of each entry's workout; older files decode it as empty.
  */
-const val CURRENT_EXPORT_VERSION = 4
+const val CURRENT_EXPORT_VERSION = 5
 
 /**
  * The full export/import envelope. Each entity is serialized directly (no field-by-field
@@ -50,7 +53,8 @@ data class ExportData(
     val clothingItemActivityTypes: List<ClothingItemActivityType> = emptyList(),
     val weatherSnapshots: List<WeatherSnapshot> = emptyList(),
     val outfitEntries: List<OutfitEntry> = emptyList(),
-    val outfitItems: List<OutfitItem> = emptyList()
+    val outfitItems: List<OutfitItem> = emptyList(),
+    val workoutHours: List<WorkoutHour> = emptyList()
 )
 
 /**
@@ -68,6 +72,7 @@ class ExportImportManager @Inject constructor(
     private val weatherSnapshotDao: WeatherSnapshotDao,
     private val outfitEntryDao: OutfitEntryDao,
     private val outfitItemDao: OutfitItemDao,
+    private val workoutHourDao: WorkoutHourDao,
     private val outfitLogging: OutfitLogging,
     private val json: Json
 ) {
@@ -77,7 +82,8 @@ class ExportImportManager @Inject constructor(
             clothingItemActivityTypes = clothingItemDao.getAllActivityTypes(),
             weatherSnapshots = weatherSnapshotDao.getAll(),
             outfitEntries = outfitEntryDao.getAll(),
-            outfitItems = outfitItemDao.getAll()
+            outfitItems = outfitItemDao.getAll(),
+            workoutHours = workoutHourDao.getAll()
         )
         return json.encodeToString(ExportData.serializer(), data)
     }
@@ -110,6 +116,7 @@ class ExportImportManager @Inject constructor(
 
         outfitLogging.replaceAllData {
             outfitItemDao.deleteAll()
+            workoutHourDao.deleteAll()
             outfitEntryDao.deleteAll()
             weatherSnapshotDao.deleteAll()
             clothingItemDao.deleteAllActivityTypes()
@@ -120,6 +127,7 @@ class ExportImportManager @Inject constructor(
             data.weatherSnapshots.forEach { weatherSnapshotDao.insert(it) }
             data.outfitEntries.forEach { outfitEntryDao.insert(it) }
             outfitItemDao.insertAll(data.outfitItems)
+            workoutHourDao.insertAll(data.workoutHours)
         }
     }
 

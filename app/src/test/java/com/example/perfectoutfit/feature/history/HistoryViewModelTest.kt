@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.feature.history
 
 import com.example.perfectoutfit.core.datastore.PreferencesManager
+import com.example.perfectoutfit.testutil.FakeWorkoutHourDao
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitEntryWithDetails
 import com.example.perfectoutfit.core.model.ActivityType
@@ -42,7 +43,7 @@ class HistoryViewModelTest {
             details(3L, ActivityType.RUNNING, temp = 20.0, feelsLike = 21.0)
         )
         val logging = OutfitLogging(
-            entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeDatabaseTransactionRunner(), FakeRatingReminder(),
+            entryDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeWorkoutHourDao(), FakeDatabaseTransactionRunner(), FakeRatingReminder(),
             FakeWidgetUpdater()
         )
         viewModel = HistoryViewModel(logging, preferences)

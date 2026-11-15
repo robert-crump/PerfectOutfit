@@ -45,6 +45,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -70,6 +71,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -271,6 +273,7 @@ private fun WhenWhereStep(wizard: LogWizardState, canGoNext: Boolean, viewModel:
                         Text(selectedHour?.time?.format(timeFormatter) ?: "Pick time")
                     }
                 }
+                DurationStepper(wizard, viewModel)
             }
 
             if (selectedHour != null) HourWeather(wizard, selectedHour)
@@ -287,6 +290,44 @@ private fun WhenWhereStep(wizard: LogWizardState, canGoNext: Boolean, viewModel:
             ) { Text("Next") }
         }
     }
+}
+
+/** A past log's duration: 1 h up to the hours left in the picked day. */
+@Composable
+private fun DurationStepper(wizard: LogWizardState, viewModel: LogOutfitViewModel) {
+    val hours = wizard.durationHours
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Duration", style = MaterialTheme.typography.labelLarge)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedIconButton(onClick = { viewModel.pickDuration(hours - 1) }, enabled = hours > 1) {
+                Text("−", style = MaterialTheme.typography.titleLarge)
+            }
+            Text(
+                "${hours}h",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.width(40.dp),
+                textAlign = TextAlign.Center
+            )
+            OutlinedIconButton(
+                onClick = { viewModel.pickDuration(hours + 1) },
+                enabled = hours < wizard.maxDurationHours
+            ) {
+                Text("+", style = MaterialTheme.typography.titleLarge)
+            }
+        }
+    }
+}
+
+/** When the workout was: "at 07:00", or for a longer one "07:00–10:00 · 3 h". */
+private fun LogWizardState.timeSpanLabel(): String {
+    val window = windowHours
+    val first = window.firstOrNull() ?: return "at —"
+    if (window.size <= 1) return "at ${first.time.format(timeFormatter)}"
+    val end = window.last().time.plusHours(1)
+    return "${first.time.format(timeFormatter)}–${end.format(timeFormatter)} · ${window.size} h"
 }
 
 @Composable
@@ -522,7 +563,7 @@ private fun SummaryStep(
 
             SummarySection("Date and Time") {
                 Text(
-                    text = "${wizard.dateLabel()} at ${hour?.time?.format(timeFormatter) ?: "—"}",
+                    text = "${wizard.dateLabel()} ${wizard.timeSpanLabel()}",
                     style = MaterialTheme.typography.bodyLarge
                 )
             }

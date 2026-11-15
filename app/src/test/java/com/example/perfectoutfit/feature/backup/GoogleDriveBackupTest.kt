@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.feature.backup
 
+import com.example.perfectoutfit.testutil.FakeWorkoutHourDao
 import android.app.Activity
 import android.app.PendingIntent
 import android.content.Intent
@@ -69,7 +70,7 @@ class GoogleDriveBackupTest {
     private val service = DriveBackupService(
         drive,
         ExportImportManager(
-            FakeClothingItemDao(), FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao(),
+            FakeClothingItemDao(), FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao(), FakeWorkoutHourDao(),
             outfitLoggingOver(), Json { ignoreUnknownKeys = true }
         ),
         state,

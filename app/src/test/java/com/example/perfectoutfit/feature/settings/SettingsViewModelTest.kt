@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.feature.settings
 
+import com.example.perfectoutfit.testutil.FakeWorkoutHourDao
 import com.example.perfectoutfit.core.datastore.PreferencesManager
 import com.example.perfectoutfit.core.exportimport.CURRENT_EXPORT_VERSION
 import com.example.perfectoutfit.core.exportimport.ExportImportManager
@@ -46,7 +47,7 @@ class SettingsViewModelTest {
     private val files = FakeDocumentFiles()
 
     private val manager = ExportImportManager(
-        clothingItemDao, snapshotDao, entryDao, itemDao,
+        clothingItemDao, snapshotDao, entryDao, itemDao, FakeWorkoutHourDao(),
         outfitLoggingOver(entryDao, itemDao, snapshotDao),
         json
     )
@@ -78,7 +79,7 @@ class SettingsViewModelTest {
     private fun otherDevicesExport(): String = runBlocking {
         val otherItems = FakeClothingItemDao().apply { insertAll(listOf(scarf)) }
         ExportImportManager(
-            otherItems, FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao(), outfitLoggingOver(), json
+            otherItems, FakeWeatherSnapshotDao(), FakeOutfitEntryDao(), FakeOutfitItemDao(), FakeWorkoutHourDao(), outfitLoggingOver(), json
         ).exportToJson()
     }
 

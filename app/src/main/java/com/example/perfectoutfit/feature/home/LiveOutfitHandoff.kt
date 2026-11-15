@@ -11,7 +11,8 @@ import javax.inject.Singleton
 data class LiveOutfitPayload(
     val selectedHourTime: LocalDateTime?,
     val activityType: ActivityType,
-    val workoutDurationHours: Int,
+    /** Every hour of the workout, in order: the hours a live log stores. */
+    val windowHours: List<HourlyWeather>,
     val prefillItemIds: List<Long>
 )
 

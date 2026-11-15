@@ -77,7 +77,7 @@ Classes are ordered; their distance is the number of steps between them (dry ↔
 - **As expected** (`expectedRainClass`: an hour being dressed for): its amount, raised to at
   least light when rain is likely. Probability never raises it further.
 
-A log's rain class is its snapshot's, i.e. its first hour's, even for a long workout.
+A log's rain class is its snapshot's, i.e. its [logged hour](#outfit-entry)'s, even for a long workout.
 
 ### Weather formatting
 How weather values are rounded and written (issue #53), in one place:
@@ -140,15 +140,16 @@ so the README screenshot test can replace it with `@TestInstallIn`.
 ### Export/import schema
 `ExportImportManager` (`core/exportimport/ExportImportManager.kt`), used by Settings' file
 export/import and by Drive backup (`feature/backup/`), serializes
-the five Room entities (`ClothingItem`, `ClothingItemActivityType`, `WeatherSnapshot`,
-`OutfitEntry`, `OutfitItem`) directly with `kotlinx.serialization` — there is no separate mirror DTO, so a field exists
+the six Room entities (`ClothingItem`, `ClothingItemActivityType`, `WeatherSnapshot`,
+`OutfitEntry`, `OutfitItem`, `WorkoutHour`) directly with `kotlinx.serialization` — there is no separate mirror DTO, so a field exists
 in exactly one place. `ExportData.version` is a schema version the app can branch on for
 future format changes; it defaults to `CURRENT_EXPORT_VERSION`, so files written before
 the field existed still decode. Version 2 renamed `sport` to `activityType` and added the
 item ↔ activity-type rows; a v1 file (or one without a version) is rewritten on import, each
 item's single `sport` becoming one row. Version 3 added snapshots' `precipitationMm`; older
 files decode it as null. Version 4 added entries' `loggedAt`, `logMode` and
-`plannedDurationHours`; older files decode them as null. Files newer than the app are rejected. The
+`plannedDurationHours`; older files decode them as null. Version 5 added `workoutHours` (see
+[Outfit entry](#outfit-entry)); older files decode it as empty, with no backfill. Files newer than the app are rejected. The
 replacement runs through `OutfitLogging.replaceAllData` (see [Outfit logging](#outfit-logging)),
 so import and Drive restore alike cancel the replaced entries' reminders and redraw the widget.
 Import decodes and validates the whole file before any
@@ -262,26 +263,40 @@ and the matching priority perfect > too hot > too cold (used by the
 
 ### Outfit entry
 The persisted record of one outfit worn for one workout (`OutfitEntry`): its
-[activity type](#activity-type), its clothing items, a `WeatherSnapshot` of the workout hour, an optional comfort rating
+[activity type](#activity-type), its clothing items, a `WeatherSnapshot` of its logged hour, an optional comfort rating
 (`ratedAt` set when rated) and notes.
+
+**Logged hour:** the one hour an entry is stored under (its snapshot and `createdAt`), which
+matching, the chart, mode comparison, rain class and History all read. A live log's is the
+hour Home dressed for: the first hour, or a long workout's coldest/warmest (whichever tab was
+open). A past log's is the picked start hour. The two differ on purpose; don't "fix" one to match the other.
+
+**Workout hours (issue #54), stored only:** every log stores each hour of its workout as a
+`WorkoutHour` row (`workout_hours`, owned by the entry, deleted with it; no place of its own,
+it is the snapshot's), the logged hour included, so a 1 h log has one row. A live log's window
+is Home's `workoutWindow` (`hourlyWeather.take(duration)`, may cross midnight), handed to the
+wizard in `LiveOutfitPayload.windowHours`. A past log's is the picked hour plus the
+`duration − 1` after it, picked on When & where (1 h up to `WorkoutDuration.MAX_HOURS`, capped
+at the end of the picked day, so it never crosses midnight). Entries saved before Room version 8
+have no rows: their window is unknown. Nothing reads the rows yet; History shows nothing new.
 
 **Timing fields (issue #55), stored only:** `loggedAt` is the wall clock at save, `logMode` the
 `LogMode` it was logged with (LIVE/PAST, `core/model/LogMode.kt`), and `plannedDurationHours`
-the duration chosen for a live log (null for past logs, whose 1 h is a default nobody picked,
-until #54 adds a picker). For a live log `loggedAt` is about when the activity started, so
+the workout's length in hours, always its number of workout hours (null for past logs saved
+before the past-log duration picker, whose 1 h was a default nobody picked). For a live log `loggedAt` is about when the activity started, so
 `ratedAt − loggedAt` hints at how long it really lasted; a past log's `loggedAt` is just when it
 was backfilled. All three are null on entries saved before Room version 7. Nothing reads them yet.
 **`ratedAt` rule:** stamped when the rating is first set or changes value; re-saving the same
 rating (e.g. editing only items or notes on the rate screen) keeps it.
 
-**`createdAt` rule:** `createdAt` is the epoch millis of the workout hour (not the wall
+**`createdAt` rule:** `createdAt` is the epoch millis of the logged hour (not the wall
 clock at save time), for live and past logs alike. History sorts by it, so a past-dated log
 sorts by when the workout happened. The hour-to-millis conversion, `ratedAt` and "the current clock hour" all come from the injected `Clock` (`core/time/ClockHours.kt`).
 
 ### Outfit logging
 The act of recording an outfit entry, owned entirely by `OutfitLogging`
-(`feature/outfit/OutfitLogging.kt`): save the snapshot from the hour, create the entry with
-its items (one transaction), then decide on the [rating reminder](#rating-reminder). Also
+(`feature/outfit/OutfitLogging.kt`): save the snapshot from the logged hour, create the entry with
+its items and its workout hours (one transaction; `log` rejects a logged hour outside its window), then decide on the [rating reminder](#rating-reminder). Also
 owns rate, update (items + notes + rating atomically), delete and replace-all
 (`replaceAllData`, below).
 Callers (Home accept, the wizard, History, notification rating action) never build snapshots

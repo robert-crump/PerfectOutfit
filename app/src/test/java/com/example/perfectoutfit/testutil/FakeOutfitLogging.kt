@@ -10,5 +10,6 @@ fun outfitLoggingOver(
     itemDao: FakeOutfitItemDao = FakeOutfitItemDao(),
     snapshotDao: FakeWeatherSnapshotDao = FakeWeatherSnapshotDao(),
     reminder: FakeRatingReminder = FakeRatingReminder(),
-    widget: FakeWidgetUpdater = FakeWidgetUpdater()
-) = OutfitLogging(entryDao, itemDao, snapshotDao, FakeDatabaseTransactionRunner(), reminder, widget)
+    widget: FakeWidgetUpdater = FakeWidgetUpdater(),
+    hourDao: FakeWorkoutHourDao = FakeWorkoutHourDao()
+) = OutfitLogging(entryDao, itemDao, snapshotDao, hourDao, FakeDatabaseTransactionRunner(), reminder, widget)

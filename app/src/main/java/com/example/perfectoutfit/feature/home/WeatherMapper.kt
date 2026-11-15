@@ -2,6 +2,7 @@ package com.example.perfectoutfit.feature.home
 
 import com.example.perfectoutfit.core.model.WeatherReading
 import com.example.perfectoutfit.core.model.WeatherSnapshot
+import com.example.perfectoutfit.core.model.WorkoutHour
 import com.example.perfectoutfit.core.network.ForecastResponse
 import com.example.perfectoutfit.core.time.LocalDateTimeIsoSerializer
 import kotlinx.serialization.Serializable
@@ -40,6 +41,20 @@ fun HourlyWeather.toWeatherSnapshot(
     latitude = lat,
     longitude = lon,
     locationName = locationName,
+    temperatureCelsius = temperatureCelsius,
+    apparentTemperatureCelsius = apparentTemperatureCelsius,
+    windSpeedKmh = windSpeedKmh,
+    windDirectionDegrees = windDirectionDegrees,
+    uvIndex = uvIndex,
+    cloudCoverPercent = cloudCoverPercent,
+    precipitationProbabilityPercent = precipitationProbabilityPercent,
+    precipitationMm = precipitationMm
+)
+
+/** This hour as one stored hour of entry [outfitEntryId]'s workout, starting at [timestampMs]. */
+fun HourlyWeather.toWorkoutHour(outfitEntryId: Long, timestampMs: Long): WorkoutHour = WorkoutHour(
+    outfitEntryId = outfitEntryId,
+    timestamp = timestampMs,
     temperatureCelsius = temperatureCelsius,
     apparentTemperatureCelsius = apparentTemperatureCelsius,
     windSpeedKmh = windSpeedKmh,

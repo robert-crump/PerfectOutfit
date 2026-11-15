@@ -10,6 +10,7 @@ import com.example.perfectoutfit.core.database.dao.ClothingItemDao
 import com.example.perfectoutfit.core.database.dao.OutfitEntryDao
 import com.example.perfectoutfit.core.database.dao.OutfitItemDao
 import com.example.perfectoutfit.core.database.dao.WeatherSnapshotDao
+import com.example.perfectoutfit.core.database.dao.WorkoutHourDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -40,7 +41,7 @@ object AppModule {
             "perfect_outfit.db"
         )
             .addCallback(AppDatabase.prepopulateCallback)
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8)
             .build()
     }
 
@@ -48,6 +49,7 @@ object AppModule {
     @Provides fun provideWeatherSnapshotDao(db: AppDatabase): WeatherSnapshotDao = db.weatherSnapshotDao()
     @Provides fun provideOutfitEntryDao(db: AppDatabase): OutfitEntryDao = db.outfitEntryDao()
     @Provides fun provideOutfitItemDao(db: AppDatabase): OutfitItemDao = db.outfitItemDao()
+    @Provides fun provideWorkoutHourDao(db: AppDatabase): WorkoutHourDao = db.workoutHourDao()
 
     @Provides
     @Singleton

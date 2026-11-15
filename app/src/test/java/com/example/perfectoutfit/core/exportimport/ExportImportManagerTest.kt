@@ -1,5 +1,6 @@
 package com.example.perfectoutfit.core.exportimport
 
+import com.example.perfectoutfit.testutil.FakeWorkoutHourDao
 import com.example.perfectoutfit.core.model.ActivityType
 import com.example.perfectoutfit.core.model.BodyPart
 import com.example.perfectoutfit.core.model.ClothingItem
@@ -8,6 +9,7 @@ import com.example.perfectoutfit.core.model.LogMode
 import com.example.perfectoutfit.core.model.OutfitEntry
 import com.example.perfectoutfit.core.model.OutfitItem
 import com.example.perfectoutfit.core.model.WeatherSnapshot
+import com.example.perfectoutfit.core.model.WorkoutHour
 import com.example.perfectoutfit.testutil.FakeClothingItemDao
 import com.example.perfectoutfit.testutil.outfitLoggingOver
 import com.example.perfectoutfit.core.notification.FakeRatingReminder
@@ -36,13 +38,15 @@ class ExportImportManagerTest {
         outfitEntryDao: FakeOutfitEntryDao,
         outfitItemDao: FakeOutfitItemDao,
         reminder: FakeRatingReminder = FakeRatingReminder(),
-        widget: FakeWidgetUpdater = FakeWidgetUpdater()
+        widget: FakeWidgetUpdater = FakeWidgetUpdater(),
+        workoutHourDao: FakeWorkoutHourDao = FakeWorkoutHourDao()
     ) = ExportImportManager(
         clothingItemDao,
         weatherSnapshotDao,
         outfitEntryDao,
         outfitItemDao,
-        outfitLoggingOver(outfitEntryDao, outfitItemDao, weatherSnapshotDao, reminder, widget),
+        workoutHourDao,
+        outfitLoggingOver(outfitEntryDao, outfitItemDao, weatherSnapshotDao, reminder, widget, workoutHourDao),
         json
     )
 
@@ -66,6 +70,13 @@ class ExportImportManagerTest {
         loggedAt = 3_100L, logMode = LogMode.LIVE, plannedDurationHours = 1
     )
     private val outfitItem = OutfitItem(outfitEntryId = 1, clothingItemId = 1)
+    private val workoutHours = listOf(1_000L, 3_601_000L).map { ts ->
+        WorkoutHour(
+            outfitEntryId = 1, timestamp = ts, temperatureCelsius = 10.0, apparentTemperatureCelsius = 8.0,
+            windSpeedKmh = 15.0, windDirectionDegrees = 180, uvIndex = 3, cloudCoverPercent = 40,
+            precipitationProbabilityPercent = 20, precipitationMm = 0.4
+        )
+    }
 
     private suspend fun seededSource(entries: List<OutfitEntry> = listOf(entry)): ExportImportManager {
         val clothingItemDao = FakeClothingItemDao().apply {
@@ -75,7 +86,10 @@ class ExportImportManagerTest {
         val weatherSnapshotDao = FakeWeatherSnapshotDao().apply { insert(snapshot) }
         val outfitEntryDao = FakeOutfitEntryDao().apply { entries.forEach { insert(it) } }
         val outfitItemDao = FakeOutfitItemDao().apply { insertAll(listOf(outfitItem)) }
-        return managerFor(clothingItemDao, weatherSnapshotDao, outfitEntryDao, outfitItemDao)
+        val workoutHourDao = FakeWorkoutHourDao().apply { insertAll(workoutHours) }
+        return managerFor(
+            clothingItemDao, weatherSnapshotDao, outfitEntryDao, outfitItemDao, workoutHourDao = workoutHourDao
+        )
     }
 
     @Test
@@ -86,8 +100,10 @@ class ExportImportManagerTest {
         val targetWeatherSnapshotDao = FakeWeatherSnapshotDao()
         val targetOutfitEntryDao = FakeOutfitEntryDao()
         val targetOutfitItemDao = FakeOutfitItemDao()
+        val targetWorkoutHourDao = FakeWorkoutHourDao()
         val target = managerFor(
-            targetClothingItemDao, targetWeatherSnapshotDao, targetOutfitEntryDao, targetOutfitItemDao
+            targetClothingItemDao, targetWeatherSnapshotDao, targetOutfitEntryDao, targetOutfitItemDao,
+            workoutHourDao = targetWorkoutHourDao
         )
 
         target.importFromJson(exported)
@@ -97,6 +113,25 @@ class ExportImportManagerTest {
         assertEquals(listOf(snapshot), targetWeatherSnapshotDao.getAll())
         assertEquals(listOf(entry, walkingEntry), targetOutfitEntryDao.getAll())
         assertEquals(listOf(outfitItem), targetOutfitItemDao.getAll())
+        assertEquals(workoutHours, targetWorkoutHourDao.getAll())
+    }
+
+    @Test
+    fun `version 4 file imports with no workout hours and replaces the existing ones`() = runTest {
+        val workoutHourDao = FakeWorkoutHourDao().apply { insertAll(workoutHours) }
+        val outfitEntryDao = FakeOutfitEntryDao()
+        val manager = managerFor(
+            FakeClothingItemDao(), FakeWeatherSnapshotDao(), outfitEntryDao, FakeOutfitItemDao(),
+            workoutHourDao = workoutHourDao
+        )
+
+        manager.importFromJson(
+            """{"version": 4, "outfitEntries": [{"id": 1, "weatherSnapshotId": 1, "activityType": "CYCLING",
+               "comfortRating": 0, "createdAt": 2000, "ratedAt": 2500, "notes": "Good ride"}]}"""
+        )
+
+        assertEquals(listOf(entry), outfitEntryDao.getAll())
+        assertEquals(emptyList<WorkoutHour>(), workoutHourDao.getAll())
     }
 
     @Test

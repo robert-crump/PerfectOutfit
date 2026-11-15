@@ -1,6 +1,7 @@
 package com.example.perfectoutfit.core.notification
 
 import com.example.perfectoutfit.core.model.ComfortRating
+import com.example.perfectoutfit.testutil.FakeWorkoutHourDao
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.perfectoutfit.feature.outfit.OutfitLogging
@@ -45,7 +46,7 @@ class RatingActionHandlerTest {
         fakeRatingReminder = FakeRatingReminder()
         handler = RatingActionHandler(
             OutfitLogging(
-                fakeDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(),
+                fakeDao, FakeOutfitItemDao(), FakeWeatherSnapshotDao(), FakeWorkoutHourDao(),
                 FakeDatabaseTransactionRunner(), fakeRatingReminder, FakeWidgetUpdater()
             )
         )
